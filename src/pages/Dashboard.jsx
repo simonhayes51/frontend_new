@@ -1,11 +1,10 @@
-// Dashboard.jsx – widgets + restyle + timeframe filter (keeps Settings integration)
+// Dashboard.jsx – with drag mode + order from Settings
 import React, { useMemo, useState } from "react";
 import { useDashboard } from "../context/DashboardContext";
 import { useSettings } from "../context/SettingsContext";
-import { TrendingUp, TrendingDown, Clock, Trophy, LineChart } from "lucide-react";
+import { TrendingUp, TrendingDown, Clock, Trophy, LineChart, GripVertical, PencilLine, RotateCcw } from "lucide-react";
 
-/** Accent + utility classes (lime accent) */
-const ACCENT = "#91db32"; // requested lime
+const ACCENT = "#91db32";
 const cardBase =
   "bg-gray-900/70 rounded-2xl p-4 border border-gray-800 hover:border-gray-700 transition-colors";
 const cardTitle = "text-sm font-medium text-gray-300";
@@ -13,8 +12,7 @@ const cardBig = "text-2xl font-bold";
 const chip =
   "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-300";
 
-const Dashboard = () => {
-  // ==== Contexts ====
+export default function Dashboard() {
   const {
     netProfit,
     taxPaid,
@@ -27,18 +25,16 @@ const Dashboard = () => {
   const {
     formatCurrency,
     formatDate,
-    calculateProfit, // kept in case you use it elsewhere
-    visible_widgets: rawWidgets,
+    visible_widgets,
+    widget_order,
     include_tax_in_profit,
+    saveSettings,
     isLoading: settingsLoading,
   } = useSettings();
 
-  // ==== Safe fallbacks ====
   const trades = Array.isArray(rawTrades) ? rawTrades : [];
-  const visible_widgets = Array.isArray(rawWidgets) ? rawWidgets : [];
-
-  // ==== Local timeframe filter ====
-  const [tf, setTf] = useState("7D"); // 7D | 30D | ALL
+  const [tf, setTf] = useState("7D");
+  const [editLayout, setEditLayout] = useState(false);
 
   const filteredTrades = useMemo(() => {
     if (tf === "ALL") return trades;
@@ -50,18 +46,16 @@ const Dashboard = () => {
     });
   }, [trades, tf]);
 
-  // ==== Derived numbers ====
-  const totalProfit = (netProfit ?? 0);
-  const totalTax = (taxPaid ?? 0);
+  const totalProfit = netProfit ?? 0;
+  const totalTax = taxPaid ?? 0;
   const gross = totalProfit + totalTax;
   const taxPct = gross > 0 ? (totalTax / gross) * 100 : 0;
 
-  // From filtered trades
   const wins = filteredTrades.filter((t) => (t?.profit ?? 0) > 0).length;
   const losses = filteredTrades.filter((t) => (t?.profit ?? 0) < 0).length;
   const winRate = filteredTrades.length ? (wins / filteredTrades.length) * 100 : 0;
   const avgProfit = filteredTrades.length
-    ? (filteredTrades.reduce((s, t) => s + (t?.profit ?? 0), 0) / filteredTrades.length)
+    ? filteredTrades.reduce((s, t) => s + (t?.profit ?? 0), 0) / filteredTrades.length
     : 0;
 
   const best = filteredTrades.reduce(
@@ -73,28 +67,16 @@ const Dashboard = () => {
     { value: -Infinity, trade: null }
   );
 
-  const volume = filteredTrades.reduce((s, t) => {
-    const qty = t?.quantity ?? 1;
-    const buy = (t?.buy ?? 0) * qty;
-    const sell = (t?.sell ?? 0) * qty;
-    return { buy: s.buy + buy, sell: s.sell + sell, total: s.total + buy + sell };
-  }, { buy: 0, sell: 0, total: 0 });
+  const volume = filteredTrades.reduce(
+    (s, t) => {
+      const qty = t?.quantity ?? 1;
+      const buy = (t?.buy ?? 0) * qty;
+      const sell = (t?.sell ?? 0) * qty;
+      return { buy: s.buy + buy, sell: s.sell + sell, total: s.total + buy + sell };
+    },
+    { buy: 0, sell: 0, total: 0 }
+  );
 
-  // Streak (current consecutive winners)
-  const streak = useMemo(() => {
-    let count = 0;
-    const byTimeDesc = [...filteredTrades].sort(
-      (a, b) => new Date(b?.timestamp || 0) - new Date(a?.timestamp || 0)
-    );
-    for (const t of byTimeDesc) {
-      const p = t?.profit ?? 0;
-      if (p > 0) count += 1;
-      else break;
-    }
-    return count;
-  }, [filteredTrades]);
-
-  // Profit by day (for 7D sparkline)
   const dailySeries = useMemo(() => {
     const dayKey = (d) => {
       const dt = new Date(d);
@@ -107,7 +89,6 @@ const Dashboard = () => {
       const p = (t?.profit ?? 0) - (include_tax_in_profit ? (t?.ea_tax ?? 0) : 0);
       map.set(key, (map.get(key) ?? 0) + p);
     }
-    // last 7 days
     const out = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
@@ -118,27 +99,18 @@ const Dashboard = () => {
     return out;
   }, [trades, include_tax_in_profit]);
 
-  // Sparkline path generator (simple)
-  const sparklinePath = useMemo(() => {
-    if (!dailySeries.length) return "";
-    const w = 160;
-    const h = 48;
-    const xs = dailySeries.map((d, i) => (i / (dailySeries.length - 1)) * (w - 2)) // padding 1px each side
-      .map((v) => v + 1);
+  const sparkline = useMemo(() => {
+    if (!dailySeries.length) return { d: "", w: 160, h: 48, last: 0 };
+    const w = 160, h = 48;
+    const xs = dailySeries.map((_, i) => 1 + (i / (dailySeries.length - 1)) * (w - 2));
     const ysRaw = dailySeries.map((d) => d.y);
     const minY = Math.min(0, ...ysRaw);
-    const maxY = Math.max(1, ...ysRaw); // avoid div-by-zero
-    const scaleY = (v) => {
-      if (maxY === minY) return h / 2;
-      // invert so larger is higher visually
-      return 1 + (h - 2) * (1 - (v - minY) / (maxY - minY));
-    };
+    const maxY = Math.max(1, ...ysRaw);
+    const scaleY = (v) => (maxY === minY ? h / 2 : 1 + (h - 2) * (1 - (v - minY) / (maxY - minY)));
     const ys = ysRaw.map(scaleY);
     let d = `M ${xs[0]} ${ys[0]}`;
-    for (let i = 1; i < xs.length; i++) {
-      d += ` L ${xs[i]} ${ys[i]}`;
-    }
-    return { d, w, h, minY, maxY, last: ysRaw[ysRaw.length - 1] };
+    for (let i = 1; i < xs.length; i++) d += ` L ${xs[i]} ${ys[i]}`;
+    return { d, w, h, last: ysRaw[ysRaw.length - 1] };
   }, [dailySeries]);
 
   if (isLoading || settingsLoading) {
@@ -159,27 +131,22 @@ const Dashboard = () => {
 
   if (error) return <div className="text-red-500 p-4">{String(error)}</div>;
 
-  // ===== Widget definitions =====
   const widgets = {
     profit: (
       <div className={cardBase}>
-        <div className={`${cardTitle}`}>Net Profit</div>
-        <div className={`${cardBig}`} style={{ color: ACCENT }}>
+        <div className={cardTitle}>Net Profit</div>
+        <div className={cardBig} style={{ color: ACCENT }}>
           {formatCurrency(totalProfit)} coins
         </div>
         {!include_tax_in_profit && (
-          <div className="text-xs text-gray-400 mt-1">
-            Before tax: {formatCurrency(gross)} coins
-          </div>
+          <div className="text-xs text-gray-400 mt-1">Before tax: {formatCurrency(gross)} coins</div>
         )}
       </div>
     ),
     tax: (
       <div className={cardBase}>
         <div className={cardTitle}>EA Tax Paid</div>
-        <div className="text-2xl font-bold text-red-400">
-          {formatCurrency(totalTax)} coins
-        </div>
+        <div className="text-2xl font-bold text-red-400">{formatCurrency(totalTax)} coins</div>
         <div className="text-xs text-gray-400 mt-1">
           {totalTax > 0 ? `${taxPct.toFixed(1)}% of gross` : "No tax yet"}
         </div>
@@ -188,9 +155,7 @@ const Dashboard = () => {
     balance: (
       <div className={cardBase}>
         <div className={cardTitle}>Starting Balance</div>
-        <div className="text-2xl font-bold text-blue-400">
-          {formatCurrency(startingBalance ?? 0)} coins
-        </div>
+        <div className="text-2xl font-bold text-blue-400">{formatCurrency(startingBalance ?? 0)} coins</div>
         {(startingBalance ?? 0) > 0 && totalProfit > 0 && (
           <div className="text-xs text-gray-400 mt-1">
             ROI: {(((totalProfit) / (startingBalance || 1)) * 100).toFixed(1)}%
@@ -203,9 +168,7 @@ const Dashboard = () => {
         <div className={cardTitle}>Total Trades ({tf})</div>
         <div className="text-2xl font-bold text-purple-400">{filteredTrades.length}</div>
         {filteredTrades.length > 0 && (
-          <div className="text-xs text-gray-400 mt-1">
-            Avg profit: {formatCurrency(avgProfit)} coins
-          </div>
+          <div className="text-xs text-gray-400 mt-1">Avg profit: {formatCurrency(avgProfit)} coins</div>
         )}
       </div>
     ),
@@ -214,10 +177,7 @@ const Dashboard = () => {
         <div className={cardTitle}>ROI</div>
         <div className="flex items-baseline gap-2">
           <div className="text-2xl font-bold">
-            {startingBalance
-              ? (((totalProfit) / (startingBalance || 1)) * 100).toFixed(1)
-              : 0}
-            %
+            {startingBalance ? (((totalProfit) / (startingBalance || 1)) * 100).toFixed(1) : 0}%
           </div>
           <span className={chip}><Trophy size={12}/> cumulative</span>
         </div>
@@ -226,12 +186,8 @@ const Dashboard = () => {
     winrate: (
       <div className={cardBase}>
         <div className={cardTitle}>Win Rate ({tf})</div>
-        <div className="text-2xl font-bold">
-          {filteredTrades.length ? winRate.toFixed(1) : 0}%
-        </div>
-        <div className="text-xs text-gray-400 mt-1">
-          {wins} wins • {losses} losses
-        </div>
+        <div className="text-2xl font-bold">{filteredTrades.length ? winRate.toFixed(1) : 0}%</div>
+        <div className="text-xs text-gray-400 mt-1">{wins} wins • {losses} losses</div>
       </div>
     ),
     best_trade: (
@@ -241,26 +197,20 @@ const Dashboard = () => {
           {formatCurrency(best.value === -Infinity ? 0 : best.value)}
         </div>
         <div className="text-xs text-gray-400 mt-1">
-          {best.trade
-            ? `${best.trade.player ?? "Unknown"} (${best.trade.version ?? "—"})`
-            : "—"}
+          {best.trade ? `${best.trade.player ?? "Unknown"} (${best.trade.version ?? "—"})` : "—"}
         </div>
       </div>
     ),
     avg_profit: (
       <div className={cardBase}>
         <div className={cardTitle}>Average Profit / Trade ({tf})</div>
-        <div className="text-2xl font-bold" style={{ color: ACCENT }}>
-          {formatCurrency(avgProfit)}
-        </div>
+        <div className="text-2xl font-bold" style={{ color: ACCENT }}>{formatCurrency(avgProfit)}</div>
       </div>
     ),
     volume: (
       <div className={cardBase}>
         <div className={cardTitle}>Coin Volume ({tf})</div>
-        <div className="text-2xl font-bold text-gray-200">
-          {formatCurrency(volume.total)}
-        </div>
+        <div className="text-2xl font-bold text-gray-200">{formatCurrency(volume.total)}</div>
         <div className="text-xs text-gray-400 mt-1">
           Buys: {formatCurrency(volume.buy)} • Sells: {formatCurrency(volume.sell)}
         </div>
@@ -270,23 +220,16 @@ const Dashboard = () => {
       <div className={cardBase}>
         <div className="flex items-center justify-between">
           <div className={cardTitle}>Profit Trend (7D)</div>
-          <span className={chip}>
-            <LineChart size={12} />
-            sparkline
-          </span>
+          <span className={chip}><LineChart size={12} /> sparkline</span>
         </div>
         <div className="mt-2">
-          <svg width={sparklinePath.w} height={sparklinePath.h}>
-            <path d={sparklinePath.d} stroke={ACCENT} fill="none" strokeWidth="2" />
+          <svg width={sparkline.w} height={sparkline.h}>
+            <path d={sparkline.d} stroke={ACCENT} fill="none" strokeWidth="2" />
           </svg>
           <div className="text-xs text-gray-400 mt-1">
             Last day:{" "}
-            <span
-              className={
-                sparklinePath.last >= 0 ? "text-green-400 font-medium" : "text-red-400 font-medium"
-              }
-            >
-              {formatCurrency(sparklinePath.last ?? 0)}
+            <span className={sparkline.last >= 0 ? "text-green-400 font-medium" : "text-red-400 font-medium"}>
+              {formatCurrency(sparkline.last ?? 0)}
             </span>
           </div>
         </div>
@@ -295,61 +238,76 @@ const Dashboard = () => {
     latest_trade: (
       <div className={cardBase}>
         <div className={cardTitle}>Latest Trade</div>
-        {filteredTrades.length ? (
-          (() => {
-            const t = [...filteredTrades].sort(
-              (a, b) => new Date(b?.timestamp || 0) - new Date(a?.timestamp || 0)
-            )[0];
-            const baseProfit = t?.profit ?? 0;
-            const tax = t?.ea_tax ?? 0;
-            const displayProfit = include_tax_in_profit ? baseProfit - tax : baseProfit;
-            const pos = displayProfit >= 0;
-            return (
-              <div className="mt-1">
-                <div className="flex items-center gap-2">
-                  <div className="text-sm font-semibold">{t?.player ?? "Unknown"}</div>
-                  <div className="text-xs text-gray-400">({t?.version ?? "—"})</div>
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  {formatCurrency(t?.buy ?? 0)} → {formatCurrency(t?.sell ?? 0)}
-                  {t?.quantity > 1 && ` (${t.quantity}x)`} • {t?.platform ?? "Console"}
-                </div>
-                <div className={`mt-1 text-sm font-semibold ${pos ? "text-green-400" : "text-red-400"}`}>
-                  {pos ? <TrendingUp size={14} className="inline mr-1" /> : <TrendingDown size={14} className="inline mr-1" />}
-                  {displayProfit >= 0 ? "+" : ""}
-                  {formatCurrency(displayProfit)} coins
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  <Clock size={12} className="inline mr-1" />
-                  {t?.timestamp ? formatDate(t.timestamp) : "—"}
-                </div>
+        {filteredTrades.length ? (() => {
+          const t = [...filteredTrades].sort(
+            (a, b) => new Date(b?.timestamp || 0) - new Date(a?.timestamp || 0)
+          )[0];
+          const baseProfit = t?.profit ?? 0;
+          const tax = t?.ea_tax ?? 0;
+          const displayProfit = include_tax_in_profit ? baseProfit - tax : baseProfit;
+          const pos = displayProfit >= 0;
+          return (
+            <div className="mt-1">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-semibold">{t?.player ?? "Unknown"}</div>
+                <div className="text-xs text-gray-400">({t?.version ?? "—"})</div>
               </div>
-            );
-          })()
-        ) : (
-          <div className="text-gray-400 text-sm mt-1">No trades yet</div>
-        )}
+              <div className="text-xs text-gray-400 mt-1">
+                {formatCurrency(t?.buy ?? 0)} → {formatCurrency(t?.sell ?? 0)}
+                {t?.quantity > 1 && ` (${t.quantity}x)`} • {t?.platform ?? "Console"}
+              </div>
+              <div className={`mt-1 text-sm font-semibold ${pos ? "text-green-400" : "text-red-400"}`}>
+                {pos ? <TrendingUp size={14} className="inline mr-1" /> : <TrendingDown size={14} className="inline mr-1" />}
+                {pos ? "+" : ""}{formatCurrency(displayProfit)} coins
+              </div>
+              <div className="text-xs text-gray-400 mt-1">
+                <Clock size={12} className="inline mr-1" />
+                {t?.timestamp ? formatDate(t.timestamp) : "—"}
+              </div>
+            </div>
+          );
+        })() : <div className="text-gray-400 text-sm mt-1">No trades yet</div>}
       </div>
     ),
   };
 
-  // If Settings has nothing yet, fall back to a good default selection
-  const defaultOrder = [
-    "profit",
-    "trades",
-    "roi",
-    "winrate",
-    "avg_profit",
-    "best_trade",
-    "volume",
-    "profit_trend",
-    "tax",
-    "balance",
-    "latest_trade",
-  ];
-  const orderedKeys = (visible_widgets.length ? visible_widgets : defaultOrder).filter(
-    (k) => k in widgets
-  );
+  const orderedKeys = useMemo(() => {
+    const set = new Set(visible_widgets);
+    const primary = widget_order.filter((k) => set.has(k) && widgets[k]);
+    // include any visible not present in widget_order at end
+    for (const k of visible_widgets) if (!primary.includes(k) && widgets[k]) primary.push(k);
+    return primary;
+  }, [visible_widgets, widget_order, widgets]);
+
+  // In-place drag sorting (optional)
+  const onDragStart = (idx) => (e) => {
+    if (!editLayout) return;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(idx));
+  };
+  const onDragOver = (e) => {
+    if (!editLayout) return;
+    e.preventDefault();
+  };
+  const onDrop = (toIdx) => (e) => {
+    if (!editLayout) return;
+    e.preventDefault();
+    const fromIdx = Number(e.dataTransfer.getData("text/plain"));
+    if (!Number.isInteger(fromIdx) || fromIdx === toIdx) return;
+    const next = [...orderedKeys];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    // Persist only the visible portion in this new order; keep hidden at tail
+    const hidden = widget_order.filter((k) => !visible_widgets.includes(k));
+    saveSettings({ widget_order: [...next, ...hidden] });
+  };
+
+  const resetLayout = () => {
+    // Reset order to current visible list order (or defaults if you prefer)
+    const resetOrder = [...orderedKeys];
+    const hidden = widget_order.filter((k) => !visible_widgets.includes(k));
+    saveSettings({ widget_order: [...resetOrder, ...hidden] });
+  };
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
@@ -359,7 +317,6 @@ const Dashboard = () => {
         <div className="flex items-center gap-3">
           <div className="text-sm text-gray-400">Last updated: {formatDate(new Date())}</div>
           <div className="w-px h-4 bg-gray-700" />
-          {/* Timeframe selector */}
           <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-1 flex">
             {["7D", "30D", "ALL"].map((k) => (
               <button
@@ -374,13 +331,48 @@ const Dashboard = () => {
               </button>
             ))}
           </div>
+          <div className="w-px h-4 bg-gray-700" />
+          <button
+            onClick={() => setEditLayout((v) => !v)}
+            className={`text-sm px-3 py-1 rounded-lg border ${
+              editLayout ? "bg-gray-800 border-gray-700" : "bg-gray-900/70 border-gray-800 hover:border-gray-700"
+            } flex items-center gap-2`}
+            title="Reorder widgets on the dashboard"
+          >
+            <PencilLine size={14} />
+            {editLayout ? "Done" : "Edit layout"}
+          </button>
+          {editLayout && (
+            <button
+              onClick={resetLayout}
+              className="text-sm px-3 py-1 rounded-lg bg-gray-900/70 border border-gray-800 hover:border-gray-700 flex items-center gap-2"
+              title="Reset current layout"
+            >
+              <RotateCcw size={14} />
+              Reset
+            </button>
+          )}
         </div>
       </div>
 
       {/* Widgets grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {orderedKeys.map((key) => (
-          <div key={key}>{widgets[key]}</div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" onDragOver={onDragOver}>
+        {orderedKeys.map((key, idx) => (
+          <div
+            key={key}
+            draggable={editLayout}
+            onDragStart={onDragStart(idx)}
+            onDrop={onDrop(idx)}
+            className={`${editLayout ? "cursor-move" : ""} group relative`}
+            style={editLayout ? { outline: "1px dashed rgba(145,219,50,0.3)", borderRadius: "1rem" } : undefined}
+          >
+            {editLayout && (
+              <div className="absolute -top-2 -left-2 bg-gray-800 border border-gray-700 rounded-full p-1 text-gray-300 shadow">
+                <GripVertical size={14} />
+              </div>
+            )}
+            {widgets[key]}
+          </div>
         ))}
       </div>
 
@@ -389,32 +381,17 @@ const Dashboard = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-semibold">Recent Trades</h2>
-            <span className={chip}>
-              Showing last {Math.min(filteredTrades.length, 10)} ({tf})
-            </span>
-            {streak > 0 && (
-              <span className={`${chip}`} style={{ outline: `1px solid ${ACCENT}` }}>
-                🔥 {streak} win streak
-              </span>
-            )}
+            <span className={chip}>Showing last {Math.min(filteredTrades.length, 10)} ({tf})</span>
           </div>
           <div className="text-sm">
-            <a
-              href="/trades"
-              className="text-gray-300 hover:text-white"
-              style={{ textDecorationColor: ACCENT }}
-            >
-              View all trades →
-            </a>
+            <a href="/trades" className="text-gray-300 hover:text-white">View all trades →</a>
           </div>
         </div>
 
         {filteredTrades.length === 0 ? (
           <div className="text-center py-8">
             <div className="text-gray-400 mb-2">No trades logged yet</div>
-            <p className="text-sm text-gray-500">
-              Start by adding your first trade to see your progress here
-            </p>
+            <p className="text-sm text-gray-500">Start by adding your first trade to see your progress here</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -434,9 +411,7 @@ const Dashboard = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <span className="font-semibold">{trade?.player ?? "Unknown"}</span>
-                        <span className="text-sm text-gray-400">
-                          ({trade?.version ?? "N/A"})
-                        </span>
+                        <span className="text-sm text-gray-400">({trade?.version ?? "N/A"})</span>
                         {trade?.tag && (
                           <span className="text-xs bg-gray-800 border border-gray-700 px-2 py-1 rounded-full">
                             {trade.tag}
@@ -445,20 +420,14 @@ const Dashboard = () => {
                       </div>
                       <div className="text-sm text-gray-400 mt-1">
                         {formatCurrency(trade?.buy ?? 0)} → {formatCurrency(trade?.sell ?? 0)}
-                        {trade?.quantity > 1 && ` (${trade.quantity}x)`} •{" "}
-                        {trade?.platform ?? "Console"}
+                        {trade?.quantity > 1 && ` (${trade.quantity}x)`} • {trade?.platform ?? "Console"}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div
-                        className={`font-semibold ${pos ? "text-green-400" : "text-red-400"}`}
-                      >
-                        {pos ? "+" : ""}
-                        {formatCurrency(displayProfit)} coins
+                      <div className={`font-semibold ${pos ? "text-green-400" : "text-red-400"}`}>
+                        {pos ? "+" : ""}{formatCurrency(displayProfit)} coins
                       </div>
-                      <div className="text-xs text-gray-400">
-                        {trade?.timestamp ? formatDate(trade.timestamp) : "—"}
-                      </div>
+                      <div className="text-xs text-gray-400">{trade?.timestamp ? formatDate(trade.timestamp) : "—"}</div>
                     </div>
                   </div>
                 );
@@ -497,6 +466,4 @@ const Dashboard = () => {
       </div>
     </div>
   );
-};
-
-export default Dashboard;
+}
