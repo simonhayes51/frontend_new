@@ -1,159 +1,145 @@
-// src/context/SettingsContext.jsx
-import { createContext, useContext, useReducer, useEffect } from 'react';
-import api from '../utils/axios';
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
-const SettingsContext = createContext();
+const SettingsContext = createContext(null);
 
-const settingsReducer = (state, action) => {
-  switch (action.type) {
-    case 'SET_SETTINGS':
-      return {
-        ...state,
-        ...action.payload,
-        isLoading: false
-      };
-    case 'UPDATE_SETTING':
-      return {
-        ...state,
-        [action.key]: action.value
-      };
-    case 'SET_LOADING':
-      return {
-        ...state,
-        isLoading: action.payload
-      };
-    default:
-      return state;
-  }
-};
+const DEFAULT_WIDGET_ORDER = [
+  "profit",
+  "trades",
+  "roi",
+  "winrate",
+  "avg_profit",
+  "best_trade",
+  "volume",
+  "profit_trend",
+  "tax",
+  "balance",
+  "latest_trade",
+];
 
-const defaultSettings = {
-  default_platform: "Console",
-  custom_tags: [],
-  currency_format: "coins",
-  theme: "dark",
-  timezone: "UTC",
-  date_format: "US",
-  include_tax_in_profit: true,
-  default_chart_range: "30d",
-  visible_widgets: ["profit", "tax", "balance", "trades"],
-  isLoading: true
-};
+const DEFAULT_VISIBLE = [
+  "profit",
+  "trades",
+  "roi",
+  "winrate",
+  "avg_profit",
+  "best_trade",
+  "volume",
+  "profit_trend",
+  "tax",
+  "balance",
+  "latest_trade",
+];
 
 export const SettingsProvider = ({ children }) => {
-  const [settings, dispatch] = useReducer(settingsReducer, defaultSettings);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Load settings on mount
-  useEffect(() => {
-    fetchSettings();
+  // Core settings
+  const [include_tax_in_profit, setIncludeTaxInProfit] = useState(true);
+  const [visible_widgets, setVisibleWidgets] = useState(DEFAULT_VISIBLE);
+  const [widget_order, setWidgetOrder] = useState(DEFAULT_WIDGET_ORDER);
+
+  // Formatters your Dashboard already uses
+  const formatCurrency = useCallback((n) => {
+    const v = Number.isFinite(n) ? n : 0;
+    return v.toLocaleString("en-GB");
   }, []);
 
-  const fetchSettings = async () => {
-    try {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      const response = await api.get('/api/settings');
-      dispatch({ type: 'SET_SETTINGS', payload: response.data });
-    } catch (error) {
-      console.error('Failed to fetch settings:', error);
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
-  };
+  const formatDate = useCallback((d) => {
+    const dt = d instanceof Date ? d : new Date(d);
+    return dt.toLocaleString("en-GB", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }, []);
 
-  const updateSetting = async (key, value) => {
+  // You can swap these endpoints to match your backend
+  async function fetchSettings() {
     try {
-      // Optimistic update
-      dispatch({ type: 'UPDATE_SETTING', key, value });
-      
-      // Persist to server
-      const newSettings = { ...settings, [key]: value };
-      await api.post('/api/settings', newSettings);
-    } catch (error) {
-      console.error('Failed to update setting:', error);
-      // Revert optimistic update on error
+      setIsLoading(true);
+      setError(null);
+      const r = await fetch("/api/settings", { credentials: "include" });
+      if (!r.ok) throw new Error(`Failed to load settings (${r.status})`);
+      const data = await r.json();
+
+      setIncludeTaxInProfit(Boolean(data?.include_tax_in_profit ?? true));
+
+      // Ensure arrays with sensible fallbacks
+      setVisibleWidgets(
+        Array.isArray(data?.visible_widgets) && data.visible_widgets.length
+          ? data.visible_widgets
+          : DEFAULT_VISIBLE
+      );
+
+      setWidgetOrder(
+        Array.isArray(data?.widget_order) && data.widget_order.length
+          ? data.widget_order
+          : DEFAULT_WIDGET_ORDER
+      );
+    } catch (e) {
+      setError(e);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist
+  async function saveSettings(partial) {
+    // Optimistic update
+    if (partial?.include_tax_in_profit !== undefined) {
+      setIncludeTaxInProfit(Boolean(partial.include_tax_in_profit));
+    }
+    if (partial?.visible_widgets) {
+      setVisibleWidgets([...partial.visible_widgets]);
+    }
+    if (partial?.widget_order) {
+      setWidgetOrder([...partial.widget_order]);
+    }
+
+    try {
+      const r = await fetch("/api/settings", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          include_tax_in_profit,
+          visible_widgets,
+          widget_order,
+          ...partial,
+        }),
+      });
+      if (!r.ok) throw new Error(`Failed to save settings (${r.status})`);
+    } catch (e) {
+      console.error("Settings save failed:", e);
+      setError(e);
+      // (Optional) refetch to re-sync
       fetchSettings();
     }
-  };
-
-  // Currency formatting helper
-  const formatCurrency = (amount) => {
-    if (!amount && amount !== 0) return 'N/A';
-    
-    const num = Number(amount);
-    
-    switch (settings.currency_format) {
-      case 'k':
-        if (num >= 1000) {
-          return `${(num / 1000).toFixed(1)}K`;
-        }
-        return num.toLocaleString();
-      case 'm':
-        if (num >= 1000000) {
-          return `${(num / 1000000).toFixed(1)}M`;
-        } else if (num >= 1000) {
-          return `${(num / 1000).toFixed(1)}K`;
-        }
-        return num.toLocaleString();
-      default:
-        return num.toLocaleString();
-    }
-  };
-
-  // Date formatting helper
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    
-    try {
-      const d = new Date(date);
-      const options = {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: settings.timezone
-      };
-
-      if (settings.date_format === 'EU') {
-        return d.toLocaleString('en-GB', options);
-      } else {
-        return d.toLocaleString('en-US', options);
-      }
-    } catch (error) {
-      return 'N/A';
-    }
-  };
-
-  // Profit calculation helper
-  const calculateProfit = (buy, sell, quantity, ea_tax = 0) => {
-    const baseProfit = (sell - buy) * quantity;
-    
-    if (settings.include_tax_in_profit) {
-      return baseProfit - ea_tax;
-    }
-    
-    return baseProfit;
-  };
+  }
 
   const value = {
-    ...settings,
-    updateSetting,
+    isLoading,
+    error,
+    include_tax_in_profit,
+    visible_widgets,
+    widget_order,
+    setVisibleWidgets,
+    setWidgetOrder,
+    saveSettings,
+    // formatters already used in your app
     formatCurrency,
     formatDate,
-    calculateProfit,
-    fetchSettings
   };
 
-  return (
-    <SettingsContext.Provider value={value}>
-      {children}
-    </SettingsContext.Provider>
-  );
+  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 };
 
-export const useSettings = () => {
-  const context = useContext(SettingsContext);
-  if (!context) {
-    throw new Error('useSettings must be used within a SettingsProvider');
-  }
-  return context;
-};
+export const useSettings = () => useContext(SettingsContext);
