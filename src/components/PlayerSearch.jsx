@@ -254,7 +254,7 @@ const SearchBox = ({ onPlayerSelect }) => {
                   src={player.image_url || PLACEHOLDER}
                   alt={`${player.name} (${player.rating})`}
                   loading="lazy"
-                  className="w-12 h-16 object-contain rounded-md bg-black/30 border border-white/10"
+                  className="w-12 h-16 object-contain"
                   onError={(e) => {
                     const img = e.currentTarget;
                     if (!img.dataset.triedProxy && player.image_url) {
