@@ -1,80 +1,69 @@
 // src/components/squad/Pitch.jsx
 import React from "react";
 
-export default function Pitch({
-  height = "600px",
-  children,
-  className = "",
-}) {
+/**
+ * Vertical (portrait) football pitch with correct markings and no extra guides.
+ * - 800 x 1200 logical canvas (portrait). Goals at top & bottom.
+ * - preserveAspectRatio="xMidYMid meet" so nothing stretches.
+ * - Children render on an absolute layer (use % left/top like you already do).
+ *
+ * Props:
+ *   height: CSS height of the pitch (default 640px)
+ *   className: extra classes
+ */
+export default function Pitch({ height = "640px", className = "", children }) {
   return (
     <div
-      className={`relative rounded-2xl overflow-hidden bg-[#0F3D30] border border-[#1b4d3e] ${className}`}
+      className={`pitch-box enhanced-pitch ${className}`}
       style={{ height }}
     >
-      {/* SVG Markings (kept simple & standards-compliant) */}
+      {/* turf stripes */}
+      <div className="pitch-turf" />
+
+      {/* Portrait SVG pitch (no training rectangles) */}
       <svg
-        viewBox="0 0 1200 800"
+        className="pitch-svg"
+        viewBox="0 0 800 1200"
         preserveAspectRatio="xMidYMid meet"
-        className="absolute inset-0 w-full h-full"
         aria-hidden="true"
       >
-        <defs>
-          <linearGradient id="pitchFade" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#114735" />
-            <stop offset="100%" stopColor="#0b2f24" />
-          </linearGradient>
-        </defs>
+        {/* Outer boundary */}
+        <rect x="20" y="20" width="760" height="1160" rx="18" ry="18" className="pl" />
 
-        {/* grass */}
-        <rect x="0" y="0" width="1200" height="800" fill="url(#pitchFade)" />
+        {/* Halfway line */}
+        <line x1="20" y1="600" x2="780" y2="600" className="pl" />
 
-        {/* outer border */}
-        <rect
-          x="30"
-          y="30"
-          width="1140"
-          height="740"
-          fill="none"
-          stroke="#1f795f"
-          strokeWidth="6"
-          rx="24"
-          ry="24"
-        />
+        {/* Centre circle + spot */}
+        <circle cx="400" cy="600" r="90" className="pl" />
+        <circle cx="400" cy="600" r="5"  className="pl filled" />
 
-        {/* half-way line */}
-        <line
-          x1="600"
-          y1="30"
-          x2="600"
-          y2="770"
-          stroke="#1f795f"
-          strokeWidth="4"
-        />
+        {/* --- Top end (attacking downwards) --- */}
+        {/* Penalty area */}
+        <rect x="180" y="20" width="440" height="180" className="pl" />
+        {/* Goal area */}
+        <rect x="260" y="20" width="280" height="60" className="pl" />
+        {/* Penalty spot */}
+        <circle cx="400" cy="160" r="5" className="pl filled" />
+        {/* Penalty arc */}
+        <path d="M 310 200 A 90 90 0 0 0 490 200" className="pl" fill="none" />
+        {/* Simple goal outline */}
+        <rect x="360" y="10" width="80" height="10" className="pl" />
 
-        {/* centre circle */}
-        <circle cx="600" cy="400" r="90" fill="none" stroke="#1f795f" strokeWidth="4" />
-        <circle cx="600" cy="400" r="6" fill="#2bd3a7" />
-
-        {/* penalty boxes */}
-        {/* left */}
-        <rect x="30" y="200" width="180" height="400" fill="none" stroke="#1f795f" strokeWidth="4" />
-        <rect x="30" y="270" width="60" height="260" fill="none" stroke="#1f795f" strokeWidth="4" />
-        <circle cx="180" cy="400" r="6" fill="#2bd3a7" />
-        <path d="M210 300 A120 120 0 0 0 210 500" fill="none" stroke="#1f795f" strokeWidth="4" />
-
-        {/* right */}
-        <rect x="990" y="200" width="180" height="400" fill="none" stroke="#1f795f" strokeWidth="4" />
-        <rect x="1110" y="270" width="60" height="260" fill="none" stroke="#1f795f" strokeWidth="4" />
-        <circle cx="1020" cy="400" r="6" fill="#2bd3a7" />
-        <path d="M990 300 A120 120 0 0 1 990 500" fill="none" stroke="#1f795f" strokeWidth="4" />
-
-        {/* small goal areas */}
-        <rect x="30" y="320" width="60" height="160" fill="none" stroke="#1f795f" strokeWidth="4" />
-        <rect x="1110" y="320" width="60" height="160" fill="none" stroke="#1f795f" strokeWidth="4" />
+        {/* --- Bottom end (attacking upwards) --- */}
+        {/* Penalty area */}
+        <rect x="180" y="1000" width="440" height="180" className="pl" />
+        {/* Goal area */}
+        <rect x="260" y="1120" width="280" height="60" className="pl" />
+        {/* Penalty spot */}
+        <circle cx="400" cy="1040" r="5" className="pl filled" />
+        {/* Penalty arc */}
+        <path d="M 490 1000 A 90 90 0 0 0 310 1000" className="pl" fill="none" />
+        {/* Simple goal outline */}
+        <rect x="360" y="1180" width="80" height="10" className="pl" />
       </svg>
 
-      {/* Slot layer for absolutely positioned children */}
-      <div className="absolute inset-0">{children}</div>
+      {/* absolute layer for cards/slots */}
+      <div className="pitch-content">{children}</div>
     </div>
   );
 }
