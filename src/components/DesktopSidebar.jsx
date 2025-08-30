@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const DesktopSidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   // collapsed state (persisted)
@@ -15,12 +16,29 @@ const DesktopSidebar = () => {
     }
   });
 
+  // user menu state
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userCardRef = useRef(null);
+
   // keep a CSS variable for main layout to consume
   useEffect(() => {
     const width = collapsed ? "4rem" : "16rem"; // w-16 vs w-64
     document.documentElement.style.setProperty("--sidebar-width", width);
     localStorage.setItem("sidebarCollapsed", JSON.stringify(collapsed));
   }, [collapsed]);
+
+  // close user menu when clicking outside or navigating
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (!userCardRef.current) return;
+      if (!userCardRef.current.contains(e.target)) setUserMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+  useEffect(() => {
+    setUserMenuOpen(false);
+  }, [location.pathname]);
 
   const navItems = [
     { path: "/", label: "Dashboard" },
@@ -37,8 +55,10 @@ const DesktopSidebar = () => {
   return (
     <aside
       className={`fixed left-0 top-0 h-screen bg-gray-900/95 backdrop-blur-sm border-r border-gray-700/50
-                  flex flex-col overflow-hidden transition-all duration-200
+                  flex flex-col transition-all duration-200
                   ${collapsed ? "w-16 px-2" : "w-64 p-4"}`}
+      // allow the edge toggle to “stick out”
+      style={{ overflow: "visible" }}
     >
       {/* Header / brand + toggle */}
       <div className="relative mb-6 shrink-0 flex flex-col items-center">
@@ -67,9 +87,9 @@ const DesktopSidebar = () => {
         {/* Toggle button on sidebar edge */}
         <button
           onClick={() => setCollapsed((c) => !c)}
-          className="absolute top-1/2 -right-3 transform -translate-y-1/2 
+          className="absolute top-1/2 -right-3 -translate-y-1/2 
                      p-1.5 rounded-md bg-gray-900 border border-gray-700
-                     hover:bg-gray-800 text-gray-300"
+                     hover:bg-gray-800 text-gray-300 shadow-lg"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-label="Toggle sidebar"
         >
@@ -85,8 +105,13 @@ const DesktopSidebar = () => {
         </button>
       </div>
 
-      {/* User card */}
-      <div className={`bg-gray-800/40 rounded-xl ${collapsed ? "p-2 mb-3" : "p-3 mb-4"} shrink-0`}>
+      {/* User card (+ dropdown) */}
+      <div
+        ref={userCardRef}
+        className={`relative bg-gray-800/40 rounded-xl ${collapsed ? "p-2 mb-3" : "p-3 mb-4"} shrink-0 cursor-pointer`}
+        onClick={() => setUserMenuOpen((o) => !o)}
+        title="Account menu"
+      >
         <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
           <img
             src={user?.avatar_url}
@@ -105,6 +130,45 @@ const DesktopSidebar = () => {
             </div>
           )}
         </div>
+
+        {/* Dropdown menu */}
+        {userMenuOpen && (
+          <div
+            className={`absolute z-50 ${
+              collapsed
+                ? "left-[calc(100%+8px)] top-0"
+                : "left-3 right-3 top-[calc(100%+6px)]"
+            }`}
+          >
+            <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl overflow-hidden w-48">
+              <Link
+                to="/profile"
+                className="block px-3 py-2 text-sm text-gray-200 hover:bg-gray-800"
+              >
+                Profile
+              </Link>
+              <Link
+                to="/settings"
+                className="block px-3 py-2 text-sm text-gray-200 hover:bg-gray-800"
+              >
+                Settings
+              </Link>
+              <button
+                onClick={async () => {
+                  try {
+                    await logout();
+                    navigate("/login");
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Nav */}
@@ -134,24 +198,16 @@ const DesktopSidebar = () => {
         </nav>
       </div>
 
-      {/* Footer */}
-      <div className={`${collapsed ? "px-2 py-2" : "px-2 py-3"} border-t border-gray-700/50 shrink-0`}>
+      {/* Footer (no Logout here anymore) */}
+      <div className={`${collapsed ? "px-2 py-2" : "px-2 py-3"} border-top border-gray-700/50 shrink-0`}>
         <div className="space-y-1">
           <Link
             to="/help"
             className={`flex items-center rounded-lg text-sm text-gray-300 hover:text-white hover:bg-gray-800/60 h-9
                         ${collapsed ? "justify-center" : "gap-2 px-2.5"}`}
           >
-            Help & Support
+            Help &amp; Support
           </Link>
-
-          <button
-            onClick={logout}
-            className={`flex items-center rounded-lg text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 h-9 w-full
-                        ${collapsed ? "justify-center" : "gap-2 px-2.5"}`}
-          >
-            Logout
-          </button>
         </div>
       </div>
     </aside>
