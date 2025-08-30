@@ -1,4 +1,3 @@
-// src/pages/SquadBuilder.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "../styles/squad.css";
 
@@ -49,6 +48,7 @@ export default function SquadBuilder() {
     const toPlace = { ...p, inPos: !!valid };
     setPlaced((prev) => ({ ...prev, [slotKey]: toPlace }));
 
+    // lazy live price if DB didn’t have it
     if ((toPlace.price == null || Number.isNaN(toPlace.price)) && toPlace.card_id) {
       if (!fetchingPriceRef.current.has(toPlace.card_id)) {
         fetchingPriceRef.current.add(toPlace.card_id);
@@ -79,8 +79,8 @@ export default function SquadBuilder() {
   };
 
   return (
-    <div className="sb-grid">
-      {/* LEFT: pitch */}
+    <div className="sb-wrap">
+      {/* LEFT — Pitch */}
       <div className="sb-left">
         <Pitch
           formation={formation}
@@ -107,12 +107,11 @@ export default function SquadBuilder() {
           </button>
         </div>
 
-        {/* keep while tuning */}
         <ChemDebug chem={chem} placed={placed} formation={formation} />
       </div>
 
-      {/* RIGHT: search */}
-      <div className="sb-right">
+      {/* RIGHT — Search */}
+      <aside className="sb-right" aria-label="Player search panel">
         {selectedSlot ? (
           <>
             <input
@@ -162,7 +161,7 @@ export default function SquadBuilder() {
             Select a slot on the pitch to search for players.
           </div>
         )}
-      </div>
+      </aside>
     </div>
   );
 }
