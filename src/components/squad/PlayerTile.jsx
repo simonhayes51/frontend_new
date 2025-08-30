@@ -14,11 +14,11 @@ export default function PlayerTile({
   onSwap,
   onClear,
 }) {
-  // Size variants - more rectangular like FutBin
+  // Size variants - proper proportions like FutBin
   const sizeClasses = {
-    sm: "w-14 h-16",
-    md: "w-18 h-24", 
-    lg: "w-20 h-26"
+    sm: "w-16 h-20",
+    md: "w-20 h-28", 
+    lg: "w-24 h-32"
   };
 
   const textSizes = {
