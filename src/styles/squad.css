@@ -486,3 +486,60 @@
   border: 0 !important;
   box-shadow: none !important;
 }
+
+/* ---- SquadBuilder layout (no Tailwind) ---- */
+.sb-grid {
+  display: grid;
+  grid-template-columns: minmax(640px, 1fr) 380px; /* pitch / search */
+  gap: 24px;
+  align-items: start;
+}
+.sb-left { min-width: 0; }
+.sb-right {
+  min-width: 0;
+  background: rgba(17,24,39,0.6);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.sb-controls { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
+.sb-clear { padding: 8px 12px; border-radius: 8px; }
+
+/* search panel bits */
+.search-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.35);
+  color: #eee;
+  margin-bottom: 10px;
+}
+.search-results { max-height: 70vh; overflow: auto; }
+
+.search-item.row {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.06);
+  cursor: pointer;
+}
+.search-item.row:hover { background: rgba(0,0,0,0.35); }
+.search-item.row.invalid { opacity: .55; cursor: not-allowed; }
+
+.search-item .thumb { width: 48px; height: 64px; object-fit: cover; border-radius: 6px; }
+.search-item .info .name { font-weight: 700; }
+.search-item .info .meta { font-size: 12px; opacity: .8; }
+.search-item .priceCell { font-size: 12px; font-weight: 700; opacity: .9; }
+.search-placeholder, .empty { opacity: .8; font-size: 14px; }
+
+/* responsive */
+@media (max-width: 1200px) {
+  .sb-grid { grid-template-columns: 1fr; }
+  .sb-right { order: -1; }
+}
