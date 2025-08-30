@@ -11,16 +11,18 @@ import ChemDebug from "../components/squad/ChemDebug";
 export default function SquadBuilder() {
   const [formation, setFormation] = useState("4-3-3");
   const [placed, setPlaced] = useState({});
-  const [searchResults, setSearchResults] = useState([]);
-  const [query, setQuery] = useState("");
   const [selectedSlot, setSelectedSlot] = useState(null);
 
-  // compute chem with placed + formation
+  const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+
+  // Compute chem
   const chem = useMemo(() => {
-    return computeChemistry(placed, VERTICAL_COORDS[formation]);
+    const coords = VERTICAL_COORDS[formation] || [];
+    return computeChemistry(placed, coords);
   }, [placed, formation]);
 
-  // handle search
+  // Search (filtered by selected slot pos)
   useEffect(() => {
     const run = async () => {
       if (!query) {
@@ -31,8 +33,8 @@ export default function SquadBuilder() {
         const pos = selectedSlot?.pos || null;
         const res = await searchPlayers(query, pos);
         setSearchResults(res.players || []);
-      } catch (err) {
-        console.error("Search error:", err);
+      } catch (e) {
+        console.error("[SB] search error:", e);
         setSearchResults([]);
       }
     };
@@ -48,9 +50,9 @@ export default function SquadBuilder() {
 
   const handleRemove = (slotKey) => {
     setPlaced((prev) => {
-      const copy = { ...prev };
-      delete copy[slotKey];
-      return copy;
+      const next = { ...prev };
+      delete next[slotKey];
+      return next;
     });
   };
 
@@ -61,10 +63,14 @@ export default function SquadBuilder() {
           formation={formation}
           placed={placed}
           chem={chem}
+          // Support BOTH prop shapes so we can't drift again
+          selected={selectedSlot}
+          onSelect={setSelectedSlot}
           selectedSlot={selectedSlot}
           onSelectSlot={setSelectedSlot}
           onRemove={handleRemove}
         />
+
         <div className="formation-select-container">
           <select
             className="formation-select"
@@ -78,6 +84,8 @@ export default function SquadBuilder() {
             ))}
           </select>
         </div>
+
+        {/* keep while we verify chem */}
         <ChemDebug chem={chem} placed={placed} formation={formation} />
       </div>
 
@@ -86,10 +94,11 @@ export default function SquadBuilder() {
           <>
             <input
               type="text"
+              className="search-input"
               placeholder={`Search for ${selectedSlot.pos}...`}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="search-input"
+              autoFocus
             />
             <div className="search-results custom-scrollbar">
               {searchResults.map((p) => {
@@ -103,11 +112,7 @@ export default function SquadBuilder() {
                     className={`search-item ${!valid ? "invalid" : ""}`}
                     onClick={() => valid && handlePlace(selectedSlot.key, p)}
                   >
-                    <img
-                      src={p.image_url}
-                      alt={p.name}
-                      className="search-thumb"
-                    />
+                    <img src={p.image_url} alt={p.name} className="search-thumb" />
                     <div className="search-info">
                       <div className="search-name">{p.name}</div>
                       <div className="search-meta">
@@ -120,9 +125,7 @@ export default function SquadBuilder() {
             </div>
           </>
         ) : (
-          <div className="search-placeholder">
-            Select a slot to search for players
-          </div>
+          <div className="search-placeholder">Select a slot to search for players</div>
         )}
       </div>
     </div>
