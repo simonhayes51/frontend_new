@@ -42,5 +42,5 @@ export default function SettingsTrading() {
         These preferences are stored locally in your browser.
       </p>
     </div>
-  );
+  ); 
 }
