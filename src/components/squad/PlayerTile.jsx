@@ -14,9 +14,7 @@ export default function PlayerTile({
   onSwap,
   onClear,
 }) {
-  const coin = "https://cdn2.futbin.com/https%3A%2F%2Fcdn.futbin.com%2Fdesign%2Fimg%2Fcoins_big.png?fm=png&ixlib=java-2.1.0&w=40&s=cad4ceb684da7f0b778fdeb1d4065fb1";
-
-  // Size variants for different use cases
+  // Size variants
   const sizeClasses = {
     sm: "w-16 h-20",
     md: "w-20 h-28", 
@@ -24,138 +22,235 @@ export default function PlayerTile({
   };
 
   const textSizes = {
-    sm: { rating: "text-xs", pos: "text-xs", name: "text-xs", price: "text-xs" },
-    md: { rating: "text-xs", pos: "text-xs", name: "text-xs", price: "text-xs" },
-    lg: { rating: "text-sm", pos: "text-sm", name: "text-sm", price: "text-sm" }
+    sm: { 
+      rating: "text-[10px]", 
+      pos: "text-[9px]", 
+      name: "text-[9px]", 
+      price: "text-[9px]",
+      stats: "text-[8px]"
+    },
+    md: { 
+      rating: "text-xs", 
+      pos: "text-[10px]", 
+      name: "text-[10px]", 
+      price: "text-[10px]",
+      stats: "text-[9px]"
+    },
+    lg: { 
+      rating: "text-sm", 
+      pos: "text-xs", 
+      name: "text-xs", 
+      price: "text-xs",
+      stats: "text-[10px]"
+    }
   };
 
-  // Enhanced card styling based on player type
-  const getCardClasses = () => {
-    let base = `${sizeClasses[size]} squad-card rounded-xl relative overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:shadow-xl border`;
-    
+  // Card background based on player type - mimicking FUT card colors
+  const getCardBackground = () => {
     if (player.isIcon) {
-      base += " bg-gradient-to-br from-orange-500/40 via-yellow-500/40 to-orange-600/40 border-orange-500/50";
+      return "bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-500";
     } else if (player.isHero) {
-      base += " bg-gradient-to-br from-purple-500/40 via-pink-500/40 to-purple-600/40 border-purple-500/50";
+      return "bg-gradient-to-br from-purple-500 via-purple-600 to-pink-600";
+    } else if (player.rating >= 90) {
+      return "bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600"; // Gold
+    } else if (player.rating >= 85) {
+      return "bg-gradient-to-br from-gray-300 via-gray-400 to-gray-500"; // Silver
+    } else if (player.rating >= 75) {
+      return "bg-gradient-to-br from-amber-600 via-yellow-700 to-amber-700"; // Bronze
     } else {
-      base += " bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 border-gray-600";
+      return "bg-gradient-to-br from-gray-600 via-gray-700 to-gray-800"; // Common
     }
+  };
 
+  // Text color based on card background
+  const getTextColor = () => {
+    if (player.isIcon || player.isHero || player.rating >= 75) {
+      return "text-black";
+    }
+    return "text-white";
+  };
+
+  // Chemistry indicator
+  const getChemStyles = () => {
     if (outOfPosition) {
-      base += " ring-2 ring-red-500/50";
+      return {
+        dot: "bg-red-500 ring-2 ring-red-300",
+        glow: "shadow-red-500/50"
+      };
     }
-
-    if (onClick) {
-      base += " cursor-pointer";
+    
+    switch (chem) {
+      case 3:
+        return {
+          dot: "bg-green-400 ring-2 ring-green-200",
+          glow: "shadow-green-400/50"
+        };
+      case 2:
+        return {
+          dot: "bg-yellow-400 ring-2 ring-yellow-200",
+          glow: "shadow-yellow-400/50"
+        };
+      case 1:
+        return {
+          dot: "bg-orange-400 ring-2 ring-orange-200",
+          glow: "shadow-orange-400/50"
+        };
+      default:
+        return {
+          dot: "bg-gray-400 ring-2 ring-gray-300",
+          glow: "shadow-gray-400/50"
+        };
     }
-
-    return base;
   };
 
-  // Chemistry dot color
-  const getChemDotClass = () => {
-    if (outOfPosition) return "bg-red-500 animate-pulse";
-    if (chem >= 3) return "bg-lime-400";
-    if (chem === 2) return "bg-yellow-400";
-    if (chem === 1) return "bg-orange-400";
-    return "bg-gray-500";
-  };
+  const chemStyles = getChemStyles();
+  const textColor = getTextColor();
 
   return (
     <div className="relative group">
       <div
-        className={getCardClasses()}
+        className={`
+          ${sizeClasses[size]}
+          ${getCardBackground()}
+          relative overflow-hidden rounded-lg shadow-lg hover:shadow-xl
+          transition-all duration-200 hover:-translate-y-1
+          border border-black/20
+          ${onClick ? 'cursor-pointer' : ''}
+          ${outOfPosition ? 'ring-2 ring-red-500 ring-opacity-50' : ''}
+        `}
         draggable={draggable}
         onDragStart={onDragStart}
         onClick={onClick}
       >
-        {/* Card frame overlay for premium feel */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none rounded-xl" />
-
-        {/* Player image */}
+        {/* Card shine effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent opacity-50" />
+        
+        {/* Player image background */}
         {player.image_url && (
-          <img 
-            className="absolute inset-0 w-full h-full object-cover object-top" 
-            src={player.image_url} 
-            alt={player.name} 
-            referrerPolicy="no-referrer"
-          />
+          <div className="absolute inset-0">
+            <img 
+              className="w-full h-full object-cover object-center opacity-90" 
+              src={player.image_url} 
+              alt={player.name}
+              referrerPolicy="no-referrer"
+            />
+            {/* Subtle overlay to ensure text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+          </div>
         )}
 
-        {/* Top badges row */}
-        <div className="absolute top-1.5 left-1.5 right-1.5 flex items-center gap-1.5">
-          {/* Rating badge */}
-          <span className={`bg-yellow-400 text-black font-black px-1.5 py-0.5 rounded-md shadow-sm ${textSizes[size].rating}`}>
-            {player.rating || "-"}
-          </span>
-          
-          {/* Position badge */}
-          <span className={`bg-white/95 text-black font-black px-1.5 py-0.5 rounded-md shadow-sm ${textSizes[size].pos}`}>
-            {(player.positions?.[0] || "").toUpperCase()}
-          </span>
-          
-          {/* Custom badge slot */}
-          {badge}
+        {/* Top section - Rating, Position, Chemistry */}
+        <div className="absolute top-1 left-1 right-1 flex items-start justify-between z-10">
+          <div className="flex flex-col items-start gap-0.5">
+            {/* Rating */}
+            <div className={`
+              ${textColor} font-black px-1 py-0.5 rounded text-center min-w-[20px]
+              ${textSizes[size].rating} 
+              drop-shadow-lg
+            `}>
+              {player.rating || "-"}
+            </div>
+            
+            {/* Position */}
+            <div className={`
+              ${textColor} font-bold px-1 rounded text-center min-w-[20px]
+              ${textSizes[size].pos}
+              drop-shadow-lg
+            `}>
+              {(player.positions?.[0] || "").toUpperCase()}
+            </div>
+          </div>
 
-          {/* Special card indicators */}
-          {player.isIcon && size !== "sm" && (
-            <span className="text-xs bg-orange-500/90 text-white px-1 py-0.5 rounded font-bold">
-              ICN
-            </span>
-          )}
-          {player.isHero && size !== "sm" && (
-            <span className="text-xs bg-purple-500/90 text-white px-1 py-0.5 rounded font-bold">
-              HRO
-            </span>
-          )}
-
-          {/* Chemistry indicator */}
+          {/* Chemistry dot */}
           <div 
-            className={`ml-auto w-2.5 h-2.5 rounded-full border border-black/30 shadow-sm ${getChemDotClass()}`}
-            title={`Chemistry: ${chem}/3${outOfPosition ? ' • Out of position' : ''}`}
+            className={`
+              w-2 h-2 rounded-full shadow-lg
+              ${chemStyles.dot} ${chemStyles.glow}
+            `}
+            title={`Chemistry: ${outOfPosition ? 0 : chem}/3${outOfPosition ? ' • Out of position' : ''}`}
           />
         </div>
 
-        {/* Bottom content */}
-        <div className="absolute bottom-1.5 left-1.5 right-1.5">
+        {/* Special card indicators */}
+        {(player.isIcon || player.isHero) && size !== "sm" && (
+          <div className="absolute top-1 left-1/2 -translate-x-1/2">
+            {player.isIcon && (
+              <div className="bg-orange-600/90 text-white text-[8px] px-1 py-0.5 rounded font-bold shadow-sm">
+                ICN
+              </div>
+            )}
+            {player.isHero && (
+              <div className="bg-purple-600/90 text-white text-[8px] px-1 py-0.5 rounded font-bold shadow-sm">
+                HRO
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Custom badge */}
+        {badge && (
+          <div className="absolute top-1 right-1">
+            {badge}
+          </div>
+        )}
+
+        {/* Bottom section - Name and Price */}
+        <div className="absolute bottom-1 left-1 right-1 z-10">
           {/* Player name */}
-          <div className={`text-white font-bold truncate drop-shadow-lg ${textSizes[size].name} mb-1`}>
+          <div className={`
+            ${textColor} font-bold text-center truncate mb-0.5
+            ${textSizes[size].name}
+            drop-shadow-lg
+          `}>
             {player.name}
           </div>
 
           {/* Price */}
           {typeof player.price === "number" && (
-            <div className={`flex items-center gap-1 bg-black/60 rounded px-1.5 py-0.5 ${textSizes[size].price}`}>
-              <img className="w-2.5 h-2.5" src={coin} alt="coins" />
-              <span className="text-yellow-200 font-semibold">
-                {player.price.toLocaleString()}c
-              </span>
+            <div className="flex items-center justify-center">
+              <div className={`
+                bg-black/70 ${textColor === 'text-black' ? 'text-yellow-200' : 'text-yellow-300'} 
+                px-1.5 py-0.5 rounded text-center font-semibold
+                ${textSizes[size].price}
+                border border-yellow-400/30
+              `}>
+                {player.price.toLocaleString()}
+              </div>
             </div>
           )}
         </div>
 
-        {/* Out of position overlay */}
-        {outOfPosition && (
-          <div className="absolute inset-0 bg-red-500/10 border-2 border-red-500/30 rounded-xl pointer-events-none" />
+        {/* Stats overlay for larger cards */}
+        {size === "lg" && player.pace && (
+          <div className="absolute left-1 top-1/2 -translate-y-1/2 space-y-0.5">
+            <div className={`${textColor} ${textSizes[size].stats} font-bold drop-shadow-lg`}>
+              <div>PAC {player.pace}</div>
+              <div>SHO {player.shooting}</div>
+              <div>PAS {player.passing}</div>
+              <div>DRI {player.dribbling}</div>
+              <div>DEF {player.defending}</div>
+              <div>PHY {player.physicality}</div>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Out of position warning label */}
+      {/* Out of position indicator */}
       {outOfPosition && size !== "sm" && (
-        <div className="absolute -bottom-5 left-0 right-0 text-center">
-          <span className="text-xs text-red-400 bg-red-900/80 px-2 py-0.5 rounded-full border border-red-500/50 shadow-sm">
+        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 z-20">
+          <span className="text-[10px] text-red-300 bg-red-900/90 px-2 py-1 rounded-full font-bold border border-red-500/50">
             OOP
           </span>
         </div>
       )}
 
-      {/* Hover actions (if enabled) */}
+      {/* Hover actions */}
       {showActions && (onSwap || onClear) && (
-        <div className="absolute -bottom-8 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto">
-          <div className="flex justify-center gap-1.5">
+        <div className="absolute -bottom-6 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
+          <div className="flex justify-center gap-1">
             {onSwap && (
               <button
-                className="bg-gray-800/95 hover:bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 transition-colors shadow-sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2 py-1 rounded font-bold transition-colors shadow-lg border border-blue-500"
                 onClick={(e) => {
                   e.stopPropagation();
                   onSwap();
@@ -166,7 +261,7 @@ export default function PlayerTile({
             )}
             {onClear && (
               <button
-                className="bg-red-800/95 hover:bg-red-700 text-white text-xs px-2 py-1 rounded border border-red-600 transition-colors shadow-sm"
+                className="bg-red-600 hover:bg-red-700 text-white text-[10px] px-2 py-1 rounded font-bold transition-colors shadow-lg border border-red-500"
                 onClick={(e) => {
                   e.stopPropagation();
                   onClear();
