@@ -1,51 +1,65 @@
 // src/utils/positions.js
+
+// Canonical position codes
 const POSITION_SET = new Set([
   "GK",
   "RB","RWB","CB","LB","LWB",
   "CDM","CM","CAM",
   "RM","LM",
   "RW","LW",
-  "RF","LF","CF","ST"
+  "RF","LF","CF","ST",
 ]);
 
+// Aliases → canonical codes
 const ALIASES = new Map([
   ["GOALKEEPER","GK"], ["KEEPER","GK"], ["GK","GK"],
+
   ["RIGHT BACK","RB"], ["RIGHTBACK","RB"], ["RB","RB"],
   ["LEFT BACK","LB"], ["LEFTBACK","LB"], ["LB","LB"],
   ["RIGHT WING BACK","RWB"], ["RIGHTWINGBACK","RWB"], ["RWB","RWB"],
   ["LEFT WING BACK","LWB"], ["LEFTWINGBACK","LWB"], ["LWB","LWB"],
   ["CENTER BACK","CB"], ["CENTRE BACK","CB"], ["CENTERBACK","CB"], ["CENTREBACK","CB"], ["CB","CB"],
+
   ["DEFENSIVE MID","CDM"], ["DEFENSIVE MIDFIELDER","CDM"], ["CDM","CDM"],
   ["CENTRE MID","CM"], ["CENTER MID","CM"], ["CENTREMID","CM"], ["CENTERMID","CM"], ["CM","CM"],
   ["ATTACKING MID","CAM"], ["ATTACKING MIDFIELDER","CAM"], ["CAM","CAM"],
+
   ["RIGHT MID","RM"], ["RIGHTMID","RM"], ["RM","RM"],
   ["LEFT MID","LM"], ["LEFTMID","LM"], ["LM","LM"],
+
   ["RIGHT WING","RW"], ["RIGHTWING","RW"], ["RW","RW"],
   ["LEFT WING","LW"], ["LEFTWING","LW"], ["LW","LW"],
+
   ["RIGHT FORWARD","RF"], ["RIGHTFORWARD","RF"], ["RF","RF"],
   ["LEFT FORWARD","LF"], ["LEFTFORWARD","LF"], ["LF","LF"],
   ["CENTRE FORWARD","CF"], ["CENTER FORWARD","CF"], ["CENTREFORWARD","CF"], ["CENTERFORWARD","CF"], ["CF","CF"],
-  ["STRIKER","ST"], ["FORWARD","ST"], ["ST","ST"]
+
+  ["STRIKER","ST"], ["FORWARD","ST"], ["ST","ST"],
 ]);
 
+// Card pos → which slot positions are valid
 const COMPATIBILITY = {
   GK: ["GK"],
+
   RB: ["RB","RWB","CB"],
   RWB:["RWB","RB","RM"],
   CB: ["CB","RB","LB"],
   LB: ["LB","LWB","CB"],
   LWB:["LWB","LB","LM"],
+
   CDM:["CDM","CM","CB"],
   CM: ["CM","CDM","CAM"],
   CAM:["CAM","CM","CF"],
+
   RM: ["RM","RW","RWB","CM"],
   LM: ["LM","LW","LWB","CM"],
+
   RW: ["RW","RM","RF","ST"],
   LW: ["LW","LM","LF","ST"],
   RF: ["RF","CF","RW","ST"],
   LF: ["LF","CF","LW","ST"],
   CF: ["CF","CAM","ST","RF","LF"],
-  ST: ["ST","CF","RF","LF","RW","LW"]
+  ST: ["ST","CF","RF","LF","RW","LW"],
 };
 
 function normalizePosition(p) {
@@ -77,18 +91,17 @@ export function normalizePositions(list) {
   return out;
 }
 
-export const POSITIONS = Array.from(POSITION_SET);
 export const isPosition = (p) => POSITION_SET.has(String(p || "").toUpperCase());
 
-// IMPORTANT: first arg is the SLOT position
+// slotPosition FIRST, then playerPositions (this is what chemistry calls)
 export function isValidForSlot(slotPosition, playerPositions) {
   const slot = normalizePosition(slotPosition);
   if (!slot) return false;
 
   const list = normalizePositions(playerPositions);
-  for (const p of list) {
-    if (p === slot) return true;
-    const compat = COMPATIBILITY[p] || [];
+  for (const cardPos of list) {
+    if (cardPos === slot) return true; // exact
+    const compat = COMPATIBILITY[cardPos] || [];
     if (compat.includes(slot)) return true;
   }
   return false;
