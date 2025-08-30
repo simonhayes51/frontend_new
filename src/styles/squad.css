@@ -1,26 +1,65 @@
 /* ==========================================================================
-   FUT.GG Style Squad Builder — Enhanced Styles
+   FUT Squad Builder — Full Styles (pitch, cards, right panels, top bar)
    ========================================================================== */
 
-/* --- GRID LAYOUT --- */
+/* ---------- GRID LAYOUT ---------- */
 .squad-grid {
   display: grid;
-  grid-template-columns: 1fr 360px; /* pitch | right panel */
+  grid-template-columns: 1fr 360px; /* pitch | right column */
   gap: 24px;
 }
+.pitch-container { min-width: 0; }
 
-.pitch-container {
-  min-width: 0; /* allow shrinking */
+/* ---------- TOP BAR / CONTROLS ---------- */
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 8px;
 }
 
-/* --- SEARCH CONTAINER (right panel) --- */
+.formation-select {
+  background: rgba(17, 24, 39, 0.95);
+  color: #e5e7eb;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 14px;
+  outline: none;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+.formation-select:focus {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+}
+
+.clear-btn {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.clear-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(220,38,38,.35); }
+.clear-btn:active { transform: translateY(0); }
+
+/* ---------- RIGHT COLUMN ---------- */
+.right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* --- Search panel --- */
 .search-container {
-  background: rgba(17, 24, 39, 0.85); /* dark glass card */
+  background: rgba(17, 24, 39, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
   padding: 14px;
-  height: 100%;
-  min-height: 520px;
+  min-height: 240px;
   display: flex;
   flex-direction: column;
   backdrop-filter: blur(6px);
@@ -44,7 +83,6 @@
   background: rgba(0, 0, 0, 0.25);
   padding: 8px;
 }
-
 .search-item {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -56,74 +94,89 @@
   cursor: pointer;
   transition: all 0.2s ease;
 }
-.search-item:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-}
-.search-item.invalid {
-  opacity: 0.5;
-  filter: grayscale(0.3);
-  cursor: not-allowed;
-}
-
-.search-thumb {
-  width: 40px;
-  height: 56px;
-  border-radius: 6px;
-  object-fit: cover;
-  margin-right: 8px;
-}
-
-.search-info {
-  flex: 1;
-}
-.search-name {
-  font-weight: 600;
-  color: #fff;
-  font-size: 14px;
-}
-.search-meta {
-  font-size: 12px;
-  color: #9ca3af;
-}
-
+.search-item:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,.4); }
+.search-item.invalid { opacity: .5; filter: grayscale(.3); cursor: not-allowed; }
+.search-thumb { width: 40px; height: 56px; border-radius: 6px; object-fit: cover; margin-right: 8px; }
+.search-info { flex: 1; }
+.search-name { font-weight: 600; color: #fff; font-size: 14px; }
+.search-meta { font-size: 12px; color: #9ca3af; }
 .search-placeholder {
-  margin-top: 4px;
-  padding: 12px;
+  margin-top: 4px; padding: 12px; border-radius: 10px;
+  background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.06);
+  color: #9ca3af; text-align: center;
+}
+
+/* --- Squad Overview panel --- */
+.overview-card {
+  background: rgba(17, 24, 39, 0.85);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 14px;
+  color: #e5e7eb;
+}
+.overview-title {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 700; color: #fff; margin-bottom: 10px;
+}
+.progress-wrap { margin-bottom: 12px; }
+.progress-bar {
+  height: 8px; border-radius: 999px; overflow: hidden;
+  background: rgba(255,255,255,0.08);
+}
+.progress-fill {
+  height: 100%; background: linear-gradient(90deg,#22c55e,#16a34a);
+  width: var(--pct,0%); transition: width .2s ease;
+}
+.overview-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.stat-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  color: #9ca3af;
+  padding: 10px;
   text-align: center;
 }
+.stat-value { font-size: 20px; font-weight: 800; color: #fff; }
+.stat-label { font-size: 12px; color: #9ca3af; }
 
-/* --- PLAYER CARDS ON PITCH --- */
-@keyframes cardHover {
-  0% { transform: translateY(0) scale(1); }
-  100% { transform: translateY(-4px) scale(1.02); }
+/* --- Chemistry Rules panel --- */
+.chem-rules {
+  background: rgba(17, 24, 39, 0.85);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 14px;
+  color: #e5e7eb;
 }
-@keyframes chemPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+.chem-title { font-weight: 700; color: #fff; margin-bottom: 8px; }
+.chem-grid {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
 }
+.chem-badge {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+/* ---------- PLAYER CARDS ON PITCH ---------- */
+@keyframes cardHover { 0%{transform:translateY(0) scale(1)} 100%{transform:translateY(-4px) scale(1.02)} }
+@keyframes chemPulse { 0%,100%{opacity:1} 50%{opacity:.6} }
 
 .squad-card {
   position: relative;
   overflow: hidden;
   user-select: none;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  transition: all .2s cubic-bezier(.4,0,.2,1);
+  box-shadow: 0 4px 12px rgba(0,0,0,.4);
 }
-.squad-card:hover {
-  animation: cardHover 0.2s ease-out forwards;
-  box-shadow: 0 12px 28px rgba(0,0,0,0.5);
-}
-.squad-card:active {
-  cursor: grabbing;
-  transform: translateY(-2px) scale(0.98);
-}
+.squad-card:hover { animation: cardHover .2s ease-out forwards; box-shadow: 0 12px 28px rgba(0,0,0,.5); }
+.squad-card:active { cursor: grabbing; transform: translateY(-2px) scale(.98); }
 
-/* hide frames/borders for placed cards */
+/* Remove any tinted frame/glow when placed */
 .pitch-content .squad-card,
 .pitch-content .squad-card img {
   background: transparent !important;
@@ -135,26 +188,32 @@
 .pitch-content .card-frame,
 .pitch-content [data-card-frame],
 .pitch-content .squad-card::before,
-.pitch-content .squad-card::after {
-  display: none !important;
-}
+.pitch-content .squad-card::after { display: none !important; }
 
-/* Empty slots */
+/* Price pill on card (if you render one) */
+.squad-card .price {
+  position: absolute;
+  bottom: -10px; left: 50%; transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 10px;
+  background: rgba(0,0,0,.75);
+  border: 1px solid rgba(255,255,255,.12);
+  color: #fef08a; font-weight: 700; font-size: 11px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.35);
+}
+.squad-card .price .coin { width: 12px; height: 12px; border-radius: 50%; background: linear-gradient(135deg,#fbbf24,#f59e0b); }
+
+/* Empty slots on the pitch */
 .empty-slot {
-  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border: 2px dashed rgba(255,255,255,.24);
   border-radius: 10px;
-  background: rgba(0,0,0,0.2);
-  transition: all 0.2s ease;
+  background: rgba(0,0,0,.18);
+  transition: all .2s ease;
 }
-.empty-slot:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-}
-.empty-slot.selected {
-  box-shadow: 0 0 0 2px #22c55e, 0 0 12px rgba(34,197,94,0.4);
-}
+.empty-slot:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.3); }
+.empty-slot.selected { box-shadow: 0 0 0 2px #22c55e, 0 0 12px rgba(34,197,94,.4); }
 
-/* --- PITCH --- */
+/* ---------- PITCH ---------- */
 .pitch-box {
   position: relative;
   width: 100%;
@@ -165,44 +224,40 @@
   background: #083a32;
 }
 .pitch-turf {
-  position: absolute;
-  inset: 0;
+  position: absolute; inset: 0;
   background: repeating-linear-gradient(
     to right,
-    rgba(255,255,255,0.04) 0 6%,
-    rgba(255,255,255,0.02) 6% 12%
+    rgba(255,255,255,.04) 0 6%,
+    rgba(255,255,255,.02) 6% 12%
   );
-  filter: saturate(0.9) brightness(0.9);
+  filter: saturate(.9) brightness(.9);
   pointer-events: none;
 }
-.pitch-svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+.pitch-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pl { fill: none; stroke: rgba(230,255,240,.7); stroke-width: .7; vector-effect: non-scaling-stroke; }
+.pl.filled { fill: rgba(230,255,240,.9); stroke: none; }
+.pitch-content { position: absolute; inset: 24px; }
+
+/* ---------- SCROLLBARS ---------- */
+.custom-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(75,85,99,.8) rgba(17,24,39,.4); }
+.custom-scrollbar::-webkit-scrollbar { width: 8px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: rgba(17,24,39,.4); border-radius: 8px; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(75,85,99,.8), rgba(55,65,81,.8));
+  border-radius: 8px; border: 1px solid rgba(17,24,39,.6);
 }
-.pl {
-  fill: none;
-  stroke: rgba(230,255,240,0.7);
-  stroke-width: 0.7;
-  vector-effect: non-scaling-stroke;
-}
-.pl.filled {
-  fill: rgba(230,255,240,0.9);
-  stroke: none;
-}
-.pitch-content {
-  position: absolute;
-  inset: 24px;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(107,114,128,.9), rgba(75,85,99,.9));
 }
 
-/* --- RESPONSIVE --- */
+/* ---------- RESPONSIVE ---------- */
 @media (max-width: 1200px) {
   .squad-grid { grid-template-columns: 1fr; }
-  .search-container { order: -1; }
+  .right-col { order: 2; }
+  .pitch-container { order: 1; }
 }
 @media (max-width: 768px) {
+  .search-container { min-height: auto; }
   .squad-card { width: 80px !important; height: 112px !important; }
   .empty-slot { width: 80px !important; height: 112px !important; }
-  .search-container { min-height: auto; }
 }
