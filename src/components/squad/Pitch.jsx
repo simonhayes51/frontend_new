@@ -1,78 +1,112 @@
-import React from "react";
-import { FORMATIONS } from "./formations";
-import "../styles/squad.css";
+// src/components/squad/Pitch.jsx
+// NOTE: Do NOT import the CSS here. It is imported once in SquadBuilder.jsx.
 
+import React from "react";
+
+// coords: array of { key, pos, x, y } (VERTICAL_COORDS[formation])
 export default function Pitch({
   formation,
+  coords,
   placed,
   chem,
-  selectedSlot,
   onSelectSlot,
   onRemove,
 }) {
-  const coords = FORMATIONS[formation] || [];
+  const perPlayerChem = chem?.perPlayer || {};
 
   return (
-    <div className="pitch-box enhanced-pitch">
-      {/* Turf stripes */}
-      <div className="pitch-turf"></div>
+    <div className="pitch-box enhanced-pitch relative">
+      {/* turf stripes */}
+      <div className="pitch-turf" />
 
-      {/* SVG pitch lines */}
-      <svg
-        className="pitch-svg"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-      >
-        <rect x="0" y="0" width="100" height="100" className="pl" />
-        {/* Halfway line */}
-        <line x1="0" y1="50" x2="100" y2="50" className="pl" />
-        {/* Centre circle */}
-        <circle cx="50" cy="50" r="9" className="pl" />
-        <circle cx="50" cy="50" r="1" className="pl filled" />
-        {/* Penalty boxes */}
-        <rect x="25" y="0" width="50" height="16" className="pl" />
-        <rect x="25" y="84" width="50" height="16" className="pl" />
-        {/* Penalty spots */}
-        <circle cx="50" cy="11" r="1" className="pl filled" />
-        <circle cx="50" cy="89" r="1" className="pl filled" />
+      {/* white pitch lines (SVG) */}
+      <svg className="pitch-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <rect x="2" y="2" width="96" height="96" rx="4" className="pl" />
+        <line x1="2" y1="50" x2="98" y2="50" className="pl" />
+        <circle cx="50" cy="50" r="1.5" className="pl filled" />
+        <circle cx="50" cy="50" r="14" className="pl" />
+
+        {/* penalty boxes */}
+        <g className="pl">
+          <rect x="28" y="2" width="44" height="10" className="pl" />
+          <circle cx="50" cy="12" r="0.6" className="pl filled" />
+          <rect x="28" y="88" width="44" height="10" className="pl" />
+          <circle cx="50" cy="88" r="0.6" className="pl filled" />
+        </g>
       </svg>
 
-      {/* Slots + players */}
+      {/* content layer with padding */}
       <div className="pitch-content">
-        {coords.map(({ key, x, y, pos }) => {
-          const player = placed[key];
-          const isSelected = selectedSlot?.key === key;
+        {coords.map(({ key, pos, x, y }) => {
+          const pl = placed[key];
+          const chemVal = perPlayerChem[key] ?? 0;
 
           return (
             <div
               key={key}
-              className={`slot ${isSelected ? "selected" : ""}`}
+              className="absolute"
               style={{
-                position: "absolute",
                 left: `${x}%`,
                 top: `${y}%`,
                 transform: "translate(-50%, -50%)",
-              }}
-              onClick={() => {
-                if (player) {
-                  onRemove?.(key);
-                } else {
-                  onSelectSlot?.({ key, pos });
-                }
+                width: 96,
+                height: 134,
               }}
             >
-              {player ? (
-                <div className="squad-card">
-                  <img src={player.image_url} alt={player.name} />
-                  <div className="name">{player.name}</div>
-                  {player.price ? (
-                    <div className="price">
-                      <span className="coin" /> {player.price.toLocaleString()}c
+              {/* empty slot */}
+              {!pl && (
+                <button
+                  className="empty-slot w-full h-full rounded-xl border-2 border-dashed border-emerald-300/40 bg-emerald-300/5 text-emerald-200 text-xs flex flex-col items-center justify-center"
+                  onClick={() => onSelectSlot({ key, pos })}
+                  title={`Add ${pos}`}
+                >
+                  <div className="font-semibold opacity-80">{pos}</div>
+                  <div className="text-lg leading-none">+</div>
+                </button>
+              )}
+
+              {/* placed card */}
+              {pl && (
+                <div
+                  className="squad-card relative w-full h-full rounded-xl cursor-pointer select-none"
+                  onClick={() => onSelectSlot({ key, pos })}
+                  title={`${pl.name} (${pos})`}
+                >
+                  <img
+                    className="squad-card__img rounded-xl"
+                    src={pl.image_url}
+                    alt={pl.name}
+                    draggable={false}
+                  />
+
+                  {/* price pill (bottom center) */}
+                  {pl.price != null && (
+                    <div
+                      className="price absolute left-1/2 -translate-x-1/2 bottom-1"
+                      style={{ pointerEvents: "none" }}
+                    >
+                      <span className="coin" /> {Number(pl.price).toLocaleString()}c
                     </div>
-                  ) : null}
+                  )}
+
+                  {/* chem dot (top-right) */}
+                  <div
+                    className={`chem-dot absolute right-2 top-2 ${
+                      chemVal >= 3 ? "chem-3" : chemVal === 2 ? "chem-2" : chemVal === 1 ? "chem-1" : "chem-0"
+                    }`}
+                    title={`Chem: ${chemVal}`}
+                  />
+
+                  {/* remove (small red dot top-left) */}
+                  <button
+                    className="absolute left-2 top-2 w-3.5 h-3.5 rounded-full bg-red-500 hover:bg-red-600"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemove(key);
+                    }}
+                    title="Remove"
+                  />
                 </div>
-              ) : (
-                <div className="empty-slot">{pos || key}</div>
               )}
             </div>
           );
