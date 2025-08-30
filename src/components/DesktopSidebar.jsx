@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 const DesktopSidebar = () => {
   const location = useLocation();
@@ -108,11 +109,14 @@ const DesktopSidebar = () => {
       {/* User card (+ dropdown) */}
       <div
         ref={userCardRef}
-        className={`relative bg-gray-800/40 rounded-xl ${collapsed ? "p-2 mb-3" : "p-3 mb-4"} shrink-0 cursor-pointer`}
-        onClick={() => setUserMenuOpen((o) => !o)}
-        title="Account menu"
+        className={`relative bg-gray-800/40 rounded-xl ${collapsed ? "p-2 mb-3" : "p-3 mb-4"} shrink-0`}
       >
-        <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
+        <button
+          type="button"
+          onClick={() => setUserMenuOpen((o) => !o)}
+          className={`w-full flex items-center ${collapsed ? "justify-center" : "gap-3"} text-left`}
+          title="Account menu"
+        >
           <img
             src={user?.avatar_url}
             alt={user?.global_name}
@@ -122,14 +126,19 @@ const DesktopSidebar = () => {
             }}
           />
           {!collapsed && (
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-white truncate">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-white truncate flex items-center gap-1">
                 {user?.global_name || user?.username}
+                {userMenuOpen ? (
+                  <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                )}
               </p>
               <p className="text-xs text-gray-400">Trader</p>
             </div>
           )}
-        </div>
+        </button>
 
         {/* Dropdown menu */}
         {userMenuOpen && (
@@ -199,7 +208,7 @@ const DesktopSidebar = () => {
       </div>
 
       {/* Footer (no Logout here anymore) */}
-      <div className={`${collapsed ? "px-2 py-2" : "px-2 py-3"} border-top border-gray-700/50 shrink-0`}>
+      <div className={`${collapsed ? "px-2 py-2" : "px-2 py-3"} border-t border-gray-700/50 shrink-0`}>
         <div className="space-y-1">
           <Link
             to="/help"
