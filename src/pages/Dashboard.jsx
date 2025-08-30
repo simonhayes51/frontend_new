@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
 import { useSettings } from "../context/SettingsContext";
 import {
@@ -11,7 +12,7 @@ const ACCENT = "#91db32";
 const cardBase =
   "bg-gray-900/70 rounded-2xl p-3 border border-gray-800 hover:border-gray-700 transition-colors h-[140px] flex flex-col justify-between";
 const cardTitle = "text-sm font-medium text-gray-300";
-const cardBig = "text-xl font-bold"; // was 2xl
+const cardBig = "text-xl font-bold";
 const chip = "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-gray-800 text-gray-300";
 
 export default function Dashboard() {
@@ -111,15 +112,14 @@ export default function Dashboard() {
       const k = dayKey(d);
       series.push({ x: k, y: map.get(k) ?? 0 });
     }
-    const w = 140, h = 42; // smaller to suit compact card
+    const w = 140, h = 42;
     const xs = series.map((_, i) => 1 + (i / (series.length - 1)) * (w - 2));
     const ysRaw = series.map((d) => d.y);
     const minY = Math.min(0, ...ysRaw);
     const maxY = Math.max(1, ...ysRaw);
     const scaleY = (v) => (maxY === minY ? h / 2 : 1 + (h - 2) * (1 - (v - minY) / (maxY - minY)));
-    const ys = ysRaw.map(scaleY);
-    let dAttr = `M ${xs[0]} ${ys[0]}`;
-    for (let i = 1; i < xs.length; i++) dAttr += ` L ${xs[i]} ${ys[i]}`;
+    let dAttr = `M ${xs[0]} ${scaleY(ysRaw[0])}`;
+    for (let i = 1; i < xs.length; i++) dAttr += ` L ${xs[i]} ${scaleY(ysRaw[i])}`;
     return { dAttr, w, h, last: ysRaw[ysRaw.length - 1] };
   }, [trades, include_tax_in_profit]);
 
@@ -274,7 +274,7 @@ export default function Dashboard() {
         );
       case "volume":
         return (
-          <div className={cardBase}}>
+          <div className={cardBase}>
             <div className={cardTitle}>Coin Volume ({tf})</div>
             <div className="text-xl font-bold text-gray-200">{formatCurrency(totals.volume.total)}</div>
             <div className="text-xs text-gray-400">
@@ -382,7 +382,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Widgets grid (uniform compact height) */}
+      {/* Widgets grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6" onDragOver={onDragOver}>
         {orderedKeys.map((key, idx) => (
           <div
@@ -406,7 +406,7 @@ export default function Dashboard() {
             <span className={chip}>Showing last {Math.min(filteredTrades.length, previewLimit)} ({tf})</span>
           </div>
           <div className="text-sm">
-            <a href="/trades" className="text-gray-300 hover:text-white">View all trades →</a>
+            <Link to="/trades" className="text-gray-300 hover:text-white">View all trades →</Link>
           </div>
         </div>
 
@@ -460,29 +460,31 @@ export default function Dashboard() {
 
       {/* Quick actions */}
       <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
-        <a
-          href="/add-trade"
+        <Link
+          to="/add-trade"
           className="group rounded-2xl border border-gray-800 bg-gray-900/70 p-4 hover:border-gray-700 transition-colors"
           style={{ boxShadow: `inset 0 0 0 1px rgba(145,219,50,0.08)` }}
         >
           <div className="text-sm text-gray-300">Quick Action</div>
           <div className="mt-1 font-semibold">Add Trade</div>
           <div className="text-xs text-gray-500 mt-1">Log a new buy/sell</div>
-        </a>
-        <a
-          href="/pricecheck"
-          className="group rounded-2xl border border-gray-800 bg-gray-900/70 p-4 hover:border-gray-700 transition-colors">
+        </Link>
+        <Link
+          to="/pricecheck"
+          className="group rounded-2xl border border-gray-800 bg-gray-900/70 p-4 hover:border-gray-700 transition-colors"
+        >
           <div className="text-sm text-gray-300">Shortcut</div>
           <div className="mt-1 font-semibold">Price Check</div>
           <div className="text-xs text-gray-500 mt-1">Look up live coin values</div>
-        </a>
-        <a
-          href="/trending"
-          className="group rounded-2xl border border-gray-800 bg-gray-900/70 p-4 hover:border-gray-700 transition-colors">
+        </Link>
+        <Link
+          to="/trending"
+          className="group rounded-2xl border border-gray-800 bg-gray-900/70 p-4 hover:border-gray-700 transition-colors"
+        >
           <div className="text-sm text-gray-300">Explore</div>
           <div className="mt-1 font-semibold">Trending</div>
           <div className="text-xs text-gray-500 mt-1">Top risers & fallers</div>
-        </a>
+        </Link>
       </div>
     </div>
   );
