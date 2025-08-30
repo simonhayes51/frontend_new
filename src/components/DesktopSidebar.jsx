@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 
 const DesktopSidebar = () => {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user } = useAuth(); // 👈 no logout here anymore
 
   // collapsed state (persisted)
   const [collapsed, setCollapsed] = useState(() => {
@@ -22,7 +22,8 @@ const DesktopSidebar = () => {
     localStorage.setItem("sidebarCollapsed", JSON.stringify(collapsed));
   }, [collapsed]);
 
-  const navItems = [
+  // 🔥 Removed Profile & Settings
+    const navItems = [
     {
       path: "/",
       label: "Dashboard",
@@ -60,7 +61,16 @@ const DesktopSidebar = () => {
         </svg>
       ),
     },
-    // 👇 NEW: Watchlist
+    {
+      path: "/squad",
+      label: "Squad Builder",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4l4 4-4 4-4-4 4-4z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l4 4-4 4-4-4 4-4z" />
+        </svg>
+      ),
+    },
     {
       path: "/watchlist",
       label: "Watchlist",
@@ -85,26 +95,8 @@ const DesktopSidebar = () => {
         </svg>
       ),
     },
-    {
-      path: "/profile",
-      label: "Profile",
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg>
-      ),
-    },
-    {
-      path: "/settings",
-      label: "Settings",
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      ),
-    },
   ];
+
 
   const isActive = (p) => location.pathname === p;
 
@@ -114,9 +106,8 @@ const DesktopSidebar = () => {
                   flex flex-col overflow-hidden transition-all duration-200
                   ${collapsed ? "w-16 px-2" : "w-64 p-4"}`}
     >
-      {/* Header / brand + toggle (fixed) */}
+      {/* Header / brand + toggle */}
       <div className="flex items-center mb-3 shrink-0">
-        {/* Logo: non-shrinking, square, thin gradient ring */}
         <div
           className={`rounded-full p-[2px] bg-gradient-to-r from-green-400/80 to-blue-500/80 
                 overflow-hidden shrink-0 aspect-square 
@@ -132,21 +123,15 @@ const DesktopSidebar = () => {
             }}
           />
         </div>
-
-        {/* Brand text (hidden when collapsed) */}
         {!collapsed && (
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-white truncate">FUT Dashboard</h1>
             <p className="text-[11px] text-gray-400 truncate">Trading Platform</p>
           </div>
         )}
-
-        {/* Toggle button */}
         <button
           onClick={() => setCollapsed((c) => !c)}
           className={`ml-auto p-1.5 rounded-md hover:bg-gray-800/70 text-gray-300 ${collapsed ? "mr-1" : ""}`}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label="Toggle sidebar"
         >
           {collapsed ? (
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -160,7 +145,7 @@ const DesktopSidebar = () => {
         </button>
       </div>
 
-      {/* User card (fixed; compact when collapsed) */}
+      {/* User card */}
       <div className={`bg-gray-800/40 rounded-xl ${collapsed ? "p-2 mb-3" : "p-3 mb-4"} shrink-0`}>
         <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
           <img
@@ -182,9 +167,8 @@ const DesktopSidebar = () => {
         </div>
       </div>
 
-      {/* Scrollable middle (nav + quick stats). If collapsed, hide stats to save space */}
+      {/* Nav */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        {/* Navigation */}
         <nav className={`${collapsed ? "px-1" : "px-1.5"} space-y-1`}>
           {!collapsed && (
             <p className="px-2 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
@@ -210,7 +194,7 @@ const DesktopSidebar = () => {
           ))}
         </nav>
 
-        {/* Quick Stats (hidden when collapsed) */}
+        {/* Quick Stats */}
         {!collapsed && (
           <div className="bg-gray-800/40 rounded-xl p-3 m-2 mt-4">
             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">
@@ -234,33 +218,19 @@ const DesktopSidebar = () => {
         )}
       </div>
 
-      {/* Footer actions (fixed) */}
+      {/* Footer (Help only now) */}
       <div className={`${collapsed ? "px-2 py-2" : "px-2 py-3"} border-t border-gray-700/50 shrink-0`}>
-        <div className="space-y-1">
-          <Link
-            to="/help"
-            title="Help & Support"
-            className={`flex items-center rounded-lg text-sm text-gray-300 hover:text-white hover:bg-gray-800/60 h-9
-                        ${collapsed ? "justify-center" : "gap-2 px-2.5"}`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {!collapsed && <span>Help & Support</span>}
-          </Link>
-
-          <button
-            onClick={logout}
-            title="Logout"
-            className={`flex items-center rounded-lg text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 h-9 w-full
-                        ${collapsed ? "justify-center" : "gap-2 px-2.5"}`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            {!collapsed && <span>Logout</span>}
-          </button>
-        </div>
+        <Link
+          to="/help"
+          title="Help & Support"
+          className={`flex items-center rounded-lg text-sm text-gray-300 hover:text-white hover:bg-gray-800/60 h-9
+                      ${collapsed ? "justify-center" : "gap-2 px-2.5"}`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {!collapsed && <span>Help & Support</span>}
+        </Link>
       </div>
     </aside>
   );
