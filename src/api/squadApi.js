@@ -1,80 +1,94 @@
 // src/api/squadApi.js
-import { normalizePositions, isValidForSlot as _isValidForSlot } from "../utils/positions";
+import { normalizePositions } from "../utils/positions";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
-const searchCache = new Map();
+
+// tiny caches (5 min TTL)
 const TTL = 5 * 60 * 1000;
-const ok = (ts) => ts && (Date.now() - ts) < TTL;
+const searchCache = new Map();
+const priceCache = new Map();
 
-// infer using your rules:
-// Icon -> club: "ICON" or league: "Icons"
-// Hero -> club: "Hero"
-function inferSpecialFromDB({ club, league }) {
-  const c = (club || "").trim().toLowerCase();
-  const l = (league || "").trim().toLowerCase();
-  const isIcon = c === "icon" || l === "icons";
-  const isHero = c === "hero";
-  return { isIcon, isHero };
-}
+const isFresh = (t) => Date.now() - t < TTL;
 
-// Filter helper for slot-specific search suggestions
-function allowsSlot(playerPositions, slot) {
-  return _isValidForSlot(slot, playerPositions);
-}
-
-export async function searchPlayers(query, slotFilter /* e.g. "ST" | null */) {
+export async function searchPlayers(query, slotPos = null) {
   const q = (query || "").trim();
-  if (!q) return [];
+  const p = slotPos ? String(slotPos).toUpperCase() : "";
+  if (!q && !p) return [];
 
-  const key = `${q.toLowerCase()}|${slotFilter || ""}`;
+  const key = `${q}::${p}`;
   const cached = searchCache.get(key);
-  if (cached && ok(cached.ts)) return cached.data;
+  if (cached && isFresh(cached.t)) return cached.data;
 
-  const r = await fetch(`${API_BASE}/api/search-players?q=${encodeURIComponent(q)}`, {
-    credentials: "include",
-  });
-  if (!r.ok) return [];
+  const url = new URL(`${API_BASE}/api/search-players`);
+  if (q) url.searchParams.set("q", q);
+  if (p) url.searchParams.set("pos", p);
 
-  const { players = [] } = await r.json();
+  try {
+    const r = await fetch(url.toString(), { credentials: "include" });
+    if (!r.ok) return [];
+    const { players = [] } = await r.json();
 
-  let mapped = players.map((p) => {
-    const base = Array.isArray(p.altposition)
-      ? p.altposition
-      : (p.altposition ? String(p.altposition).split(/[,\s/|]+/) : []);
-    const positions = normalizePositions([p.position, ...base]);
+    const data = players.map((row) => {
+      // Build positions from primary + altposition column
+      const list = [];
+      if (row.position) list.push(row.position);
+      if (row.altposition) list.push(...String(row.altposition).split(/[,\s;/|]+/));
+      const positions = normalizePositions(list);
 
-    const { isIcon, isHero } = inferSpecialFromDB(p);
+      // Icon/Hero detection from DB values (your convention)
+      const club = row.club || null;
+      const league = row.league || null;
+      const version = (row.version || "").toLowerCase();
+      const isIcon = club?.toUpperCase() === "ICON" || league?.toUpperCase() === "ICONS" || version.includes("icon");
+      const isHero = club?.toUpperCase() === "HERO" || version.includes("hero");
 
-    return {
-      id: Number(p.card_id),
-      card_id: Number(p.card_id),
-      name: p.name || "Unknown",
-      rating: Number(p.rating) || 0,
-      image_url: p.image_url || null,
-      price: typeof p.price === "number" ? p.price : null,
+      return {
+        id: Number(row.card_id),
+        card_id: Number(row.card_id),
+        name: row.name,
+        rating: Number(row.rating) || 0,
+        version: row.version || null,
+        image_url: row.image_url || null,
+        price: typeof row.price === "number" ? row.price : null,
 
-      // chemistry-relevant fields (strings from DB)
-      club: p.club || null,
-      league: p.league || null,     // ✅ make sure we keep league
-      nation: p.nation || null,
+        club,
+        league,
+        nation: row.nation || null,
 
-      positions,
-      isIcon,
-      isHero,
-    };
-  });
+        positions,
+        isIcon,
+        isHero,
+      };
+    });
 
-  if (slotFilter) {
-    const sf = String(slotFilter).toUpperCase();
-    mapped = mapped.filter((p) => allowsSlot(p.positions, sf));
+    searchCache.set(key, { t: Date.now(), data });
+    return data;
+  } catch {
+    return [];
   }
-
-  searchCache.set(key, { ts: Date.now(), data: mapped });
-  return mapped;
 }
 
-// Enrichment not required for chemistry if DB already has the fields.
-// Keep it as a no-op to avoid overwriting with nulls.
-export async function enrichPlayer(base) {
-  return base;
+// Optional: live price proxy (kept for future use)
+export async function fetchLivePrice(cardId) {
+  const id = Number(cardId);
+  if (!id) return null;
+
+  const cached = priceCache.get(id);
+  if (cached && isFresh(cached.t)) return cached.data;
+
+  try {
+    const r = await fetch(`${API_BASE}/api/fut-player-price/${id}`, { credentials: "include" });
+    if (!r.ok) return null;
+    const json = await r.json();
+    const cur = json?.data?.currentPrice || {};
+    const out = {
+      price: typeof cur.price === "number" ? cur.price : null,
+      isExtinct: !!cur.isExtinct,
+      updatedAt: cur.priceUpdatedAt || null,
+    };
+    priceCache.set(id, { t: Date.now(), data: out });
+    return out;
+  } catch {
+    return null;
+  }
 }
