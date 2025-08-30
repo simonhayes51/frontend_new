@@ -5,98 +5,83 @@ import "../styles/squad.css";
 import Pitch from "../components/squad/Pitch";
 import { VERTICAL_COORDS } from "../components/squad/formations_vertical";
 import { computeChemistry } from "../components/squad/chemistry";
-import { searchPlayers, getLivePrice } from "../api/squadApi"; // ✅ only these
+import { searchPlayers, getLivePrice } from "../api/squadApi";
 import { isValidForSlot } from "../utils/positions";
 import ChemDebug from "../components/squad/ChemDebug";
 
 export default function SquadBuilder() {
   const [formation, setFormation] = useState("4-3-3");
-  const [placed, setPlaced] = useState({});           // { [slotKey]: player }
+  const [placed, setPlaced] = useState({});
   const [searchResults, setSearchResults] = useState([]);
   const [query, setQuery] = useState("");
-  const [selectedSlot, setSelectedSlot] = useState(null); // { key, pos } or null
-  const fetchingPriceRef = useRef(new Set());             // avoid double price fetches
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const fetchingPriceRef = useRef(new Set());
 
-  // --- Chemistry (depends on placed + current formation layout) -------------
-  const chem = useMemo(() => {
-    return computeChemistry(placed, VERTICAL_COORDS[formation]);
-  }, [placed, formation]);
+  const chem = useMemo(
+    () => computeChemistry(placed, VERTICAL_COORDS[formation]),
+    [placed, formation]
+  );
 
-  // --- Search (filters by selected slot's position) -------------------------
   useEffect(() => {
     const run = async () => {
       const q = (query || "").trim();
       const pos = selectedSlot?.pos || "";
-      if (!q && !pos) {
-        setSearchResults([]);
-        return;
-      }
+      if (!q && !pos) return setSearchResults([]);
       try {
         const res = await searchPlayers(q, { pos });
         setSearchResults(Array.isArray(res) ? res : []);
-      } catch (err) {
-        console.error("Search error:", err);
+      } catch (e) {
+        console.error("search error:", e);
         setSearchResults([]);
       }
     };
     run();
   }, [query, selectedSlot]);
 
-  // --- Place player into a slot --------------------------------------------
-  const handlePlace = async (slotKey, player) => {
-    // mark inPos now (UI nicety; chem engine can also re-evaluate)
-    const primary = (player.position || "").toUpperCase();
-    const alts = (player.altposition || "")
+  const handlePlace = async (slotKey, p) => {
+    const primary = (p.position || "").toUpperCase();
+    const alts = (p.altposition || "")
       .split(/[;,|/ ]+/)
       .map((s) => s.trim().toUpperCase())
       .filter(Boolean);
     const valid = isValidForSlot(selectedSlot?.pos || slotKey, [primary, ...alts]);
 
-    const toPlace = {
-      ...player,
-      inPos: !!valid,
-    };
-
+    const toPlace = { ...p, inPos: !!valid };
     setPlaced((prev) => ({ ...prev, [slotKey]: toPlace }));
 
-    // lazy fill price if missing
-    if ((toPlace.price == null || Number.isNaN(toPlace.price)) && toPlace.card_id && !fetchingPriceRef.current.has(toPlace.card_id)) {
-      fetchingPriceRef.current.add(toPlace.card_id);
-      try {
-        const live = await getLivePrice(toPlace.card_id);
-        if (typeof live === "number" && live >= 0) {
-          setPlaced((prev) => {
-            if (!prev[slotKey] || prev[slotKey].card_id !== toPlace.card_id) return prev;
-            return { ...prev, [slotKey]: { ...prev[slotKey], price: live } };
-          });
-        }
-      } catch (e) {
-        console.warn("price fetch failed", e);
-      } finally {
+    if ((toPlace.price == null || Number.isNaN(toPlace.price)) && toPlace.card_id) {
+      if (!fetchingPriceRef.current.has(toPlace.card_id)) {
+        fetchingPriceRef.current.add(toPlace.card_id);
+        try {
+          const live = await getLivePrice(toPlace.card_id);
+          if (typeof live === "number") {
+            setPlaced((prev) => {
+              if (!prev[slotKey] || prev[slotKey].card_id !== toPlace.card_id) return prev;
+              return { ...prev, [slotKey]: { ...prev[slotKey], price: live } };
+            });
+          }
+        } catch {}
         fetchingPriceRef.current.delete(toPlace.card_id);
       }
     }
 
-    // reset search UI
     setSelectedSlot(null);
     setQuery("");
     setSearchResults([]);
   };
 
-  // --- Remove player from a slot -------------------------------------------
   const handleRemove = (slotKey) => {
     setPlaced((prev) => {
-      const copy = { ...prev };
-      delete copy[slotKey];
-      return copy;
+      const next = { ...prev };
+      delete next[slotKey];
+      return next;
     });
   };
 
-  // --- Render ---------------------------------------------------------------
   return (
-    <div className="squad-grid grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Pitch + formation + chem debug */}
-      <div className="pitch-container lg:col-span-2">
+    <div className="sb-grid">
+      {/* LEFT: pitch */}
+      <div className="sb-left">
         <Pitch
           formation={formation}
           placed={placed}
@@ -106,47 +91,38 @@ export default function SquadBuilder() {
           onRemove={handleRemove}
         />
 
-        <div className="mt-4 flex items-center gap-3">
+        <div className="sb-controls">
           <select
-            className="formation-select px-3 py-2 rounded-md text-sm"
+            className="formation-select"
             value={formation}
             onChange={(e) => setFormation(e.target.value)}
           >
             {Object.keys(VERTICAL_COORDS).map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
+              <option key={f} value={f}>{f}</option>
             ))}
           </select>
 
-          {/* (Optional) quick clear button */}
-          <button
-            className="enhanced-btn btn-green px-3 py-2 rounded-md text-sm"
-            onClick={() => setPlaced({})}
-          >
+          <button className="enhanced-btn btn-green sb-clear" onClick={() => setPlaced({})}>
             Clear Squad
           </button>
         </div>
 
-        {/* Toggleable debug is handy while tuning chem */}
-        <div className="mt-4">
-          <ChemDebug chem={chem} placed={placed} formation={formation} />
-        </div>
+        {/* keep while tuning */}
+        <ChemDebug chem={chem} placed={placed} formation={formation} />
       </div>
 
-      {/* Search column */}
-      <div className="search-container">
+      {/* RIGHT: search */}
+      <div className="sb-right">
         {selectedSlot ? (
           <>
             <input
+              className="search-input"
               type="text"
               placeholder={`Search ${selectedSlot.pos}…`}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="search-input w-full px-3 py-2 rounded-md mb-3"
             />
-
-            <div className="search-results custom-scrollbar max-h-[70vh] overflow-auto space-y-2">
+            <div className="search-results custom-scrollbar">
               {searchResults.map((p) => {
                 const primary = (p.position || "").toUpperCase();
                 const alts = (p.altposition || "")
@@ -158,35 +134,31 @@ export default function SquadBuilder() {
                 return (
                   <div
                     key={p.card_id || p.id}
-                    className={`search-item flex items-center gap-3 p-2 rounded-md cursor-pointer ${!valid ? "invalid" : ""}`}
+                    className={`search-item row ${!valid ? "invalid" : ""}`}
                     onClick={() => valid && handlePlace(selectedSlot.key, p)}
-                    title={!valid ? "Not eligible for this position" : "Add to squad"}
+                    title={!valid ? "Not eligible for this slot" : "Add to squad"}
                   >
-                    <img
-                      src={p.image_url}
-                      alt={p.name}
-                      className="search-thumb w-12 h-16 object-cover rounded"
-                    />
-                    <div className="search-info">
-                      <div className="search-name font-semibold">{p.name}</div>
-                      <div className="search-meta text-xs opacity-80">
+                    <img className="thumb" src={p.image_url} alt={p.name} />
+                    <div className="info">
+                      <div className="name">{p.name}</div>
+                      <div className="meta">
                         {p.rating ?? "-"} · {p.position ?? "—"}
                         {p.altposition ? ` (${p.altposition})` : ""} · {p.club ?? "—"}
                       </div>
                     </div>
-                    <div className="ml-auto text-xs font-semibold">
+                    <div className="priceCell">
                       {typeof p.price === "number" ? `${p.price.toLocaleString()}c` : ""}
                     </div>
                   </div>
                 );
               })}
               {searchResults.length === 0 && (
-                <div className="text-sm opacity-70">No results.</div>
+                <div className="empty">No results</div>
               )}
             </div>
           </>
         ) : (
-          <div className="search-placeholder text-sm opacity-80">
+          <div className="search-placeholder">
             Select a slot on the pitch to search for players.
           </div>
         )}
