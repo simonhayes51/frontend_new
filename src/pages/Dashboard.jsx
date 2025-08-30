@@ -3,31 +3,30 @@ import { useDashboard } from "../context/DashboardContext";
 import { useSettings } from "../context/SettingsContext";
 import {
   TrendingUp, TrendingDown, Clock, Trophy, LineChart,
-  GripVertical, PencilLine, RotateCcw
+  PencilLine, RotateCcw
 } from "lucide-react";
 
 const ACCENT = "#91db32";
-// Responsive fixed heights for perfectly uniform cards
+// Compact, uniform cards
 const cardBase =
-  "bg-gray-900/70 rounded-2xl p-4 border border-gray-800 hover:border-gray-700 transition-colors h-[160px] sm:h-[180px] md:h-[200px] lg:h-[220px] flex flex-col justify-between";
+  "bg-gray-900/70 rounded-2xl p-3 border border-gray-800 hover:border-gray-700 transition-colors h-[140px] flex flex-col justify-between";
 const cardTitle = "text-sm font-medium text-gray-300";
-const cardBig = "text-2xl font-bold";
-const chip = "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-300";
+const cardBig = "text-xl font-bold"; // was 2xl
+const chip = "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-gray-800 text-gray-300";
 
 export default function Dashboard() {
-  // --- Hooks (top-level only) ---
+  // --- Hooks ---
   const { netProfit, taxPaid, startingBalance, trades: rawTrades, isLoading, error } = useDashboard();
   const {
     formatCurrency, formatDate,
     visible_widgets, widget_order,
     include_tax_in_profit, saveSettings,
-    // NEW: optional limit pulled from settings (fallback to 5)
     recent_trades_limit,
     isLoading: settingsLoading
   } = useSettings();
 
-  const [tf, setTf] = useState("7D");             // timeframe selector
-  const [editLayout, setEditLayout] = useState(false); // drag mode
+  const [tf, setTf] = useState("7D");
+  const [editLayout, setEditLayout] = useState(false);
 
   // --- Normalised inputs ---
   const trades = Array.isArray(rawTrades) ? rawTrades : [];
@@ -112,7 +111,7 @@ export default function Dashboard() {
       const k = dayKey(d);
       series.push({ x: k, y: map.get(k) ?? 0 });
     }
-    const w = 160, h = 48;
+    const w = 140, h = 42; // smaller to suit compact card
     const xs = series.map((_, i) => 1 + (i / (series.length - 1)) * (w - 2));
     const ysRaw = series.map((d) => d.y);
     const minY = Math.min(0, ...ysRaw);
@@ -124,7 +123,7 @@ export default function Dashboard() {
     return { dAttr, w, h, last: ysRaw[ysRaw.length - 1] };
   }, [trades, include_tax_in_profit]);
 
-  // --- Ordered widget keys (visible + order) ---
+  // --- Ordered widget keys ---
   const orderedKeys = useMemo(() => {
     const set = new Set(vis);
     const primary = order.filter((k) => set.has(k));
@@ -132,7 +131,7 @@ export default function Dashboard() {
     return primary;
   }, [vis, order]);
 
-  // --- Drag handlers (for edit layout) ---
+  // --- Drag handlers ---
   const onDragStart = useCallback(
     (idx) => (e) => {
       if (!editLayout) return;
@@ -167,15 +166,15 @@ export default function Dashboard() {
     saveSettings({ widget_order: [...orderedKeys, ...hidden] });
   }, [orderedKeys, order, vis, saveSettings]);
 
-  // --- Guards after hooks ---
+  // --- Guards ---
   if (isLoading || settingsLoading) {
     return (
       <div className="p-4 max-w-6xl mx-auto">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-800 rounded w-48" />
+          <div className="h-6 bg-gray-800 rounded w-40" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-gray-900/70 rounded-2xl h-[200px] border border-gray-800" />
+              <div key={i} className="bg-gray-900/70 rounded-2xl h-[140px] border border-gray-800" />
             ))}
           </div>
           <div className="bg-gray-900/70 rounded-2xl h-64 border border-gray-800" />
@@ -185,7 +184,7 @@ export default function Dashboard() {
   }
   if (error) return <div className="text-red-500 p-4">{String(error)}</div>;
 
-  // --- Stateless widget renderer ---
+  // --- Widgets ---
   const renderWidget = (key) => {
     switch (key) {
       case "profit":
@@ -196,7 +195,7 @@ export default function Dashboard() {
               {formatCurrency(totals.totalProfit)} coins
             </div>
             {!include_tax_in_profit && (
-              <div className="text-xs text-gray-400 mt-1">Before tax: {formatCurrency(totals.gross)} coins</div>
+              <div className="text-xs text-gray-400">Before tax: {formatCurrency(totals.gross)} coins</div>
             )}
           </div>
         );
@@ -204,8 +203,8 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>EA Tax Paid</div>
-            <div className="text-2xl font-bold text-red-400">{formatCurrency(totals.totalTax)} coins</div>
-            <div className="text-xs text-gray-400 mt-1">
+            <div className="text-xl font-bold text-red-400">{formatCurrency(totals.totalTax)} coins</div>
+            <div className="text-xs text-gray-400">
               {totals.totalTax > 0 ? `${totals.taxPct.toFixed(1)}% of gross` : "No tax yet"}
             </div>
           </div>
@@ -214,9 +213,9 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>Starting Balance</div>
-            <div className="text-2xl font-bold text-blue-400">{formatCurrency(startingBalance ?? 0)} coins</div>
+            <div className="text-xl font-bold text-blue-400">{formatCurrency(startingBalance ?? 0)} coins</div>
             {(startingBalance ?? 0) > 0 && totals.totalProfit > 0 && (
-              <div className="text-xs text-gray-400 mt-1">
+              <div className="text-xs text-gray-400">
                 ROI: {(((totals.totalProfit) / (startingBalance || 1)) * 100).toFixed(1)}%
               </div>
             )}
@@ -226,11 +225,9 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>Total Trades ({tf})</div>
-            <div className="text-2xl font-bold text-purple-400">{filteredTrades.length}</div>
+            <div className="text-xl font-bold text-purple-400">{filteredTrades.length}</div>
             {filteredTrades.length > 0 && (
-              <div className="text-xs text-gray-400 mt-1">
-                Avg profit: {formatCurrency(totals.avgProfit)} coins
-              </div>
+              <div className="text-xs text-gray-400">Avg profit: {formatCurrency(totals.avgProfit)} coins</div>
             )}
           </div>
         );
@@ -238,11 +235,11 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>ROI</div>
-            <div className="flex items-baseline gap-2">
-              <div className="text-2xl font-bold">
+            <div className="flex items-center gap-2">
+              <div className="text-xl font-bold">
                 {startingBalance ? (((totals.totalProfit) / (startingBalance || 1)) * 100).toFixed(1) : 0}%
               </div>
-              <span className={chip}><Trophy size={12}/> cumulative</span>
+              <span className={chip}><Trophy size={10}/> cumulative</span>
             </div>
           </div>
         );
@@ -250,18 +247,18 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>Win Rate ({tf})</div>
-            <div className="text-2xl font-bold">{filteredTrades.length ? totals.winRate.toFixed(1) : 0}%</div>
-            <div className="text-xs text-gray-400 mt-1">{totals.wins} wins • {totals.losses} losses</div>
+            <div className="text-xl font-bold">{filteredTrades.length ? totals.winRate.toFixed(1) : 0}%</div>
+            <div className="text-xs text-gray-400">{totals.wins} wins • {totals.losses} losses</div>
           </div>
         );
       case "best_trade":
         return (
           <div className={cardBase}>
             <div className={cardTitle}>Best Trade ({tf})</div>
-            <div className="text-2xl font-bold text-green-400">
+            <div className="text-xl font-bold text-green-400">
               {formatCurrency(totals.best.value === -Infinity ? 0 : totals.best.value)}
             </div>
-            <div className="text-xs text-gray-400 mt-1">
+            <div className="text-xs text-gray-400">
               {totals.best.trade ? `${totals.best.trade.player ?? "Unknown"} (${totals.best.trade.version ?? "—"})` : "—"}
             </div>
           </div>
@@ -270,17 +267,17 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>Average Profit / Trade ({tf})</div>
-            <div className="text-2xl font-bold" style={{ color: ACCENT }}>
+            <div className="text-xl font-bold" style={{ color: ACCENT }}>
               {formatCurrency(totals.avgProfit)}
             </div>
           </div>
         );
       case "volume":
         return (
-          <div className={cardBase}>
+          <div className={cardBase}}>
             <div className={cardTitle}>Coin Volume ({tf})</div>
-            <div className="text-2xl font-bold text-gray-200">{formatCurrency(totals.volume.total)}</div>
-            <div className="text-xs text-gray-400 mt-1">
+            <div className="text-xl font-bold text-gray-200">{formatCurrency(totals.volume.total)}</div>
+            <div className="text-xs text-gray-400">
               Buys: {formatCurrency(totals.volume.buy)} • Sells: {formatCurrency(totals.volume.sell)}
             </div>
           </div>
@@ -290,13 +287,13 @@ export default function Dashboard() {
           <div className={cardBase}>
             <div className="flex items-center justify-between">
               <div className={cardTitle}>Profit Trend (7D)</div>
-              <span className={chip}><LineChart size={12} /> sparkline</span>
+              <span className={chip}><LineChart size={10} /> sparkline</span>
             </div>
-            <div className="mt-2">
+            <div className="mt-1">
               <svg width={spark.w} height={spark.h}>
                 <path d={spark.dAttr} stroke={ACCENT} fill="none" strokeWidth="2" />
               </svg>
-              <div className="text-xs text-gray-400 mt-1">
+              <div className="text-xs text-gray-400">
                 Last day:{" "}
                 <span className={spark.last >= 0 ? "text-green-400 font-medium" : "text-red-400 font-medium"}>
                   {formatCurrency(spark.last ?? 0)}
@@ -310,12 +307,12 @@ export default function Dashboard() {
           <div className={cardBase}>
             <div className={cardTitle}>Latest Trade</div>
             {totals.latest ? (
-              <div className="mt-1">
+              <div className="mt-0.5">
                 <div className="flex items-center gap-2">
-                  <div className="text-sm font-semibold">{totals.latest.player ?? "Unknown"}</div>
-                  <div className="text-xs text-gray-400">({totals.latest.version ?? "—"})</div>
+                  <div className="text-[13px] font-semibold">{totals.latest.player ?? "Unknown"}</div>
+                  <div className="text-[11px] text-gray-400">({totals.latest.version ?? "—"})</div>
                 </div>
-                <div className="text-xs text-gray-400 mt-1">
+                <div className="text-xs text-gray-400 mt-0.5">
                   {formatCurrency(totals.latest.buy ?? 0)} → {formatCurrency(totals.latest.sell ?? 0)}
                   {totals.latest.quantity > 1 && ` (${totals.latest.quantity}x)`} • {totals.latest.platform ?? "Console"}
                 </div>
@@ -325,19 +322,14 @@ export default function Dashboard() {
                   const displayProfit = include_tax_in_profit ? baseProfit - tax : baseProfit;
                   const pos = displayProfit >= 0;
                   return (
-                    <div className={`mt-1 text-sm font-semibold ${pos ? "text-green-400" : "text-red-400"}`}>
-                      {pos ? <TrendingUp size={14} className="inline mr-1" /> : <TrendingDown size={14} className="inline mr-1" />}
+                    <div className={`mt-0.5 text-[13px] font-semibold ${pos ? "text-green-400" : "text-red-400"}`}>
                       {pos ? "+" : ""}{formatCurrency(displayProfit)} coins
                     </div>
                   );
                 })()}
-                <div className="text-xs text-gray-400 mt-1">
-                  <Clock size={12} className="inline mr-1" />
-                  {totals.latest?.timestamp ? formatDate(totals.latest.timestamp) : "—"}
-                </div>
               </div>
             ) : (
-              <div className="text-gray-400 text-sm mt-1">No trades yet</div>
+              <div className="text-gray-400 text-xs mt-1">No trades yet</div>
             )}
           </div>
         );
@@ -349,17 +341,17 @@ export default function Dashboard() {
   return (
     <div className="p-4 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <div className="flex items-center gap-3">
-          <div className="text-sm text-gray-400">Last updated: {formatDate(new Date())}</div>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
+        <h1 className="text-xl font-bold">Dashboard</h1>
+        <div className="flex items-center gap-2">
+          <div className="text-xs text-gray-400">Last updated: {formatDate(new Date())}</div>
           <div className="w-px h-4 bg-gray-700" />
           <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-1 flex">
             {["7D", "30D", "ALL"].map((k) => (
               <button
                 key={k}
                 onClick={() => setTf(k)}
-                className={`px-3 py-1 text-sm rounded-lg ${tf === k ? "bg-gray-800 text-white" : "text-gray-400 hover:text-gray-200"}`}
+                className={`px-2.5 py-1 text-xs rounded-lg ${tf === k ? "bg-gray-800 text-white" : "text-gray-400 hover:text-gray-200"}`}
                 style={tf === k ? { outline: `1px solid ${ACCENT}` } : undefined}
               >
                 {k}
@@ -369,29 +361,29 @@ export default function Dashboard() {
           <div className="w-px h-4 bg-gray-700" />
           <button
             onClick={() => setEditLayout((v) => !v)}
-            className={`text-sm px-3 py-1 rounded-lg border ${
+            className={`text-xs px-3 py-1 rounded-lg border ${
               editLayout ? "bg-gray-800 border-gray-700" : "bg-gray-900/70 border-gray-800 hover:border-gray-700"
-            } flex items-center gap-2`}
+            } flex items-center gap-1.5`}
             title="Reorder widgets on the dashboard"
           >
-            <PencilLine size={14} />
-            {editLayout ? "Done" : "Edit layout"}
+            <PencilLine size={12} />
+            {editLayout ? "Done" : "Edit"}
           </button>
           {editLayout && (
             <button
               onClick={resetLayout}
-              className="text-sm px-3 py-1 rounded-lg bg-gray-900/70 border border-gray-800 hover:border-gray-700 flex items-center gap-2"
+              className="text-xs px-3 py-1 rounded-lg bg-gray-900/70 border border-gray-800 hover:border-gray-700 flex items-center gap-1.5"
               title="Reset current layout"
             >
-              <RotateCcw size={14} />
+              <RotateCcw size={12} />
               Reset
             </button>
           )}
         </div>
       </div>
 
-      {/* Widgets grid (uniform heights) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 items-stretch" onDragOver={onDragOver}>
+      {/* Widgets grid (uniform compact height) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6" onDragOver={onDragOver}>
         {orderedKeys.map((key, idx) => (
           <div
             key={key}
@@ -407,10 +399,10 @@ export default function Dashboard() {
       </div>
 
       {/* Recent Trades */}
-      <div className="bg-gray-900/70 rounded-2xl p-6 border border-gray-800">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
+      <div className="bg-gray-900/70 rounded-2xl p-5 border border-gray-800">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-semibold">Recent Trades</h2>
+            <h2 className="text-lg font-semibold">Recent Trades</h2>
             <span className={chip}>Showing last {Math.min(filteredTrades.length, previewLimit)} ({tf})</span>
           </div>
           <div className="text-sm">
@@ -467,7 +459,7 @@ export default function Dashboard() {
       </div>
 
       {/* Quick actions */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
         <a
           href="/add-trade"
           className="group rounded-2xl border border-gray-800 bg-gray-900/70 p-4 hover:border-gray-700 transition-colors"
