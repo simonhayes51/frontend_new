@@ -2,14 +2,24 @@ import React, { useState, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
 import { useSettings } from "../context/SettingsContext";
-import { LineChart, PencilLine, RotateCcw, Trophy } from "lucide-react";
+import { LineChart, PencilLine, RotateCcw } from "lucide-react";
 
 const ACCENT = "#91db32";
+
+// Cards: a touch more padding for the new type scale
 const cardBase =
-  "bg-gray-900/70 rounded-2xl p-3 border border-gray-800 hover:border-gray-700 transition-colors h-[140px] flex flex-col justify-between";
-const cardTitle = "text-sm font-medium text-gray-300";
-const cardBig = "text-xl font-bold";
-const chip = "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-gray-800 text-gray-300";
+  "bg-gray-900/70 rounded-2xl p-4 border border-gray-800 hover:border-gray-700 transition-colors h-[140px] flex flex-col justify-between";
+
+// Typography: consistent across all widgets
+const cardTitle =
+  "text-[clamp(12px,1.05vw,14px)] font-semibold text-gray-200/90 leading-none";
+const cardBig =
+  "text-[clamp(22px,2.1vw,30px)] font-extrabold leading-tight tracking-tight tabular-nums whitespace-nowrap";
+const subText =
+  "text-[clamp(11px,0.95vw,13px)] text-gray-400 leading-snug";
+
+const chip =
+  "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-gray-800 text-gray-300";
 
 export default function Dashboard() {
   const { netProfit, taxPaid, startingBalance, trades: rawTrades, isLoading, error } = useDashboard();
@@ -29,6 +39,7 @@ export default function Dashboard() {
   const order = Array.isArray(widget_order) ? widget_order : [];
   const previewLimit = Number.isFinite(recent_trades_limit) && recent_trades_limit > 0 ? recent_trades_limit : 5;
 
+  // Timeframe filter
   const filterByTimeframe = useCallback((all, tfKey) => {
     if (tfKey === "ALL") return all;
     const days = tfKey === "7D" ? 7 : 30;
@@ -41,6 +52,7 @@ export default function Dashboard() {
 
   const filteredTrades = useMemo(() => filterByTimeframe(trades, tf), [trades, tf, filterByTimeframe]);
 
+  // Metrics
   const totals = useMemo(() => {
     const totalProfit = netProfit ?? 0;
     const totalTax = taxPaid ?? 0;
@@ -95,6 +107,7 @@ export default function Dashboard() {
     };
   }, [filteredTrades, netProfit, taxPaid, include_tax_in_profit, startingBalance]);
 
+  // Sparkline (7-day)
   const spark = useMemo(() => {
     const dayKey = (d) => {
       const dt = new Date(d);
@@ -125,6 +138,7 @@ export default function Dashboard() {
     return { dAttr, w, h, last: ysRaw[ysRaw.length - 1] };
   }, [trades, include_tax_in_profit]);
 
+  // Visible + order
   const orderedKeys = useMemo(() => {
     const set = new Set(vis);
     const primary = order.filter((k) => set.has(k));
@@ -132,6 +146,7 @@ export default function Dashboard() {
     return primary;
   }, [vis, order]);
 
+  // Drag & drop
   const onDragStart = useCallback(
     (idx) => (e) => {
       if (!editLayout) return;
@@ -160,6 +175,7 @@ export default function Dashboard() {
     saveSettings({ widget_order: [...orderedKeys, ...hidden] });
   }, [orderedKeys, order, vis, saveSettings]);
 
+  // Loading / error
   if (isLoading || settingsLoading) {
     return (
       <div className="p-4 max-w-6xl mx-auto">
@@ -177,6 +193,7 @@ export default function Dashboard() {
   }
   if (error) return <div className="text-red-500 p-4">{String(error)}</div>;
 
+  // Widget renderer
   const renderWidget = (key) => {
     switch (key) {
       case "profit":
@@ -187,7 +204,7 @@ export default function Dashboard() {
               {formatCurrency(totals.totalProfit)} coins
             </div>
             {!include_tax_in_profit && (
-              <div className="text-xs text-gray-400">Before tax: {formatCurrency(totals.gross)} coins</div>
+              <div className={subText}>Before tax: {formatCurrency(totals.gross)} coins</div>
             )}
           </div>
         );
@@ -195,8 +212,8 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>EA Tax Paid</div>
-            <div className="text-xl font-bold text-red-400">{formatCurrency(totals.totalTax)} coins</div>
-            <div className="text-xs text-gray-400">
+            <div className={`${cardBig} text-red-400`}>{formatCurrency(totals.totalTax)} coins</div>
+            <div className={subText}>
               {totals.totalTax > 0 ? `${totals.taxPct.toFixed(1)}% of gross` : "No tax yet"}
             </div>
           </div>
@@ -205,9 +222,9 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>Starting Balance</div>
-            <div className="text-xl font-bold text-blue-400">{formatCurrency(startingBalance ?? 0)} coins</div>
+            <div className={`${cardBig} text-blue-400`}>{formatCurrency(startingBalance ?? 0)} coins</div>
             {(startingBalance ?? 0) > 0 && totals.totalProfit > 0 && (
-              <div className="text-xs text-gray-400">
+              <div className={subText}>
                 ROI: {(((totals.totalProfit) / (startingBalance || 1)) * 100).toFixed(1)}%
               </div>
             )}
@@ -217,9 +234,9 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>Total Trades ({tf})</div>
-            <div className="text-xl font-bold text-purple-400">{filteredTrades.length}</div>
+            <div className={`${cardBig} text-purple-400`}>{filteredTrades.length}</div>
             {filteredTrades.length > 0 && (
-              <div className="text-xs text-gray-400">Avg profit: {formatCurrency(totals.avgProfit)} coins</div>
+              <div className={subText}>Avg profit: {formatCurrency(totals.avgProfit)} coins</div>
             )}
           </div>
         );
@@ -230,8 +247,8 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>ROI</div>
-            <div className="text-xl font-bold">{roiPct.toFixed(1)}%</div>
-            <div className="text-xs text-gray-400">cumulative</div>
+            <div className={cardBig}>{roiPct.toFixed(1)}%</div>
+            <div className={subText}>cumulative</div>
           </div>
         );
       }
@@ -239,18 +256,18 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>Win Rate ({tf})</div>
-            <div className="text-xl font-bold">{filteredTrades.length ? totals.winRate.toFixed(1) : 0}%</div>
-            <div className="text-xs text-gray-400">{totals.wins} wins • {totals.losses} losses</div>
+            <div className={cardBig}>{filteredTrades.length ? totals.winRate.toFixed(1) : 0}%</div>
+            <div className={subText}>{totals.wins} wins • {totals.losses} losses</div>
           </div>
         );
       case "best_trade":
         return (
           <div className={cardBase}>
             <div className={cardTitle}>Best Trade ({tf})</div>
-            <div className="text-xl font-bold text-green-400">
+            <div className={`${cardBig} text-green-400`}>
               {formatCurrency(totals.best.value === -Infinity ? 0 : totals.best.value)}
             </div>
-            <div className="text-xs text-gray-400">
+            <div className={subText}>
               {totals.best.trade ? `${totals.best.trade.player ?? "Unknown"} (${totals.best.trade.version ?? "—"})` : "—"}
             </div>
           </div>
@@ -259,7 +276,7 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>Average Profit / Trade ({tf})</div>
-            <div className="text-xl font-bold" style={{ color: ACCENT }}>
+            <div className={cardBig} style={{ color: ACCENT }}>
               {formatCurrency(totals.avgProfit)}
             </div>
           </div>
@@ -268,8 +285,8 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>Coin Volume ({tf})</div>
-            <div className="text-xl font-bold text-gray-200">{formatCurrency(totals.volume.total)}</div>
-            <div className="text-xs text-gray-400">
+            <div className={`${cardBig} text-gray-200`}>{formatCurrency(totals.volume.total)}</div>
+            <div className={subText}>
               Buys: {formatCurrency(totals.volume.buy)} • Sells: {formatCurrency(totals.volume.sell)}
             </div>
           </div>
@@ -285,7 +302,7 @@ export default function Dashboard() {
               <svg width={spark.w} height={spark.h}>
                 <path d={spark.dAttr} stroke={ACCENT} fill="none" strokeWidth="2" />
               </svg>
-              <div className="text-xs text-gray-400">
+              <div className={subText}>
                 Last day:{" "}
                 <span className={spark.last >= 0 ? "text-green-400 font-medium" : "text-red-400 font-medium"}>
                   {formatCurrency(spark.last ?? 0)}
@@ -304,7 +321,7 @@ export default function Dashboard() {
                   <div className="text-[13px] font-semibold">{totals.latest.player ?? "Unknown"}</div>
                   <div className="text-[11px] text-gray-400">({totals.latest.version ?? "—"})</div>
                 </div>
-                <div className="text-xs text-gray-400 mt-0.5">
+                <div className={`${subText} mt-0.5`}>
                   {formatCurrency(totals.latest.buy ?? 0)} → {formatCurrency(totals.latest.sell ?? 0)}
                   {totals.latest.quantity > 1 && ` (${totals.latest.quantity}x)`} • {totals.latest.platform ?? "Console"}
                 </div>
@@ -314,14 +331,14 @@ export default function Dashboard() {
                   const displayProfit = include_tax_in_profit ? baseProfit - tax : baseProfit;
                   const pos = displayProfit >= 0;
                   return (
-                    <div className={`mt-0.5 text-[13px] font-semibold ${pos ? "text-green-400" : "text-red-400"}`}>
+                    <div className={`mt-0.5 ${cardBig} ${pos ? "text-green-400" : "text-red-400"}`}>
                       {pos ? "+" : ""}{formatCurrency(displayProfit)} coins
                     </div>
                   );
                 })()}
               </div>
             ) : (
-              <div className="text-gray-400 text-xs mt-1">No trades yet</div>
+              <div className={`${subText} mt-1`}>No trades yet</div>
             )}
           </div>
         );
@@ -329,10 +346,10 @@ export default function Dashboard() {
         return (
           <div className={cardBase}>
             <div className={cardTitle}>Top Earner ({tf})</div>
-            <div className="text-xl font-bold text-green-400">
+            <div className={`${cardBig} text-green-400`}>
               {formatCurrency(Math.max(0, totals.topEarner.total))}
             </div>
-            <div className="text-xs text-gray-400">
+            <div className={subText}>
               {totals.topEarner.player ? totals.topEarner.player : "—"}
             </div>
           </div>
@@ -344,6 +361,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
+      {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
         <h1 className="text-xl font-bold">Dashboard</h1>
         <div className="flex items-center gap-2">
@@ -385,6 +403,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Widgets grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6" onDragOver={onDragOver}>
         {orderedKeys.map((key, idx) => (
           <div
@@ -400,6 +419,7 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* Recent Trades */}
       <div className="bg-gray-900/70 rounded-2xl p-5 border border-gray-800">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
@@ -441,7 +461,7 @@ export default function Dashboard() {
                           </span>
                         )}
                       </div>
-                      <div className="text-sm text-gray-400 mt-1">
+                      <div className={`${subText} mt-1`}>
                         {formatCurrency(trade?.buy ?? 0)} → {formatCurrency(trade?.sell ?? 0)}
                         {trade?.quantity > 1 && ` (${trade.quantity}x)`} • {trade?.platform ?? "Console"}
                       </div>
@@ -450,7 +470,9 @@ export default function Dashboard() {
                       <div className={`font-semibold ${pos ? "text-green-400" : "text-red-400"}`}>
                         {pos ? "+" : ""}{formatCurrency(displayProfit)} coins
                       </div>
-                      <div className="text-xs text-gray-400">{trade?.timestamp ? formatDate(trade.timestamp) : "—"}</div>
+                      <div className={`${subText}`}>
+                        {trade?.timestamp ? formatDate(trade.timestamp) : "—"}
+                      </div>
                     </div>
                   </div>
                 );
@@ -459,6 +481,7 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Quick actions */}
       <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
         <Link
           to="/add-trade"
