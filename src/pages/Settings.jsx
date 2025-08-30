@@ -1,285 +1,251 @@
-import React, { useMemo, useState } from "react";
-import {
-  CheckCircle2,
-  Info,
-  Settings as SettingsIcon,
-  Shield,
-  Zap,
-  Upload,
-  Download,
-  Coins,
-  Trash2,
-  Globe,
-} from "lucide-react";
-import { useSettings } from "../context/SettingsContext";
-import SettingsTrading from "./SettingsTrading.jsx"; // keep extension for case-sensitive builds
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
-const ACCENT = "#91db32";
+const SettingsContext = createContext(null);
 
-export default function Settings() {
-  // pull from our updated context
-  const { settings = {}, general, portfolio, saveSettings, formatCoins } = useSettings();
-  const [tab, setTab] = useState("general");
+// ===== Defaults (including widgets) =====
+const DEFAULT_GENERAL = {
+  dateFormat: "DD/MM/YYYY",
+  timeFormat: "24h",
+  timezone: "Europe/London",
+  coinFormat: "short_m",
+  compactThreshold: 100000,
+  compactDecimals: 1,
+};
 
-  const tabs = useMemo(
-    () => [
-      { key: "general", label: "General", icon: <SettingsIcon size={16} /> },
-      { key: "trading", label: "Trading", icon: <Zap size={16} /> },
-      { key: "integrations", label: "Integrations", icon: <Shield size={16} /> },
-    ],
-    []
+const DEFAULT_PORTFOLIO = { startingCoins: 0 };
+
+const DEFAULT_WIDGET_ORDER = [
+  "profit",
+  "trades",
+  "roi",
+  "winrate",
+  "avg_profit",
+  "best_trade",
+  "volume",
+  "profit_trend",
+  "tax",
+  "balance",
+  "latest_trade",
+  "top_earner",
+];
+const DEFAULT_VISIBLE = [...DEFAULT_WIDGET_ORDER];
+const DEFAULT_RECENT_TRADES_LIMIT = 5;
+
+export const SettingsProvider = ({ children }) => {
+  const [general, setGeneral] = useState(DEFAULT_GENERAL);
+  const [portfolio, setPortfolio] = useState(DEFAULT_PORTFOLIO);
+
+  // Legacy/overview-critical fields
+  const [visible_widgets, setVisibleWidgets] = useState(DEFAULT_VISIBLE);
+  const [widget_order, setWidgetOrder] = useState(DEFAULT_WIDGET_ORDER);
+  const [recent_trades_limit, setRecentTradesLimit] = useState(DEFAULT_RECENT_TRADES_LIMIT);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // ---------- Formatters ----------
+  const formatCurrency = useCallback((n) => {
+    const v = Number.isFinite(n) ? n : 0;
+    return v.toLocaleString("en-GB");
+  }, []);
+
+  const formatDate = useCallback(
+    (d) => {
+      const dt = d instanceof Date ? d : new Date(d);
+      const opts = {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: (general.timeFormat ?? "24h") === "12h",
+        timeZone: general.timezone || "Europe/London",
+      };
+      return new Intl.DateTimeFormat("en-GB", opts).format(dt);
+    },
+    [general]
   );
 
-  // prefer 'general' and 'portfolio' directly, but keep 'settings.*' to not break your current JSX
-  const g = settings.general ?? general ?? {};
-  const pf = settings.portfolio ?? portfolio ?? {};
+  const formatCoins = useCallback(
+    (n, g = general) => {
+      const cfg = {
+        coinFormat: g?.coinFormat ?? "short_m",
+        compactThreshold: g?.compactThreshold ?? 100000,
+        compactDecimals: g?.compactDecimals ?? 1,
+      };
+      const toFull = (x) => x.toLocaleString("en-GB");
 
-  return (
-    <div className="p-4 md:p-6 space-y-5">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Settings</h1>
-          <p className="text-sm text-gray-400">Configure your dashboard preferences. Trading settings update instantly.</p>
-        </div>
-        <HelpBadge />
-      </div>
-
-      {/* Tabs */}
-      <div className="inline-flex rounded-xl border border-gray-800 overflow-hidden">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-3 py-2 text-sm inline-flex items-center gap-2 ${
-              tab === t.key ? "bg-gray-900 text-white" : "bg-gray-900/40 text-gray-300"
-            }`}
-          >
-            {t.icon}
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Panels */}
-      <div className="space-y-4">
-        {tab === "general" && (
-          <section className="bg-gray-900/70 border border-gray-800 rounded-2xl p-4 space-y-6">
-            <h2 className="text-lg font-semibold">General</h2>
-
-            {/* Date/Time/Timezone */}
-            <div className="grid md:grid-cols-3 gap-4">
-              <Select
-                label="Date format"
-                value={g?.dateFormat ?? "DD/MM/YYYY"}
-                onChange={(e) => saveSettings({ general: { ...(g || {}), dateFormat: e.target.value } })}
-                options={[
-                  ["DD/MM/YYYY", "DD/MM/YYYY"],
-                  ["MM/DD/YYYY", "MM/DD/YYYY"],
-                  ["YYYY-MM-DD", "YYYY-MM-DD"],
-                ]}
-              />
-              <Select
-                label="Time format"
-                value={g?.timeFormat ?? "24h"}
-                onChange={(e) => saveSettings({ general: { ...(g || {}), timeFormat: e.target.value } })}
-                options={[
-                  ["24h", "24-hour"],
-                  ["12h", "12-hour"],
-                ]}
-              />
-              <LabeledInput
-                label="Timezone (IANA)"
-                placeholder="Europe/London"
-                icon={<Globe size={14} />}
-                value={g?.timezone ?? "Europe/London"}
-                onChange={(e) => saveSettings({ general: { ...(g || {}), timezone: e.target.value } })}
-              />
-            </div>
-
-            {/* Coin formatting */}
-            <div className="grid md:grid-cols-3 gap-4">
-              <Select
-                label="Coin display format"
-                value={g?.coinFormat ?? "short_m"}
-                onChange={(e) => saveSettings({ general: { ...(g || {}), coinFormat: e.target.value } })}
-                options={[
-                  ["short_m", "1.2M"],
-                  ["european_kk", "1.2kk"],
-                  ["full_commas", "1,200,000"],
-                  ["dot_thousands", "1.200.000"],
-                  ["space_thousands", "1 200 000"],
-                ]}
-              />
-              <Select
-                label="Compact threshold"
-                value={String(g?.compactThreshold ?? 100000)}
-                onChange={(e) =>
-                  saveSettings({ general: { ...(g || {}), compactThreshold: Number(e.target.value) } })
-                }
-                options={[
-                  ["1000", "≥ 1,000"],
-                  ["10000", "≥ 10,000"],
-                  ["100000", "≥ 100,000"],
-                ]}
-              />
-              <Select
-                label="Decimals when compact"
-                value={String(g?.compactDecimals ?? 1)}
-                onChange={(e) =>
-                  saveSettings({ general: { ...(g || {}), compactDecimals: Number(e.target.value) } })
-                }
-                options={[
-                  ["0", "0"],
-                  ["1", "1"],
-                  ["2", "2"],
-                ]}
-              />
-            </div>
-
-            <CoinPreview value={1234567} formatCoins={formatCoins} general={g} />
-
-            <hr className="border-gray-800" />
-
-            {/* Starting balance + Import/Export/Reset */}
-            <div className="grid md:grid-cols-2 gap-4">
-              <LabeledInput
-                label="Starting balance"
-                type="number"
-                icon={<Coins size={14} />}
-                value={pf?.startingCoins ?? 0}
-                onChange={(e) =>
-                  saveSettings({
-                    portfolio: { ...(pf || {}), startingCoins: Number(e.target.value || 0) },
-                  })
-                }
-              />
-
-              <div className="flex items-end gap-2">
-                <button
-                  className="px-3 py-2 rounded-lg border border-gray-800 bg-gray-900 text-gray-200 inline-flex items-center gap-2"
-                  onClick={() =>
-                    fetch("/api/export/trades?format=csv")
-                      .then((r) => r.blob())
-                      .then((b) => {
-                        const url = URL.createObjectURL(b);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = "trades-export.csv";
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      })
-                  }
-                >
-                  <Download size={16} /> Export CSV
-                </button>
-
-                <label className="px-3 py-2 rounded-lg border border-gray-800 bg-gray-900 text-gray-200 inline-flex items-center gap-2 cursor-pointer">
-                  <Upload size={16} /> Import CSV
-                  <input
-                    type="file"
-                    accept=".csv,.json"
-                    hidden
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (!f) return;
-                      const fd = new FormData();
-                      fd.append("file", f);
-                      fetch("/api/import/trades", { method: "POST", body: fd })
-                        .then((r) => r.json())
-                        .then((j) => alert(`Import complete: ${j.imported_count} imported`))
-                        .catch(() => alert("Import failed"));
-                    }}
-                  />
-                </label>
-
-                <button
-                  className="ml-auto px-3 py-2 rounded-lg text-white bg-red-600/80 hover:bg-red-600 inline-flex items-center gap-2"
-                  onClick={() => {
-                    if (!confirm("Reset ALL data (trades + starting balance)? This cannot be undone.")) return;
-                    fetch("/api/data/delete-all?confirm=true", { method: "DELETE" }).then(() => location.reload());
-                  }}
-                >
-                  <Trash2 size={16} /> Reset data
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
-              <CheckCircle2 size={14} style={{ color: ACCENT }} />
-              Changes save instantly.
-            </div>
-          </section>
-        )}
-
-        {tab === "trading" && (
-          <section className="space-y-4">
-            <SettingsTrading />
-          </section>
-        )}
-
-        {tab === "integrations" && (
-          <section className="bg-gray-900/70 border border-gray-800 rounded-2xl p-4">
-            <h2 className="text-lg font-semibold mb-4">Integrations</h2>
-            <p className="text-gray-400 text-sm">
-              Connect Discord and the Chrome extension (configure later).
-            </p>
-          </section>
-        )}
-      </div>
-    </div>
+      if (cfg.coinFormat === "short_m" && n >= cfg.compactThreshold) {
+        if (n >= 1_000_000) return (n / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
+        if (n >= 1_000) return (n / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
+      }
+      if (cfg.coinFormat === "european_kk" && n >= cfg.compactThreshold) {
+        return (n / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "kk";
+      }
+      if (cfg.coinFormat === "dot_thousands") return toFull(n).replaceAll(",", ".");
+      if (cfg.coinFormat === "space_thousands") return toFull(n).replaceAll(",", " ");
+      if (cfg.coinFormat === "full_commas") return toFull(n);
+      return toFull(n);
+    },
+    [general]
   );
-}
 
-/** Helpers */
-function LabeledInput({ label, icon, ...props }) {
-  return (
-    <label className="block">
-      <div className="text-xs text-gray-400 mb-1">{label}</div>
-      <div className="flex items-center bg-gray-900 border border-gray-800 rounded-xl px-3">
-        {icon && <span className="text-gray-500 mr-2">{icon}</span>}
-        <input className="w-full bg-transparent py-2 outline-none text-gray-100" {...props} />
-      </div>
-    </label>
-  );
-}
+  // ---------- Load from backend + merge any legacy localStorage ----------
+  useEffect(() => {
+    (async () => {
+      try {
+        // Legacy: hydrate from localStorage first so UI doesn’t flash empty
+        try {
+          const raw = localStorage.getItem("user_settings");
+          if (raw) {
+            const ls = JSON.parse(raw);
+            if (Array.isArray(ls.visible_widgets)) setVisibleWidgets(ls.visible_widgets);
+            if (Array.isArray(ls.widget_order)) setWidgetOrder(ls.widget_order);
+            if (Number.isFinite(ls.recent_trades_limit)) setRecentTradesLimit(ls.recent_trades_limit);
+          }
+        } catch {}
 
-function Select({ label, options, ...props }) {
-  return (
-    <label className="block">
-      <div className="text-xs text-gray-400 mb-1">{label}</div>
-      <select
-        className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-gray-100"
-        {...props}
-      >
-        {options.map(([v, t]) => (
-          <option key={v} value={v}>
-            {t}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
+        const [sRes, pRes] = await Promise.all([fetch("/api/settings"), fetch("/api/profile")]);
+        const s = await sRes.json();
+        const p = await pRes.json();
 
-function CoinPreview({ value, formatCoins, general }) {
-  const demo = formatCoins(value, general);
-  return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
-      <div className="text-xs text-gray-400 mb-1">Coin format preview</div>
-      <div className="text-sm text-gray-100">{demo}</div>
-    </div>
-  );
-}
+        // Map server -> general
+        const mappedGeneral = {
+          ...DEFAULT_GENERAL,
+          timezone: s.timezone || DEFAULT_GENERAL.timezone,
+          dateFormat: s.date_format === "US" ? "MM/DD/YYYY" : s.date_format === "ISO" ? "YYYY-MM-DD" : "DD/MM/YYYY",
+          // coin prefs remain client-only until you add columns
+          coinFormat: s.coinFormat ?? DEFAULT_GENERAL.coinFormat,
+          compactThreshold: s.compactThreshold ?? DEFAULT_GENERAL.compactThreshold,
+          compactDecimals: s.compactDecimals ?? DEFAULT_GENERAL.compactDecimals,
+          timeFormat: "24h",
+        };
+        setGeneral(mappedGeneral);
 
-function HelpBadge() {
+        // Portfolio
+        setPortfolio({ startingCoins: p?.startingBalance ?? DEFAULT_PORTFOLIO.startingCoins });
+
+        // Widgets (from server column usersettings.visible_widgets)
+        const serverVisible = Array.isArray(s.visible_widgets) && s.visible_widgets.length ? s.visible_widgets : DEFAULT_VISIBLE;
+        setVisibleWidgets(serverVisible);
+
+        // If you ever add a server column for order, prefer it here
+        setWidgetOrder((prev) => (prev && prev.length ? prev : DEFAULT_WIDGET_ORDER));
+
+        // persist a compact legacy object for any code that still reads localStorage
+        const compat = {
+          visible_widgets: serverVisible,
+          widget_order: DEFAULT_WIDGET_ORDER,
+          recent_trades_limit: DEFAULT_RECENT_TRADES_LIMIT,
+        };
+        try {
+          const existing = JSON.parse(localStorage.getItem("user_settings") || "{}");
+          localStorage.setItem("user_settings", JSON.stringify({ ...existing, ...compat }));
+        } catch {}
+      } catch (e) {
+        console.error("Settings load failed:", e);
+        setError(e);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, []);
+
+  // ---------- Save partial updates ----------
+  const saveSettings = async (partial) => {
+    // optimistic local
+    if (partial.general) setGeneral((g) => ({ ...g, ...partial.general }));
+    if (partial.portfolio) setPortfolio((p) => ({ ...p, ...partial.portfolio }));
+
+    // legacy/overview prefs
+    if (partial.visible_widgets) setVisibleWidgets(partial.visible_widgets);
+    if (partial.widget_order) setWidgetOrder(partial.widget_order);
+    if (partial.recent_trades_limit !== undefined) setRecentTradesLimit(partial.recent_trades_limit);
+
+    // write legacy snapshot for any old code reading localStorage
+    try {
+      const ls = JSON.parse(localStorage.getItem("user_settings") || "{}");
+      localStorage.setItem(
+        "user_settings",
+        JSON.stringify({
+          ...ls,
+          ...(partial.visible_widgets ? { visible_widgets: partial.visible_widgets } : {}),
+          ...(partial.widget_order ? { widget_order: partial.widget_order } : {}),
+          ...(partial.recent_trades_limit !== undefined ? { recent_trades_limit: partial.recent_trades_limit } : {}),
+        })
+      );
+    } catch {}
+
+    // server: portfolio starting balance
+    if (partial.portfolio?.startingCoins !== undefined) {
+      try {
+        await fetch("/api/portfolio/balance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ starting_balance: partial.portfolio.startingCoins }),
+        });
+      } catch (e) {
+        setError(e);
+      }
+    }
+
+    // server: general settings (timezone, date_format)
+    if (partial.general) {
+      const g = { ...general, ...partial.general };
+      const mapped = {
+        timezone: g.timezone,
+        date_format: g.dateFormat === "MM/DD/YYYY" ? "US" : g.dateFormat === "YYYY-MM-DD" ? "ISO" : "EU",
+        // required columns so UPSERT works safely
+        default_platform: "Console",
+        custom_tags: [],
+        currency_format: "coins",
+        theme: "dark",
+        include_tax_in_profit: true,
+        default_chart_range: "30d",
+        visible_widgets, // persist to server too so it survives device changes
+      };
+      try {
+        await fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(mapped),
+        });
+      } catch (e) {
+        setError(e);
+      }
+    }
+  };
+
+  // expose both legacy and new shapes
+  const settings = { general, portfolio, visible_widgets, widget_order, recent_trades_limit };
+
   return (
-    <div
-      className="hidden sm:flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl border border-gray-800 bg-gray-900/50 text-gray-300"
-      title="Help & tips"
+    <SettingsContext.Provider
+      value={{
+        // new
+        settings,
+        general,
+        portfolio,
+        // legacy shortcuts used across app
+        visible_widgets,
+        widget_order,
+        recent_trades_limit,
+        // utils
+        isLoading,
+        error,
+        saveSettings,
+        formatCurrency,
+        formatDate,
+        formatCoins,
+        // old callers sometimes use these:
+        default_platform: "Console",
+        default_quantity: 1,
+      }}
     >
-      <Info size={14} />
-      <span>Need help? Top-right tips in Settings.</span>
-    </div>
+      {children}
+    </SettingsContext.Provider>
   );
-}
+};
+
+export const useSettings = () => useContext(SettingsContext);
+export default SettingsContext;
