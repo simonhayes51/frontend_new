@@ -1,62 +1,80 @@
 // src/components/squad/Pitch.jsx
 import React from "react";
-import "../styles/squad.css";
 
-/**
- * Vertical football pitch drawn with SVG at a 68 x 105 ratio.
- * Children are absolutely positioned in the inner content area (in %),
- * so your slot coords continue to work as before.
- *
- * Props:
- *  - height (optional): CSS height for the whole pitch box (e.g. "600px")
- *  - children: absolutely-positioned nodes (use left/top %) inside .pitch-content
- */
-export default function Pitch({ height = "600px", children }) {
+export default function Pitch({
+  height = "600px",
+  children,
+  className = "",
+}) {
   return (
-    <div className="pitch-box" style={{ height }}>
-      {/* Turf stripes (CSS) */}
-      <div className="pitch-turf" />
-
-      {/* True-ratio SVG (vertical 68x105) */}
+    <div
+      className={`relative rounded-2xl overflow-hidden bg-[#0F3D30] border border-[#1b4d3e] ${className}`}
+      style={{ height }}
+    >
+      {/* SVG Markings (kept simple & standards-compliant) */}
       <svg
-        className="pitch-svg"
-        viewBox="0 0 68 105"
+        viewBox="0 0 1200 800"
         preserveAspectRatio="xMidYMid meet"
+        className="absolute inset-0 w-full h-full"
         aria-hidden="true"
       >
-        {/* Frame */}
-        <rect x="1.5" y="1.5" width="65" height="102" rx="2" ry="2" className="pl" />
+        <defs>
+          <linearGradient id="pitchFade" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#114735" />
+            <stop offset="100%" stopColor="#0b2f24" />
+          </linearGradient>
+        </defs>
 
-        {/* Halfway line */}
-        <line x1="1.5" y1="52.5" x2="66.5" y2="52.5" className="pl" />
+        {/* grass */}
+        <rect x="0" y="0" width="1200" height="800" fill="url(#pitchFade)" />
 
-        {/* Centre circle + spot */}
-        <circle cx="34" cy="52.5" r="9.15" className="pl" />
-        <circle cx="34" cy="52.5" r="0.3" className="pl filled" />
+        {/* outer border */}
+        <rect
+          x="30"
+          y="30"
+          width="1140"
+          height="740"
+          fill="none"
+          stroke="#1f795f"
+          strokeWidth="6"
+          rx="24"
+          ry="24"
+        />
 
-        {/* Top penalty area */}
-        <rect x="13" y="1.5" width="42" height="16.5" className="pl" />
-        <rect x="22" y="1.5" width="24" height="5.5" className="pl" />
-        {/* Penalty spot & arc (top) */}
-        <circle cx="34" cy="12" r="0.3" className="pl filled" />
-        <path d="M 25 18 A 9.15 9.15 0 0 1 43 18" className="pl" />
+        {/* half-way line */}
+        <line
+          x1="600"
+          y1="30"
+          x2="600"
+          y2="770"
+          stroke="#1f795f"
+          strokeWidth="4"
+        />
 
-        {/* Bottom penalty area */}
-        <rect x="13" y="105-16.5-1.5" width="42" height="16.5" className="pl" />
-        <rect x="22" y="105-5.5-1.5" width="24" height="5.5" className="pl" />
-        {/* Penalty spot & arc (bottom) */}
-        <circle cx="34" cy="93" r="0.3" className="pl filled" />
-        <path d="M 25 87 A 9.15 9.15 0 0 0 43 87" className="pl" />
+        {/* centre circle */}
+        <circle cx="600" cy="400" r="90" fill="none" stroke="#1f795f" strokeWidth="4" />
+        <circle cx="600" cy="400" r="6" fill="#2bd3a7" />
 
-        {/* Corner arcs */}
-        <path d="M1.5,5 A3.5,3.5 0 0 1 5,1.5" className="pl" />
-        <path d="M66.5,5 A3.5,3.5 0 0 0 63,1.5" className="pl" />
-        <path d="M1.5,100 A3.5,3.5 0 0 0 5,103.5" className="pl" />
-        <path d="M66.5,100 A3.5,3.5 0 0 1 63,103.5" className="pl" />
+        {/* penalty boxes */}
+        {/* left */}
+        <rect x="30" y="200" width="180" height="400" fill="none" stroke="#1f795f" strokeWidth="4" />
+        <rect x="30" y="270" width="60" height="260" fill="none" stroke="#1f795f" strokeWidth="4" />
+        <circle cx="180" cy="400" r="6" fill="#2bd3a7" />
+        <path d="M210 300 A120 120 0 0 0 210 500" fill="none" stroke="#1f795f" strokeWidth="4" />
+
+        {/* right */}
+        <rect x="990" y="200" width="180" height="400" fill="none" stroke="#1f795f" strokeWidth="4" />
+        <rect x="1110" y="270" width="60" height="260" fill="none" stroke="#1f795f" strokeWidth="4" />
+        <circle cx="1020" cy="400" r="6" fill="#2bd3a7" />
+        <path d="M990 300 A120 120 0 0 1 990 500" fill="none" stroke="#1f795f" strokeWidth="4" />
+
+        {/* small goal areas */}
+        <rect x="30" y="320" width="60" height="160" fill="none" stroke="#1f795f" strokeWidth="4" />
+        <rect x="1110" y="320" width="60" height="160" fill="none" stroke="#1f795f" strokeWidth="4" />
       </svg>
 
-      {/* Content overlay with safe padding (so coords aren’t under the lines) */}
-      <div className="pitch-content">{children}</div>
+      {/* Slot layer for absolutely positioned children */}
+      <div className="absolute inset-0">{children}</div>
     </div>
   );
 }
