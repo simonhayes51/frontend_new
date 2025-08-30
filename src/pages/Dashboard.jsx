@@ -7,28 +7,37 @@ import {
 } from "lucide-react";
 
 const ACCENT = "#91db32";
-const cardBase = "bg-gray-900/70 rounded-2xl p-4 border border-gray-800 hover:border-gray-700 transition-colors";
+// Responsive fixed heights for perfectly uniform cards
+const cardBase =
+  "bg-gray-900/70 rounded-2xl p-4 border border-gray-800 hover:border-gray-700 transition-colors h-[160px] sm:h-[180px] md:h-[200px] lg:h-[220px] flex flex-col justify-between";
 const cardTitle = "text-sm font-medium text-gray-300";
 const cardBig = "text-2xl font-bold";
 const chip = "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-300";
 
 export default function Dashboard() {
-  // --- Hooks: ALWAYS top-level, never inside conditions/loops ---
+  // --- Hooks (top-level only) ---
   const { netProfit, taxPaid, startingBalance, trades: rawTrades, isLoading, error } = useDashboard();
   const {
-    formatCurrency, formatDate, visible_widgets, widget_order,
-    include_tax_in_profit, saveSettings, isLoading: settingsLoading
+    formatCurrency, formatDate,
+    visible_widgets, widget_order,
+    include_tax_in_profit, saveSettings,
+    // NEW: optional limit pulled from settings (fallback to 5)
+    recent_trades_limit,
+    isLoading: settingsLoading
   } = useSettings();
 
-  const [tf, setTf] = useState("7D");           // timeframe selector
+  const [tf, setTf] = useState("7D");             // timeframe selector
   const [editLayout, setEditLayout] = useState(false); // drag mode
 
-  // --- Normalised data ---
+  // --- Normalised inputs ---
   const trades = Array.isArray(rawTrades) ? rawTrades : [];
   const vis = Array.isArray(visible_widgets) ? visible_widgets : [];
   const order = Array.isArray(widget_order) ? widget_order : [];
+  const previewLimit = Number.isFinite(recent_trades_limit) && recent_trades_limit > 0
+    ? recent_trades_limit
+    : 5;
 
-  // --- Pure helpers (no hooks used inside JSX later) ---
+  // --- Helpers ---
   const filterByTimeframe = useCallback((all, tfKey) => {
     if (tfKey === "ALL") return all;
     const days = tfKey === "7D" ? 7 : 30;
@@ -41,7 +50,7 @@ export default function Dashboard() {
 
   const filteredTrades = useMemo(() => filterByTimeframe(trades, tf), [trades, tf, filterByTimeframe]);
 
-  // Derived numbers (pure, memoised to keep render cheap)
+  // --- Derived totals ---
   const totals = useMemo(() => {
     const totalProfit = netProfit ?? 0;
     const totalTax = taxPaid ?? 0;
@@ -74,7 +83,6 @@ export default function Dashboard() {
       { buy: 0, sell: 0, total: 0 }
     );
 
-    // latest (no hooks in JSX later)
     const latest = [...filteredTrades].sort(
       (a, b) => new Date(b?.timestamp || 0) - new Date(a?.timestamp || 0)
     )[0] || null;
@@ -84,9 +92,8 @@ export default function Dashboard() {
     };
   }, [filteredTrades, netProfit, taxPaid]);
 
-  // sparkline data (pure/memoised)
+  // --- Sparkline (7D) ---
   const spark = useMemo(() => {
-    // build 7 daily buckets from ALL trades (not filtered by timeframe)
     const dayKey = (d) => {
       const dt = new Date(d);
       return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
@@ -117,7 +124,7 @@ export default function Dashboard() {
     return { dAttr, w, h, last: ysRaw[ysRaw.length - 1] };
   }, [trades, include_tax_in_profit]);
 
-  // final ordered keys (pure/memoised) — NOTE: no dependency on a freshly constructed object
+  // --- Ordered widget keys (visible + order) ---
   const orderedKeys = useMemo(() => {
     const set = new Set(vis);
     const primary = order.filter((k) => set.has(k));
@@ -125,7 +132,7 @@ export default function Dashboard() {
     return primary;
   }, [vis, order]);
 
-  // Drag handlers (pure, not using hooks)
+  // --- Drag handlers (for edit layout) ---
   const onDragStart = useCallback(
     (idx) => (e) => {
       if (!editLayout) return;
@@ -160,7 +167,7 @@ export default function Dashboard() {
     saveSettings({ widget_order: [...orderedKeys, ...hidden] });
   }, [orderedKeys, order, vis, saveSettings]);
 
-  // --- Loading / error guards AFTER all hooks have been called ---
+  // --- Guards after hooks ---
   if (isLoading || settingsLoading) {
     return (
       <div className="p-4 max-w-6xl mx-auto">
@@ -168,7 +175,7 @@ export default function Dashboard() {
           <div className="h-8 bg-gray-800 rounded w-48" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-gray-900/70 rounded-2xl h-28 border border-gray-800" />
+              <div key={i} className="bg-gray-900/70 rounded-2xl h-[200px] border border-gray-800" />
             ))}
           </div>
           <div className="bg-gray-900/70 rounded-2xl h-64 border border-gray-800" />
@@ -178,7 +185,7 @@ export default function Dashboard() {
   }
   if (error) return <div className="text-red-500 p-4">{String(error)}</div>;
 
-  // --- Stateless widget renderer (no hooks inside) ---
+  // --- Stateless widget renderer ---
   const renderWidget = (key) => {
     switch (key) {
       case "profit":
@@ -383,8 +390,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Widgets grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" onDragOver={onDragOver}>
+      {/* Widgets grid (uniform heights) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 items-stretch" onDragOver={onDragOver}>
         {orderedKeys.map((key, idx) => (
           <div
             key={key}
@@ -404,7 +411,7 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-semibold">Recent Trades</h2>
-            <span className={chip}>Showing last {Math.min(filteredTrades.length, 10)} ({tf})</span>
+            <span className={chip}>Showing last {Math.min(filteredTrades.length, previewLimit)} ({tf})</span>
           </div>
           <div className="text-sm">
             <a href="/trades" className="text-gray-300 hover:text-white">View all trades →</a>
@@ -420,7 +427,7 @@ export default function Dashboard() {
           <div className="space-y-3">
             {[...filteredTrades]
               .sort((a, b) => new Date(b?.timestamp || 0) - new Date(a?.timestamp || 0))
-              .slice(0, 10)
+              .slice(0, previewLimit)
               .map((trade, i) => {
                 const baseProfit = trade?.profit ?? 0;
                 const tax = trade?.ea_tax ?? 0;
@@ -472,16 +479,14 @@ export default function Dashboard() {
         </a>
         <a
           href="/pricecheck"
-          className="group rounded-2xl border border-gray-800 bg-gray-900/70 p-4 hover:border-gray-700 transition-colors"
-        >
+          className="group rounded-2xl border border-gray-800 bg-gray-900/70 p-4 hover:border-gray-700 transition-colors">
           <div className="text-sm text-gray-300">Shortcut</div>
           <div className="mt-1 font-semibold">Price Check</div>
           <div className="text-xs text-gray-500 mt-1">Look up live coin values</div>
         </a>
         <a
           href="/trending"
-          className="group rounded-2xl border border-gray-800 bg-gray-900/70 p-4 hover:border-gray-700 transition-colors"
-        >
+          className="group rounded-2xl border border-gray-800 bg-gray-900/70 p-4 hover:border-gray-700 transition-colors">
           <div className="text-sm text-gray-300">Explore</div>
           <div className="mt-1 font-semibold">Trending</div>
           <div className="text-xs text-gray-500 mt-1">Top risers & fallers</div>
