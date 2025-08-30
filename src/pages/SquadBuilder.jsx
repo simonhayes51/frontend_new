@@ -64,7 +64,7 @@ function EnhancedPlayerCard({
   if (!player) return null;
   
   const outOfPosition = !isValidForSlot(slotPosition, player.positions);
-  const sizeClasses = size === "sm" ? "w-14 h-18" : "w-18 h-24";
+  const sizeClasses = size === "sm" ? "w-16 h-20" : "w-20 h-28";
 
   // Clean card background - much more subtle like FutBin
   const getCardStyles = () => {
