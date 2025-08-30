@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const DesktopSidebar = () => {
   const location = useLocation();
-  const { user } = useAuth(); // 👈 no logout here anymore
+  const { user, logout } = useAuth();
 
   // collapsed state (persisted)
   const [collapsed, setCollapsed] = useState(() => {
@@ -22,8 +22,19 @@ const DesktopSidebar = () => {
     localStorage.setItem("sidebarCollapsed", JSON.stringify(collapsed));
   }, [collapsed]);
 
-  // 🔥 Removed Profile & Settings
-    const navItems = [
+  // ▼ User dropdown
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  // Sidebar nav (Profile/Settings/Logout removed; they’re in the dropdown)
+  const navItems = [
     {
       path: "/",
       label: "Dashboard",
@@ -76,12 +87,7 @@ const DesktopSidebar = () => {
       label: "Watchlist",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
           <circle cx="12" cy="12" r="3" strokeWidth={2} />
         </svg>
       ),
@@ -96,7 +102,6 @@ const DesktopSidebar = () => {
       ),
     },
   ];
-
 
   const isActive = (p) => location.pathname === p;
 
@@ -132,6 +137,8 @@ const DesktopSidebar = () => {
         <button
           onClick={() => setCollapsed((c) => !c)}
           className={`ml-auto p-1.5 rounded-md hover:bg-gray-800/70 text-gray-300 ${collapsed ? "mr-1" : ""}`}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label="Toggle sidebar"
         >
           {collapsed ? (
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -145,8 +152,8 @@ const DesktopSidebar = () => {
         </button>
       </div>
 
-      {/* User card */}
-      <div className={`bg-gray-800/40 rounded-xl ${collapsed ? "p-2 mb-3" : "p-3 mb-4"} shrink-0`}>
+      {/* User card with arrow + dropdown */}
+      <div className={`relative bg-gray-800/40 rounded-xl ${collapsed ? "p-2 mb-3" : "p-3 mb-4"} shrink-0`} ref={menuRef}>
         <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
           <img
             src={user?.avatar_url}
@@ -157,17 +164,60 @@ const DesktopSidebar = () => {
             }}
           />
           {!collapsed && (
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-white truncate">
-                {user?.global_name || user?.username}
-              </p>
-              <p className="text-xs text-gray-400">Trader</p>
-            </div>
+            <>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white truncate">
+                  {user?.global_name || user?.username}
+                </p>
+                <p className="text-xs text-gray-400">Trader</p>
+              </div>
+
+              {/* Little arrow on the right */}
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-label="Open user menu"
+                className={`ml-auto p-1.5 rounded-md hover:bg-gray-700/60 text-gray-300 transition-transform ${menuOpen ? "rotate-180" : ""}`}
+                title="User menu"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+            </>
           )}
         </div>
+
+        {/* Dropdown box (appears under the card) */}
+        {menuOpen && !collapsed && (
+          <div className="absolute left-0 right-0 mt-2 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-50">
+            <Link
+              to="/profile"
+              onClick={() => setMenuOpen(false)}
+              className="block px-4 py-2 text-sm text-gray-200 hover:bg-gray-800"
+            >
+              Profile
+            </Link>
+            <Link
+              to="/settings"
+              onClick={() => setMenuOpen(false)}
+              className="block px-4 py-2 text-sm text-gray-200 hover:bg-gray-800"
+            >
+              Settings
+            </Link>
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                logout();
+              }}
+              className="w-full text-left block px-4 py-2 text-sm text-red-400 hover:bg-gray-800"
+            >
+              Logout
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Nav */}
+      {/* Scrollable middle (nav + stats) */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <nav className={`${collapsed ? "px-1" : "px-1.5"} space-y-1`}>
           {!collapsed && (
@@ -194,31 +244,10 @@ const DesktopSidebar = () => {
           ))}
         </nav>
 
-        {/* Quick Stats */}
-        {!collapsed && (
-          <div className="bg-gray-800/40 rounded-xl p-3 m-2 mt-4">
-            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">
-              Quick Stats
-            </p>
-            <div className="space-y-1.5 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-400">This Month</span>
-                <span className="text-green-400 font-medium">+2.3M</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Win Rate</span>
-                <span className="text-blue-400 font-medium">73%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Total Trades</span>
-                <span className="text-purple-400 font-medium">127</span>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* (Optional) Quick Stats block left as-is; wire up later if you want live numbers */}
       </div>
 
-      {/* Footer (Help only now) */}
+      {/* Footer (Help only) */}
       <div className={`${collapsed ? "px-2 py-2" : "px-2 py-3"} border-t border-gray-700/50 shrink-0`}>
         <Link
           to="/help"
