@@ -5,6 +5,7 @@ import PriceTrendChart from "./PriceTrendChart.jsx"; // ← the new chart
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const buildProxy = (url) => `${API_BASE}/img?url=${encodeURIComponent(url)}`;
+const PLACEHOLDER = "/img/card-placeholder.png"; // used when an image is missing
 
 // ------- backend helpers -------
 const searchPlayers = async (query) => {
@@ -249,10 +250,23 @@ const SearchBox = ({ onPlayerSelect }) => {
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-12 h-16 bg-gradient-to-b from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                  {player.rating}
-                </div>
-                <div className="font-semibold text-white">
+                <img
+                  src={player.image_url || PLACEHOLDER}
+                  alt={`${player.name} (${player.rating})`}
+                  loading="lazy"
+                  className="w-12 h-16 object-contain rounded-md bg-black/30 border border-white/10"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (!img.dataset.triedProxy && player.image_url) {
+                      img.dataset.triedProxy = "1";
+                      img.src = buildProxy(player.image_url);
+                    } else {
+                      img.src = PLACEHOLDER;
+                    }
+                  }}
+                  referrerPolicy="no-referrer"
+                />
+                <div className="font-semibold text-white truncate">
                   {player.name} ({player.rating})
                 </div>
               </div>
