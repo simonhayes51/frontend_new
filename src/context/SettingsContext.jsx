@@ -1,16 +1,24 @@
-// src/context/SettingsContext.jsx
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+
+/**
+ * Settings context normalises your server's flat usersettings row
+ * into a nested shape the UI uses: { general: {...}, portfolio: {...} }.
+ * It also exposes formatters and a saveSettings(partial) that fans out to:
+ * - POST /api/portfolio/balance for startingCoins
+ * - POST /api/settings for general (timezone/date_format, etc.)
+ */
 
 const SettingsContext = createContext(null);
 
 const DEFAULT_GENERAL = {
-  dateFormat: "DD/MM/YYYY",     // maps to usersettings.date_format
-  timeFormat: "24h",
+  dateFormat: "DD/MM/YYYY",     // maps to API's usersettings.date_format (EU/US/ISO)
+  timeFormat: "24h",            // client-side only
   timezone: "Europe/London",
-  coinFormat: "short_m",        // custom client pref (local only for now)
+  coinFormat: "short_m",        // client-side only (short_m | european_kk | full_commas | dot_thousands | space_thousands)
   compactThreshold: 100000,
   compactDecimals: 1,
 };
+
 const DEFAULT_PORTFOLIO = {
   startingCoins: 0,
 };
@@ -20,7 +28,7 @@ export const SettingsProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // --- formatters exposed to UI
+  // ---------- Formatters ----------
   const formatCurrency = useCallback((n) => {
     const v = Number.isFinite(n) ? n : 0;
     return v.toLocaleString("en-GB");
@@ -29,15 +37,17 @@ export const SettingsProvider = ({ children }) => {
   const formatDate = useCallback((d) => {
     const dt = d instanceof Date ? d : new Date(d);
     const opts = {
-      year: "numeric", month: "short", day: "2-digit",
-      hour: "2-digit", minute: "2-digit",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
       hour12: (settings.general?.timeFormat ?? "24h") === "12h",
       timeZone: settings.general?.timezone || "Europe/London",
     };
     return new Intl.DateTimeFormat("en-GB", opts).format(dt);
   }, [settings.general]);
 
-  // --- coin formatter (used by Settings.jsx preview)
   const formatCoins = useCallback((n, g = settings.general) => {
     const cfg = {
       coinFormat: g?.coinFormat ?? "short_m",
@@ -47,36 +57,45 @@ export const SettingsProvider = ({ children }) => {
     const toFull = (x) => x.toLocaleString("en-GB"); // 1,234,567
 
     if (cfg.coinFormat === "short_m" && n >= cfg.compactThreshold) {
-      if (n >= 1_000_000) return (n/1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/,"") + "M";
-      if (n >= 1_000)    return (n/1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/,"") + "k";
+      if (n >= 1_000_000) return (n / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
+      if (n >= 1_000) return (n / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
     }
     if (cfg.coinFormat === "european_kk" && n >= cfg.compactThreshold) {
-      return (n/1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/,"") + "kk";
+      return (n / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "kk";
     }
-    if (cfg.coinFormat === "dot_thousands")   return toFull(n).replaceAll(",", ".");
+    if (cfg.coinFormat === "dot_thousands") return toFull(n).replaceAll(",", ".");
     if (cfg.coinFormat === "space_thousands") return toFull(n).replaceAll(",", " ");
-    if (cfg.coinFormat === "full_commas")     return toFull(n);
+    if (cfg.coinFormat === "full_commas") return toFull(n);
     return toFull(n);
   }, [settings.general]);
 
-  // --- load from backend
+  // ---------- Load from backend ----------
   useEffect(() => {
     (async () => {
       try {
-        const [sRes, meRes] = await Promise.all([fetch("/api/settings"), fetch("/api/profile")]);
-        const s = await sRes.json();
-        const p = await meRes.json();
+        const [sRes, pRes] = await Promise.all([
+          fetch("/api/settings"),
+          fetch("/api/profile"), // contains startingBalance per your main.py
+        ]);
 
-        // map flat usersettings -> nested general
+        const s = await sRes.json();
+        const p = await pRes.json();
+
+        // Map flat server fields -> nested general
         const general = {
           ...DEFAULT_GENERAL,
           timezone: s.timezone || DEFAULT_GENERAL.timezone,
-          dateFormat: (s.date_format === "US" ? "MM/DD/YYYY" : s.date_format === "ISO" ? "YYYY-MM-DD" : "DD/MM/YYYY"),
-          timeFormat: "24h", // your API stores only date_format/timezone; keep timeFormat client-side
-          // keep coin format prefs client-side
-          coinFormat: (s.coinFormat ?? DEFAULT_GENERAL.coinFormat),
-          compactThreshold: (s.compactThreshold ?? DEFAULT_GENERAL.compactThreshold),
-          compactDecimals: (s.compactDecimals ?? DEFAULT_GENERAL.compactDecimals),
+          dateFormat:
+            s.date_format === "US"
+              ? "MM/DD/YYYY"
+              : s.date_format === "ISO"
+              ? "YYYY-MM-DD"
+              : "DD/MM/YYYY",
+          // client-only prefs (if you later persist these, hydrate from server instead)
+          coinFormat: s.coinFormat ?? DEFAULT_GENERAL.coinFormat,
+          compactThreshold: s.compactThreshold ?? DEFAULT_GENERAL.compactThreshold,
+          compactDecimals: s.compactDecimals ?? DEFAULT_GENERAL.compactDecimals,
+          timeFormat: "24h",
         };
 
         const portfolio = {
@@ -85,7 +104,7 @@ export const SettingsProvider = ({ children }) => {
 
         setSettings({ general, portfolio });
       } catch (e) {
-        console.error(e);
+        console.error("Settings load failed:", e);
         setError(e);
       } finally {
         setIsLoading(false);
@@ -93,12 +112,18 @@ export const SettingsProvider = ({ children }) => {
     })();
   }, []);
 
-  // --- save partial updates
+  // ---------- Save partial updates ----------
   const saveSettings = async (partial) => {
-    // merge locally first (optimistic)
-    setSettings((prev) => ({ ...prev, ...partial }));
+    // optimistic local merge
+    setSettings((prev) => {
+      const next = { ...prev, ...partial };
+      // deep merge for general/portfolio
+      if (partial.general) next.general = { ...prev.general, ...partial.general };
+      if (partial.portfolio) next.portfolio = { ...prev.portfolio, ...partial.portfolio };
+      return next;
+    });
 
-    // fan-out: if portfolio.startingCoins changed -> dedicated endpoint
+    // starting balance -> dedicated endpoint
     if (partial.portfolio?.startingCoins !== undefined) {
       try {
         await fetch("/api/portfolio/balance", {
@@ -111,14 +136,14 @@ export const SettingsProvider = ({ children }) => {
       }
     }
 
-    // map nested general -> flat payload for /api/settings
+    // general -> /api/settings (flat)
     if (partial.general) {
       const g = { ...settings.general, ...partial.general };
       const mapped = {
-        // only fields your API knows about:
+        // server-known fields only; others are kept client-side for now
         timezone: g.timezone,
         date_format: g.dateFormat === "MM/DD/YYYY" ? "US" : g.dateFormat === "YYYY-MM-DD" ? "ISO" : "EU",
-        // keep other server fields as-is (we’re not overwriting them here)
+        // include the rest of required server columns with safe defaults so your UPSERT doesn't null them
         default_platform: "Console",
         custom_tags: [],
         currency_format: "coins",
@@ -142,13 +167,22 @@ export const SettingsProvider = ({ children }) => {
   };
 
   return (
-    <SettingsContext.Provider value={{
-      settings, saveSettings, isLoading, error,
-      general: settings.general, portfolio: settings.portfolio,
-      default_platform: "Console",
-      default_quantity: 1,
-      formatCurrency, formatDate, formatCoins,
-    }}>
+    <SettingsContext.Provider
+      value={{
+        settings,
+        general: settings.general,
+        portfolio: settings.portfolio,
+        isLoading,
+        error,
+        saveSettings,
+        formatCurrency,
+        formatDate,
+        formatCoins,
+        // legacy fallbacks used elsewhere in your app:
+        default_platform: "Console",
+        default_quantity: 1,
+      }}
+    >
       {children}
     </SettingsContext.Provider>
   );
