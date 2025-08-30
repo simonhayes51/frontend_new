@@ -1,115 +1,71 @@
-// src/api/squadApi.js
 import { normalizePositions } from "../utils/positions";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-// --- simple in-memory caches with short TTL
-const TTL = 5 * 60 * 1000; // 5 min
-const cache = {
-  search: new Map(),   // key -> {at,data}
-  defs: new Map(),     // cardId -> {at,data}
-  prices: new Map(),   // cardId -> {at,data}
-};
+// Minimal cache
+const searchCache = new Map();
+const TTL = 5 * 60 * 1000;
 const fresh = (at) => at && (Date.now() - at) < TTL;
 
-// --- helpers
-const pill = (v) => (v == null ? null : String(v).trim() || null);
-const asNum = (n) => (typeof n === "number" ? n : Number.isFinite(+n) ? +n : null);
-
-/**
- * Frontend player shape normalizer (DB-first).
- * Accepts a DB row from /api/search-players and converts to the
- * structure your UI expects.
- */
+// Build frontend shape from DB row
 function fromDbRow(r) {
-  const base = {
+  const positions = normalizePositions([
+    r?.position,
+    ...(r?.altposition ? String(r.altposition).split(/[,\s;/|]+/) : []),
+  ]);
+
+  const ver = String(r?.version || "").toLowerCase();
+  const clubUpper = String(r?.club || "").toUpperCase();
+  const leagueLower = String(r?.league || "").toLowerCase();
+
+  const isIcon = ver.includes("icon") || clubUpper === "ICON" || leagueLower === "icons";
+  const isHero = ver.includes("hero") || clubUpper === "HERO";
+
+  return {
     id: Number(r.card_id),
     card_id: Number(r.card_id),
     name: r.name || "Unknown Player",
-    rating: asNum(r.rating) ?? 0,
-    version: pill(r.version),
-    club: pill(r.club),
-    league: pill(r.league),
-    nation: pill(r.nation),
-    image_url: pill(r.image_url),
-    price: asNum(r.price),
+    rating: Number(r.rating) || 0,
+    version: r.version || null,
+    club: r.club || null,
+    league: r.league || null,
+    nation: r.nation || null,
+    image_url: r.image_url || null,
+    price: typeof r.price === "number" ? r.price : null,
+    // positions
+    position: r.position || null,
+    altposition: r.altposition || null,
+    positions,
+    // flags
+    isIcon,
+    isHero,
   };
-
-  // positions from position + altposition
-  const rawPositions = [];
-  if (r.position) rawPositions.push(r.position);
-  if (r.altposition) rawPositions.push(...String(r.altposition).split(/[,\s;/|]+/));
-  base.positions = normalizePositions(rawPositions);
-
-  // icon/hero heuristics from DB “version”
-  const ver = (r.version || "").toLowerCase();
-  base.isIcon = ver.includes("icon");
-  base.isHero = ver.includes("hero");
-
-  // If your DB uses literal club/league tags for special cards:
-  // Icon: club = "ICON", league = "Icons"
-  // Hero: club = "HERO", league = actual league
-  // (Nothing else to do here; chemistry module reads the strings.)
-
-  return base;
 }
 
-/**
- * Search players from your backend DB.
- * Supports optional position filter via ?pos= (the backend already accepts it).
- */
+// Search, with optional slot position filter (backend supports ?pos=)
 export async function searchPlayers(query, pos) {
   const q = (query || "").trim();
   const p = (pos || "").trim().toUpperCase();
   if (!q && !p) return [];
 
   const key = `q=${q}|p=${p}`;
-  const hit = cache.search.get(key);
+  const hit = searchCache.get(key);
   if (hit && fresh(hit.at)) return hit.data;
 
   const url = new URL(`${API_BASE}/api/search-players`);
   if (q) url.searchParams.set("q", q);
   if (p) url.searchParams.set("pos", p);
 
-  try {
-    const r = await fetch(url.toString(), { credentials: "include" });
-    if (!r.ok) return [];
-    const { players = [] } = await r.json();
-    const data = players.map(fromDbRow);
+  const r = await fetch(url.toString(), { credentials: "include" });
+  if (!r.ok) return [];
+  const { players = [] } = await r.json();
+  const data = players.map(fromDbRow);
 
-    cache.search.set(key, { at: Date.now(), data });
-    return data;
-  } catch {
-    return [];
-  }
+  searchCache.set(key, { at: Date.now(), data });
+  return data;
 }
 
-/**
- * Optional enrichment: today we’re DB-first, so this just returns the
- * player back as-is. Keep the signature because the UI calls it.
- * If later you want to add FUT.GG definition/price, you can expand here.
- */
+// Keep this export since the UI calls it (no-op enrichment by design)
 export async function enrichPlayer(base) {
-  // No-op enrichment to keep the app contract intact.
-  // You can still do live price/definition fetch here if desired.
   return base;
 }
-
-// (Optional) batch version used sometimes
-export async function enrichPlayers(players) {
-  if (!Array.isArray(players)) return [];
-  const out = await Promise.all(players.map((p) => enrichPlayer(p)));
-  return out;
-}
-
-// small utilities for debugging
-export function clearPlayerCaches() {
-  cache.search.clear();
-  cache.defs.clear();
-  cache.prices.clear();
-}
-
-export const __debug = {
-  caches: cache,
-  TTL,
-};
