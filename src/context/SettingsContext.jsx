@@ -16,30 +16,18 @@ const DEFAULT_WIDGET_ORDER = [
   "latest_trade",
 ];
 
-const DEFAULT_VISIBLE = [
-  "profit",
-  "trades",
-  "roi",
-  "winrate",
-  "avg_profit",
-  "best_trade",
-  "volume",
-  "profit_trend",
-  "tax",
-  "balance",
-  "latest_trade",
-];
+const DEFAULT_VISIBLE = [...DEFAULT_WIDGET_ORDER];
 
 export const SettingsProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Core settings
   const [include_tax_in_profit, setIncludeTaxInProfit] = useState(true);
   const [visible_widgets, setVisibleWidgets] = useState(DEFAULT_VISIBLE);
   const [widget_order, setWidgetOrder] = useState(DEFAULT_WIDGET_ORDER);
+  const [recent_trades_limit, setRecentTradesLimit] = useState(5);
 
-  // Formatters your Dashboard already uses
+  // Formatters your Dashboard uses
   const formatCurrency = useCallback((n) => {
     const v = Number.isFinite(n) ? n : 0;
     return v.toLocaleString("en-GB");
@@ -56,74 +44,63 @@ export const SettingsProvider = ({ children }) => {
     });
   }, []);
 
-  // You can swap these endpoints to match your backend
-  async function fetchSettings() {
+  // Load settings from localStorage
+  useEffect(() => {
     try {
-      setIsLoading(true);
-      setError(null);
-      const r = await fetch("/api/settings", { credentials: "include" });
-      if (!r.ok) throw new Error(`Failed to load settings (${r.status})`);
-      const data = await r.json();
-
-      setIncludeTaxInProfit(Boolean(data?.include_tax_in_profit ?? true));
-
-      // Ensure arrays with sensible fallbacks
-      setVisibleWidgets(
-        Array.isArray(data?.visible_widgets) && data.visible_widgets.length
-          ? data.visible_widgets
-          : DEFAULT_VISIBLE
-      );
-
-      setWidgetOrder(
-        Array.isArray(data?.widget_order) && data.widget_order.length
-          ? data.widget_order
-          : DEFAULT_WIDGET_ORDER
-      );
+      const saved = localStorage.getItem("user_settings");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.include_tax_in_profit !== undefined) {
+          setIncludeTaxInProfit(parsed.include_tax_in_profit);
+        }
+        if (Array.isArray(parsed.visible_widgets)) {
+          setVisibleWidgets(parsed.visible_widgets);
+        }
+        if (Array.isArray(parsed.widget_order)) {
+          setWidgetOrder(parsed.widget_order);
+        }
+        if (Number.isFinite(parsed.recent_trades_limit)) {
+          setRecentTradesLimit(parsed.recent_trades_limit);
+        }
+      }
     } catch (e) {
+      console.error("Failed to load settings from localStorage", e);
       setError(e);
     } finally {
       setIsLoading(false);
     }
-  }
-
-  useEffect(() => {
-    fetchSettings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist
-  async function saveSettings(partial) {
-    // Optimistic update
-    if (partial?.include_tax_in_profit !== undefined) {
-      setIncludeTaxInProfit(Boolean(partial.include_tax_in_profit));
+  // Save to localStorage whenever something changes
+  const saveSettings = (partial) => {
+    const merged = {
+      include_tax_in_profit,
+      visible_widgets,
+      widget_order,
+      recent_trades_limit,
+      ...partial,
+    };
+
+    if (partial.include_tax_in_profit !== undefined) {
+      setIncludeTaxInProfit(partial.include_tax_in_profit);
     }
-    if (partial?.visible_widgets) {
+    if (partial.visible_widgets) {
       setVisibleWidgets([...partial.visible_widgets]);
     }
-    if (partial?.widget_order) {
+    if (partial.widget_order) {
       setWidgetOrder([...partial.widget_order]);
+    }
+    if (partial.recent_trades_limit !== undefined) {
+      setRecentTradesLimit(partial.recent_trades_limit);
     }
 
     try {
-      const r = await fetch("/api/settings", {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          include_tax_in_profit,
-          visible_widgets,
-          widget_order,
-          ...partial,
-        }),
-      });
-      if (!r.ok) throw new Error(`Failed to save settings (${r.status})`);
+      localStorage.setItem("user_settings", JSON.stringify(merged));
     } catch (e) {
-      console.error("Settings save failed:", e);
+      console.error("Failed to save settings to localStorage", e);
       setError(e);
-      // (Optional) refetch to re-sync
-      fetchSettings();
     }
-  }
+  };
 
   const value = {
     isLoading,
@@ -131,10 +108,11 @@ export const SettingsProvider = ({ children }) => {
     include_tax_in_profit,
     visible_widgets,
     widget_order,
+    recent_trades_limit,
     setVisibleWidgets,
     setWidgetOrder,
+    setRecentTradesLimit,
     saveSettings,
-    // formatters already used in your app
     formatCurrency,
     formatDate,
   };
