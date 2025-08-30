@@ -13,7 +13,7 @@ const ALL_WIDGETS = [
   { key: "volume", label: "Coin Volume" },
   { key: "profit_trend", label: "Profit Trend (7D)" },
   { key: "latest_trade", label: "Latest Trade" },
-  { key: "top_earner", label: "Top Earner" }, // NEW
+  { key: "top_earner", label: "Top Earner" },
 ];
 
 export default function SettingsWidgets() {
@@ -48,9 +48,7 @@ export default function SettingsWidgets() {
           <input
             type="checkbox"
             checked={include_tax_in_profit}
-            onChange={(e) =>
-              saveSettings({ include_tax_in_profit: e.target.checked })
-            }
+            onChange={(e) => saveSettings({ include_tax_in_profit: e.target.checked })}
           />
           <span className="text-gray-300">Include EA Tax in profit numbers</span>
         </label>
@@ -62,9 +60,7 @@ export default function SettingsWidgets() {
         <select
           className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200"
           value={recent_trades_limit}
-          onChange={(e) =>
-            saveSettings({ recent_trades_limit: Number(e.target.value) })
-          }
+          onChange={(e) => saveSettings({ recent_trades_limit: Number(e.target.value) })}
         >
           <option value={5}>Show last 5</option>
           <option value={10}>Show last 10</option>
