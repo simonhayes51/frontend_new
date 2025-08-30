@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 
 const SettingsContext = createContext(null);
 
+// Include the new "top_earner" widget in defaults
 const DEFAULT_WIDGET_ORDER = [
   "profit",
   "trades",
@@ -14,6 +15,7 @@ const DEFAULT_WIDGET_ORDER = [
   "tax",
   "balance",
   "latest_trade",
+  "top_earner",
 ];
 
 const DEFAULT_VISIBLE = [...DEFAULT_WIDGET_ORDER];
@@ -27,7 +29,7 @@ export const SettingsProvider = ({ children }) => {
   const [widget_order, setWidgetOrder] = useState(DEFAULT_WIDGET_ORDER);
   const [recent_trades_limit, setRecentTradesLimit] = useState(5);
 
-  // Formatters your Dashboard uses
+  // Formatters your UI uses
   const formatCurrency = useCallback((n) => {
     const v = Number.isFinite(n) ? n : 0;
     return v.toLocaleString("en-GB");
@@ -71,7 +73,7 @@ export const SettingsProvider = ({ children }) => {
     }
   }, []);
 
-  // Save to localStorage whenever something changes
+  // Save to localStorage whenever something changes (via this function)
   const saveSettings = (partial) => {
     const merged = {
       include_tax_in_profit,
