@@ -1,5 +1,5 @@
 // src/components/PlayerSearch.jsx
-import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, Loader2 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -79,7 +79,7 @@ const SearchBox = ({ onPlayerSelect }) => {
                   src={player.image_url || PLACEHOLDER}
                   alt={`${player.name} (${player.rating})`}
                   loading="lazy"
-                  className="w-12 h-16 object-contain"
+                  className="w-12 h-16 object-contain bg-transparent shadow-none"
                   onError={(e) => {
                     const img = e.currentTarget;
                     if (!img.dataset.triedProxy && player.image_url) {
@@ -121,10 +121,10 @@ export default function PlayerSearch() {
         style={{
           backgroundImage: "url('/img/football-stadium-night.jpg')",
         }}
-      ></div>
+      />
 
-      {/* Purple gradient overlay (matches Add Trade) */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-700/70 via-purple-800/70 to-purple-900/80"></div>
+      {/* Purple gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-700/70 via-purple-800/70 to-purple-900/80" />
 
       {/* Content */}
       <div className="relative z-10 p-6">
