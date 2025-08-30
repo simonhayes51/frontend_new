@@ -16,9 +16,10 @@ const Dashboard    = lazy(() => import("./pages/Dashboard"));
 const AddTrade     = lazy(() => import("./pages/AddTrade"));
 const Trades       = lazy(() => import("./pages/Trades"));
 const Profile      = lazy(() => import("./pages/Profile"));
-const Settings     = lazy(() => import("./pages/Settings")); // wraps SettingsWidgets
+const Settings     = lazy(() => import("./pages/Settings"));
 const ProfitGraph  = lazy(() => import("./pages/ProfitGraph"));
 const PriceCheck   = lazy(() => import("./pages/PriceCheck"));
+const Trending     = lazy(() => import("./pages/Trending"));  // 👈 NEW
 const Login        = lazy(() => import("./pages/Login"));
 const AccessDenied = lazy(() => import("./pages/AccessDenied"));
 const NotFound     = lazy(() => import("./pages/NotFound"));
@@ -58,6 +59,7 @@ function App() {
                   <Route path="pricecheck" element={<PriceCheck />} />
                   <Route path="watchlist" element={<Watchlist />} />
                   <Route path="squad" element={<SquadBuilder />} />
+                  <Route path="trending" element={<Trending />} /> {/* 👈 NEW */}
                 </Route>
 
                 {/* 404 */}
