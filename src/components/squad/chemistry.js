@@ -1,25 +1,39 @@
 // src/components/squad/chemistry.js
 import { isValidForSlot } from "../../utils/positions";
 
-const keyOf = (name) => name ? String(name).trim().toLowerCase() : null;
+/** Lowercased key from a DB string (club/league/nation). */
+const keyOf = (s) => (s ? String(s).trim().toLowerCase() : null);
 
-// FC25 thresholds
+// EA FC25 thresholds
 const chemFromClub   = (n) => (n >= 7 ? 3 : n >= 4 ? 2 : n >= 2 ? 1 : 0);
 const chemFromNation = (n) => (n >= 8 ? 3 : n >= 5 ? 2 : n >= 2 ? 1 : 0);
 const chemFromLeague = (n) => (n >= 8 ? 3 : n >= 5 ? 2 : n >= 3 ? 1 : 0);
 
+/**
+ * placed: { [slotKey]: player|null }
+ * formation: array of { key, pos }
+ * Player shape expected from your DB mapping:
+ * {
+ *   id, name, rating,
+ *   club, league, nation,         // strings from DB
+ *   positions: [..],              // normalized codes (GK, RB, ... ST)
+ *   isIcon, isHero                // booleans derived from DB fields
+ * }
+ */
 export function computeChemistry(placed, formation) {
-  const clubMap   = new Map();
-  const nationMap = new Map();
-  const leagueMap = new Map();
+  // Tallies (only for players who are in-position)
+  const clubMap   = new Map(); // club key -> count
+  const nationMap = new Map(); // nation key -> count
+  const leagueMap = new Map(); // league key -> count
 
-  let iconLeagueGlobalBoost = 0;
-  const leagueExtra = new Map();
-  const nationExtra = new Map();
+  // Icon/Hero boost buckets
+  let iconLeagueGlobalBoost = 0;   // +1 to *every* league for each in-position Icon
+  const leagueExtra = new Map();   // league key -> +count (Heroes +2 to their league)
+  const nationExtra = new Map();   // nation key -> +count (Icons +2, Heroes +1)
 
   const perPlayerChem = {};
 
-  // ---- First pass: only in-position players contribute
+  // ---------- First pass: counts from in-position players ----------
   for (const slot of formation) {
     const p = placed[slot.key];
     if (!p) continue;
@@ -35,17 +49,20 @@ export function computeChemistry(placed, formation) {
     if (nk) nationMap.set(nk, (nationMap.get(nk) || 0) + 1);
     if (lk) leagueMap.set(lk, (leagueMap.get(lk) || 0) + 1);
 
-    // Icon / Hero boosts
+    // EA boosts:
+    // Icons: 3 chem in position. Team: +2 to nation count, +1 to ALL leagues
     if (p.isIcon) {
       if (nk) nationExtra.set(nk, (nationExtra.get(nk) || 0) + 2);
       iconLeagueGlobalBoost += 1;
-    } else if (p.isHero) {
+    }
+    // Heroes: 3 chem in position. Team: +1 to nation, +2 to their *own* league
+    else if (p.isHero) {
       if (nk) nationExtra.set(nk, (nationExtra.get(nk) || 0) + 1);
       if (lk) leagueExtra.set(lk, (leagueExtra.get(lk) || 0) + 2);
     }
   }
 
-  // ---- Second pass: compute chem per player
+  // ---------- Second pass: per-player chem ----------
   for (const slot of formation) {
     const p = placed[slot.key];
     if (!p) continue;
@@ -56,6 +73,7 @@ export function computeChemistry(placed, formation) {
       continue;
     }
 
+    // Icons/Heroes always get 3 when in position
     if (p.isIcon || p.isHero) {
       perPlayerChem[p.id] = 3;
       continue;
@@ -73,10 +91,18 @@ export function computeChemistry(placed, formation) {
     const nationC = chemFromNation(nationCount);
     const leagueC = chemFromLeague(leagueCount);
 
-    let chem = Math.min(3, clubC + nationC + leagueC);
+    let chem = clubC + nationC + leagueC;
+    if (chem > 3) chem = 3;
+    if (chem < 0) chem = 0;
+
     perPlayerChem[p.id] = chem;
   }
 
-  const teamChem = Math.min(33, Object.values(perPlayerChem).reduce((a, b) => a + (b || 0), 0));
+  // Team chem = sum of individual chem, capped at 33
+  const teamChem = Math.min(
+    33,
+    Object.values(perPlayerChem).reduce((a, b) => a + (b || 0), 0)
+  );
+
   return { perPlayerChem, teamChem };
 }
