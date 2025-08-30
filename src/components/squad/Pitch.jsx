@@ -1,117 +1,33 @@
 // src/components/squad/Pitch.jsx
-// NOTE: Do NOT import the CSS here. It is imported once in SquadBuilder.jsx.
-
 import React from "react";
 
-// coords: array of { key, pos, x, y } (VERTICAL_COORDS[formation])
-export default function Pitch({
-  formation,
-  coords,
-  placed,
-  chem,
-  onSelectSlot,
-  onRemove,
-}) {
-  const perPlayerChem = chem?.perPlayer || {};
-
+export default function Pitch({ children, height = "600px" }) {
   return (
-    <div className="pitch-box enhanced-pitch relative">
-      {/* turf stripes */}
-      <div className="pitch-turf" />
+    <div
+      className="relative rounded-3xl border border-emerald-900 bg-emerald-900/80 overflow-hidden"
+      style={{ height }}
+    >
+      {/* Grass gradient */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.06),transparent_55%)]" />
 
-      {/* white pitch lines (SVG) */}
-      <svg className="pitch-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <rect x="2" y="2" width="96" height="96" rx="4" className="pl" />
-        <line x1="2" y1="50" x2="98" y2="50" className="pl" />
-        <circle cx="50" cy="50" r="1.5" className="pl filled" />
-        <circle cx="50" cy="50" r="14" className="pl" />
+      {/* Touchlines */}
+      <div className="absolute inset-4 rounded-2xl border border-emerald-300/30" />
 
-        {/* penalty boxes */}
-        <g className="pl">
-          <rect x="28" y="2" width="44" height="10" className="pl" />
-          <circle cx="50" cy="12" r="0.6" className="pl filled" />
-          <rect x="28" y="88" width="44" height="10" className="pl" />
-          <circle cx="50" cy="88" r="0.6" className="pl filled" />
-        </g>
-      </svg>
+      {/* Halfway & centre */}
+      <div className="absolute left-1/2 top-4 bottom-4 w-px bg-emerald-300/30 -translate-x-1/2" />
+      <div className="absolute left-1/2 top-1/2 w-24 h-24 rounded-full border border-emerald-300/30 -translate-x-1/2 -translate-y-1/2" />
+      <div className="absolute left-1/2 top-1/2 w-2 h-2 rounded-full bg-emerald-300/40 -translate-x-1/2 -translate-y-1/2" />
 
-      {/* content layer with padding */}
-      <div className="pitch-content">
-        {coords.map(({ key, pos, x, y }) => {
-          const pl = placed[key];
-          const chemVal = perPlayerChem[key] ?? 0;
+      {/* Penalty boxes */}
+      {/* Top */}
+      <div className="absolute left-[18%] right-[18%] top-4 h-28 border border-emerald-300/30 rounded-b-2xl" />
+      <div className="absolute left-[32%] right-[32%] top-4 h-14 border border-emerald-300/30 rounded-b-xl" />
+      {/* Bottom */}
+      <div className="absolute left-[18%] right-[18%] bottom-4 h-28 border border-emerald-300/30 rounded-t-2xl" />
+      <div className="absolute left-[32%] right-[32%] bottom-4 h-14 border border-emerald-300/30 rounded-t-xl" />
 
-          return (
-            <div
-              key={key}
-              className="absolute"
-              style={{
-                left: `${x}%`,
-                top: `${y}%`,
-                transform: "translate(-50%, -50%)",
-                width: 96,
-                height: 134,
-              }}
-            >
-              {/* empty slot */}
-              {!pl && (
-                <button
-                  className="empty-slot w-full h-full rounded-xl border-2 border-dashed border-emerald-300/40 bg-emerald-300/5 text-emerald-200 text-xs flex flex-col items-center justify-center"
-                  onClick={() => onSelectSlot({ key, pos })}
-                  title={`Add ${pos}`}
-                >
-                  <div className="font-semibold opacity-80">{pos}</div>
-                  <div className="text-lg leading-none">+</div>
-                </button>
-              )}
-
-              {/* placed card */}
-              {pl && (
-                <div
-                  className="squad-card relative w-full h-full rounded-xl cursor-pointer select-none"
-                  onClick={() => onSelectSlot({ key, pos })}
-                  title={`${pl.name} (${pos})`}
-                >
-                  <img
-                    className="squad-card__img rounded-xl"
-                    src={pl.image_url}
-                    alt={pl.name}
-                    draggable={false}
-                  />
-
-                  {/* price pill (bottom center) */}
-                  {pl.price != null && (
-                    <div
-                      className="price absolute left-1/2 -translate-x-1/2 bottom-1"
-                      style={{ pointerEvents: "none" }}
-                    >
-                      <span className="coin" /> {Number(pl.price).toLocaleString()}c
-                    </div>
-                  )}
-
-                  {/* chem dot (top-right) */}
-                  <div
-                    className={`chem-dot absolute right-2 top-2 ${
-                      chemVal >= 3 ? "chem-3" : chemVal === 2 ? "chem-2" : chemVal === 1 ? "chem-1" : "chem-0"
-                    }`}
-                    title={`Chem: ${chemVal}`}
-                  />
-
-                  {/* remove (small red dot top-left) */}
-                  <button
-                    className="absolute left-2 top-2 w-3.5 h-3.5 rounded-full bg-red-500 hover:bg-red-600"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemove(key);
-                    }}
-                    title="Remove"
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {/* Children (absolute at slot coords) */}
+      <div className="absolute inset-0">{children}</div>
     </div>
   );
 }
