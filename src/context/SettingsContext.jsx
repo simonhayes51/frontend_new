@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 
 const SettingsContext = createContext(null);
 
-// Include "top_earner" in defaults
+// Default widget order (includes Top Earner)
 const DEFAULT_WIDGET_ORDER = [
   "profit",
   "trades",
@@ -17,18 +17,27 @@ const DEFAULT_WIDGET_ORDER = [
   "latest_trade",
   "top_earner",
 ];
-
 const DEFAULT_VISIBLE = [...DEFAULT_WIDGET_ORDER];
 
+// Any extra preferences can live here as well (used by Trading tab)
+const DEFAULTS = {
+  include_tax_in_profit: true,
+  visible_widgets: DEFAULT_VISIBLE,
+  widget_order: DEFAULT_WIDGET_ORDER,
+  recent_trades_limit: 5,
+  // “Trading” page example prefs (optional)
+  default_platform: "Console",
+  default_quantity: 1,
+};
+
 export const SettingsProvider = ({ children }) => {
+  const [state, setState] = useState({
+    ...DEFAULTS,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [include_tax_in_profit, setIncludeTaxInProfit] = useState(true);
-  const [visible_widgets, setVisibleWidgets] = useState(DEFAULT_VISIBLE);
-  const [widget_order, setWidgetOrder] = useState(DEFAULT_WIDGET_ORDER);
-  const [recent_trades_limit, setRecentTradesLimit] = useState(5);
-
+  // Helpers
   const formatCurrency = useCallback((n) => {
     const v = Number.isFinite(n) ? n : 0;
     return v.toLocaleString("en-GB");
@@ -45,23 +54,13 @@ export const SettingsProvider = ({ children }) => {
     });
   }, []);
 
+  // Load from localStorage
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("user_settings");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.include_tax_in_profit !== undefined) {
-          setIncludeTaxInProfit(parsed.include_tax_in_profit);
-        }
-        if (Array.isArray(parsed.visible_widgets)) {
-          setVisibleWidgets(parsed.visible_widgets);
-        }
-        if (Array.isArray(parsed.widget_order)) {
-          setWidgetOrder(parsed.widget_order);
-        }
-        if (Number.isFinite(parsed.recent_trades_limit)) {
-          setRecentTradesLimit(parsed.recent_trades_limit);
-        }
+      const raw = localStorage.getItem("user_settings");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setState((s) => ({ ...s, ...parsed }));
       }
     } catch (e) {
       console.error("Failed to load settings from localStorage", e);
@@ -71,46 +70,24 @@ export const SettingsProvider = ({ children }) => {
     }
   }, []);
 
+  // Save any partial update
   const saveSettings = (partial) => {
-    const merged = {
-      include_tax_in_profit,
-      visible_widgets,
-      widget_order,
-      recent_trades_limit,
-      ...partial,
-    };
-
-    if (partial.include_tax_in_profit !== undefined) {
-      setIncludeTaxInProfit(partial.include_tax_in_profit);
-    }
-    if (partial.visible_widgets) {
-      setVisibleWidgets([...partial.visible_widgets]);
-    }
-    if (partial.widget_order) {
-      setWidgetOrder([...partial.widget_order]);
-    }
-    if (partial.recent_trades_limit !== undefined) {
-      setRecentTradesLimit(partial.recent_trades_limit);
-    }
-
-    try {
-      localStorage.setItem("user_settings", JSON.stringify(merged));
-    } catch (e) {
-      console.error("Failed to save settings to localStorage", e);
-      setError(e);
-    }
+    setState((prev) => {
+      const merged = { ...prev, ...partial };
+      try {
+        localStorage.setItem("user_settings", JSON.stringify(merged));
+      } catch (e) {
+        console.error("Failed to save settings to localStorage", e);
+        setError(e);
+      }
+      return merged;
+    });
   };
 
   const value = {
+    ...state,
     isLoading,
     error,
-    include_tax_in_profit,
-    visible_widgets,
-    widget_order,
-    recent_trades_limit,
-    setVisibleWidgets,
-    setWidgetOrder,
-    setRecentTradesLimit,
     saveSettings,
     formatCurrency,
     formatDate,
