@@ -1,68 +1,49 @@
 // src/components/squad/Pitch.jsx
 import React from "react";
+import "../../styles/squad.css";
 
 /**
- * Vertical (portrait) football pitch with correct markings and no extra guides.
- * - 800 x 1200 logical canvas (portrait). Goals at top & bottom.
- * - preserveAspectRatio="xMidYMid meet" so nothing stretches.
- * - Children render on an absolute layer (use % left/top like you already do).
- *
- * Props:
- *   height: CSS height of the pitch (default 640px)
- *   className: extra classes
+ * Vertical pitch with crisp, non-stretch lines.
+ * Uses a fixed viewBox and lets the SVG scale — lines stay correct.
  */
-export default function Pitch({ height = "640px", className = "", children }) {
+export default function Pitch({ height = "640px", children }) {
   return (
-    <div
-      className={`pitch-box enhanced-pitch ${className}`}
-      style={{ height }}
-    >
-      {/* turf stripes */}
+    <div className="pitch-box enhanced-pitch" style={{ height }}>
       <div className="pitch-turf" />
-
-      {/* Portrait SVG pitch (no training rectangles) */}
       <svg
         className="pitch-svg"
-        viewBox="0 0 800 1200"
-        preserveAspectRatio="xMidYMid meet"
-        aria-hidden="true"
+        viewBox="0 0 100 160" // vertical field units
+        preserveAspectRatio="none"
       >
-        {/* Outer boundary */}
-        <rect x="20" y="20" width="760" height="1160" rx="18" ry="18" className="pl" />
+        {/* outer lines */}
+        <rect x="2" y="2" width="96" height="156" className="pl" />
 
-        {/* Halfway line */}
-        <line x1="20" y1="600" x2="780" y2="600" className="pl" />
+        {/* halfway */}
+        <line x1="2" y1="80" x2="98" y2="80" className="pl" />
 
-        {/* Centre circle + spot */}
-        <circle cx="400" cy="600" r="90" className="pl" />
-        <circle cx="400" cy="600" r="5"  className="pl filled" />
+        {/* center circle & spot */}
+        <circle cx="50" cy="80" r="9.15" className="pl" />
+        <circle cx="50" cy="80" r="0.5" className="pl filled" />
 
-        {/* --- Top end (attacking downwards) --- */}
-        {/* Penalty area */}
-        <rect x="180" y="20" width="440" height="180" className="pl" />
-        {/* Goal area */}
-        <rect x="260" y="20" width="280" height="60" className="pl" />
-        {/* Penalty spot */}
-        <circle cx="400" cy="160" r="5" className="pl filled" />
-        {/* Penalty arc */}
-        <path d="M 310 200 A 90 90 0 0 0 490 200" className="pl" fill="none" />
-        {/* Simple goal outline */}
-        <rect x="360" y="10" width="80" height="10" className="pl" />
+        {/* penalty areas */}
+        {/* top box */}
+        <rect x="18" y="2" width="64" height="16" className="pl" />
+        <rect x="26" y="2" width="48" height="6" className="pl" />
+        <circle cx="50" cy="12" r="0.5" className="pl filled" />
 
-        {/* --- Bottom end (attacking upwards) --- */}
-        {/* Penalty area */}
-        <rect x="180" y="1000" width="440" height="180" className="pl" />
-        {/* Goal area */}
-        <rect x="260" y="1120" width="280" height="60" className="pl" />
-        {/* Penalty spot */}
-        <circle cx="400" cy="1040" r="5" className="pl filled" />
-        {/* Penalty arc */}
-        <path d="M 490 1000 A 90 90 0 0 0 310 1000" className="pl" fill="none" />
-        {/* Simple goal outline */}
-        <rect x="360" y="1180" width="80" height="10" className="pl" />
+        {/* bottom box */}
+        <rect x="18" y="146" width="64" height="12" className="pl" />
+        <rect x="26" y="154" width="48" height="4" className="pl" />
+        <circle cx="50" cy="148" r="0.5" className="pl filled" />
+
+        {/* corner arcs (simple) */}
+        <path d="M2,6 A4,4 0 0 1 6,2" className="pl" />
+        <path d="M98,6 A4,4 0 0 0 94,2" className="pl" />
+        <path d="M2,154 A4,4 0 0 0 6,158" className="pl" />
+        <path d="M98,154 A4,4 0 0 1 94,158" className="pl" />
       </svg>
 
-      {/* absolute layer for cards/slots */}
+      {/* Safe inset content so cards don’t sit on the line */}
       <div className="pitch-content">{children}</div>
     </div>
   );
