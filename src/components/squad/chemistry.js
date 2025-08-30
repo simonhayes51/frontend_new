@@ -1,38 +1,20 @@
-// src/components/squad/chemistry.js
 import { isValidForSlot } from "../../utils/positions";
 
-/**
- * EA-style thresholds (FC25)
- * Club:   2/4/7  => +1/+2/+3
- * Nation: 2/5/8  => +1/+2/+3
- * League: 3/5/8  => +1/+2/+3
- */
+const KEY = (x) => (x ? String(x).trim().toLowerCase() : null);
+
+// FC25 thresholds
 const clubChem   = (n) => (n >= 7 ? 3 : n >= 4 ? 2 : n >= 2 ? 1 : 0);
 const nationChem = (n) => (n >= 8 ? 3 : n >= 5 ? 2 : n >= 2 ? 1 : 0);
 const leagueChem = (n) => (n >= 8 ? 3 : n >= 5 ? 2 : n >= 3 ? 1 : 0);
 
-/**
- * Icons/Heroes contributions (approx EA behaviour):
- * - Only counted if the player is IN POSITION.
- * - Icon:
- *    - Player gets 3 chem (in position)
- *    - Contributes +2 to Nation tally and +1 to ALL leagues
- * - Hero:
- *    - Player gets 3 chem (in position)
- *    - Contributes +2 to their League tally and +1 to Nation
- */
 export function computeChemistry(placed, formation) {
-  // tallies (only for in-position players)
-  const clubs = new Map();   // key -> count
+  const clubs   = new Map();
   const nations = new Map();
   const leagues = new Map();
 
-  // for league-wide icon perk (+1 to every league once per icon)
-  let globalLeagueBonus = 0;
+  const add = (map, key, v = 1) => key && map.set(key, (map.get(key) || 0) + v);
 
-  const perPlayerChem = {};
-
-  // ---- FIRST PASS: build tallies for in-position players
+  // First pass: team counts from IN-POSITION players
   for (const slot of formation) {
     const p = placed[slot.key];
     if (!p) continue;
@@ -40,33 +22,28 @@ export function computeChemistry(placed, formation) {
     const inPos = isValidForSlot(slot.pos, p.positions);
     if (!inPos) continue;
 
-    const ck = p.club ? p.club.toLowerCase() : null;
-    const nk = p.nation ? p.nation.toLowerCase() : null;
-    const lk = p.league ? p.league.toLowerCase() : null;
+    const cKey = KEY(p.club);
+    const nKey = KEY(p.nation);
+    const lKey = KEY(p.league);
 
     if (p.isIcon) {
-      // icon contributes +2 nation, +1 to *all* leagues (tracked as a global bonus we add later)
-      if (nk) nations.set(nk, (nations.get(nk) || 0) + 2);
-      globalLeagueBonus += 1;
-    } else if (p.isHero) {
-      // hero contributes +2 league, +1 nation
-      if (lk) leagues.set(lk, (leagues.get(lk) || 0) + 2);
-      if (nk) nations.set(nk, (nations.get(nk) || 0) + 1);
-    } else {
-      if (ck) clubs.set(ck, (clubs.get(ck) || 0) + 1);
-      if (nk) nations.set(nk, (nations.get(nk) || 0) + 1);
-      if (lk) leagues.set(lk, (leagues.get(lk) || 0) + 1);
+      // Icons boost NATION teamwide by +2
+      add(nations, nKey, 2);
+      continue;
     }
+    if (p.isHero) {
+      // Heroes boost LEAGUE teamwide by +2
+      add(leagues, lKey, 2);
+      continue;
+    }
+
+    add(clubs, cKey, 1);
+    add(nations, nKey, 1);
+    add(leagues, lKey, 1);
   }
 
-  // apply the icon +1 global league bonus across all *present* leagues
-  if (globalLeagueBonus > 0 && leagues.size > 0) {
-    for (const [lk, cnt] of leagues.entries()) {
-      leagues.set(lk, cnt + globalLeagueBonus);
-    }
-  }
-
-  // ---- SECOND PASS: compute per-player chem
+  // Second pass: individual chem (must be in position)
+  const perPlayerChem = {};
   for (const slot of formation) {
     const p = placed[slot.key];
     if (!p) continue;
@@ -78,23 +55,22 @@ export function computeChemistry(placed, formation) {
     }
 
     if (p.isIcon || p.isHero) {
-      // EA: icons/heroes have 3 chem when in position
       perPlayerChem[p.id] = 3;
       continue;
     }
 
-    const ck = p.club ? p.club.toLowerCase() : null;
-    const nk = p.nation ? p.nation.toLowerCase() : null;
-    const lk = p.league ? p.league.toLowerCase() : null;
+    const cKey = KEY(p.club);
+    const nKey = KEY(p.nation);
+    const lKey = KEY(p.league);
 
-    const c = ck ? clubChem(clubs.get(ck) || 0) : 0;
-    const n = nk ? nationChem(nations.get(nk) || 0) : 0;
-    const l = lk ? leagueChem(leagues.get(lk) || 0) : 0;
+    let chem =
+      (cKey ? clubChem(clubs.get(cKey) || 0) : 0) +
+      (nKey ? nationChem(nations.get(nKey) || 0) : 0) +
+      (lKey ? leagueChem(leagues.get(lKey) || 0) : 0);
 
-    perPlayerChem[p.id] = Math.min(3, c + n + l);
+    perPlayerChem[p.id] = Math.max(0, Math.min(3, chem));
   }
 
-  // ---- Team chem (sum, cap 33)
   const teamChem = Math.min(
     33,
     Object.values(perPlayerChem).reduce((a, b) => a + (b || 0), 0)
