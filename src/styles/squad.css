@@ -298,6 +298,72 @@
       rgba(6, 95, 70, 0.15) 100%);
 }
 
+/* ---------- PITCH LAYOUT ---------- */
+.pitch-box {
+  position: relative;
+  width: 100%;
+  /* We use explicit height from props, but still guard ratio on very small screens */
+  min-height: 420px;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid #184a3b; /* subtle frame */
+  background: #083a32;
+}
+
+/* Turf stripes: repeating gradient that never stretches weirdly */
+.pitch-turf {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.04) 0 6%,
+      rgba(255, 255, 255, 0.02) 6% 12%
+    );
+  filter: saturate(0.9) brightness(0.9);
+  pointer-events: none;
+}
+
+/* SVG fills the box without distortion */
+.pitch-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Pitch lines */
+.pl {
+  fill: none;
+  stroke: rgba(230, 255, 240, 0.7);
+  stroke-width: 0.7;           /* scales with viewBox → crisp at all sizes */
+  vector-effect: non-scaling-stroke;
+}
+.pl.filled {
+  fill: rgba(230, 255, 240, 0.9);
+  stroke: none;
+}
+
+/* The safe content area: inset gives padding so cards don't overlap the touchlines */
+.pitch-content {
+  position: absolute;
+  /* tweak these insets to taste; they are in CSS pixels of the rendered element */
+  inset: 24px;
+}
+
+/* Keep your scrollbars classy on the search */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #2c2c2c;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
 /* Grass stripe animation */
 @keyframes grassWave {
   0%, 100% { opacity: 0.8; }
