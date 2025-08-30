@@ -48,6 +48,7 @@ const DesktopSidebar = () => {
     { path: "/player-search", label: "Player Search" },
     { path: "/squad", label: "Squad Builder" },
     { path: "/watchlist", label: "Watchlist" },
+    { path: "/trending", label: "Trending" }, // NEW
     { path: "/analytics", label: "Analytics" },
   ];
 
