@@ -1,11 +1,9 @@
 // src/components/PlayerSearch.jsx
 import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { Search, TrendingUp, TrendingDown, Minus, Loader2, Target } from "lucide-react";
-import PriceTrendChart from "./PriceTrendChart.jsx"; // ← the chart
+import { Search, Loader2 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const buildProxy = (url) => `${API_BASE}/img?url=${encodeURIComponent(url)}`;
-
 const PLACEHOLDER = "/img/card-placeholder.png";
 
 // ------- backend helpers -------
@@ -117,7 +115,7 @@ export default function PlayerSearch() {
 
   return (
     <div className="min-h-screen relative text-white">
-      {/* Background stadium */}
+      {/* Stadium background */}
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
@@ -125,8 +123,8 @@ export default function PlayerSearch() {
         }}
       ></div>
 
-      {/* Purple overlay */}
-      <div className="absolute inset-0 bg-purple-900/70"></div>
+      {/* Purple gradient overlay (matches Add Trade) */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-700/70 via-purple-800/70 to-purple-900/80"></div>
 
       {/* Content */}
       <div className="relative z-10 p-6">
@@ -141,8 +139,10 @@ export default function PlayerSearch() {
             </div>
           ) : (
             <div className="bg-[#0f172a]/80 backdrop-blur-md rounded-xl p-6">
-              {/* Replace with your existing <PlayerDetail /> if needed */}
-              <h2 className="text-2xl font-bold">{selectedPlayer.name} ({selectedPlayer.rating})</h2>
+              {/* Replace with your <PlayerDetail /> */}
+              <h2 className="text-2xl font-bold">
+                {selectedPlayer.name} ({selectedPlayer.rating})
+              </h2>
             </div>
           )}
         </div>
