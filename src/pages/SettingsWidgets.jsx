@@ -38,9 +38,7 @@ export default function SettingsWidgets() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Dashboard Settings</h1>
-
+    <div>
       {/* Profit calc */}
       <div className="mb-8">
         <h2 className="text-lg font-semibold mb-2">Profit Calculation</h2>
