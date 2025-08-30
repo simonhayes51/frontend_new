@@ -49,7 +49,7 @@ function EnhancedEmptySlot({ position, onClick, isSelected }) {
   );
 }
 
-// Clean FutBin-style player card
+// Clean overlays over existing card image
 function EnhancedPlayerCard({
   player,
   slotPosition,
@@ -66,151 +66,89 @@ function EnhancedPlayerCard({
   const outOfPosition = !isValidForSlot(slotPosition, player.positions);
   const sizeClasses = size === "sm" ? "w-16 h-20" : "w-20 h-28";
 
-  // Clean card background - much more subtle like FutBin
-  const getCardStyles = () => {
-    let bgClass = "bg-gray-800";
-    let borderClass = "border-gray-600";
-    let textClass = "text-white";
-
-    if (player.isIcon) {
-      bgClass = "bg-gradient-to-b from-orange-400 to-orange-500";
-      borderClass = "border-orange-300";
-      textClass = "text-white";
-    } else if (player.isHero) {
-      bgClass = "bg-gradient-to-b from-purple-500 to-purple-600";
-      borderClass = "border-purple-300";
-      textClass = "text-white";
-    } else if (player.rating >= 90) {
-      // Gold - very subtle
-      bgClass = "bg-gradient-to-b from-yellow-100 to-yellow-200";
-      borderClass = "border-yellow-300";
-      textClass = "text-gray-900";
-    } else if (player.rating >= 85) {
-      // Silver - clean and minimal
-      bgClass = "bg-gradient-to-b from-gray-100 to-gray-200";
-      borderClass = "border-gray-300";
-      textClass = "text-gray-900";
-    } else if (player.rating >= 75) {
-      // Bronze - warm but subtle
-      bgClass = "bg-gradient-to-b from-amber-100 to-amber-200";
-      borderClass = "border-amber-300";
-      textClass = "text-gray-900";
-    }
-
-    return { bgClass, borderClass, textClass };
+  const textSizes = {
+    sm: { pos: "text-xs", price: "text-xs" },
+    md: { pos: "text-sm", price: "text-xs" }
   };
 
-  // Chemistry dot styling
-  const getChemDot = () => {
-    if (outOfPosition) return "bg-red-500";
-    if (chem >= 3) return "bg-green-500";
-    if (chem === 2) return "bg-yellow-500";
-    if (chem === 1) return "bg-orange-500";
+  // Chemistry dot color
+  const getChemDotClass = () => {
+    if (outOfPosition) return "bg-red-500 animate-pulse";
+    if (chem >= 3) return "bg-green-400";
+    if (chem === 2) return "bg-yellow-400";
+    if (chem === 1) return "bg-orange-400";
     return "bg-gray-400";
   };
-
-  const { bgClass, borderClass, textClass } = getCardStyles();
-  const textSize = size === "sm" ? "text-xs" : "text-sm";
-  const nameSize = size === "sm" ? "text-xs" : "text-xs";
-  const ratingSize = size === "sm" ? "text-sm" : "text-base";
 
   return (
     <div className="relative group">
       <div
         className={cls(
           sizeClasses,
-          bgClass,
-          borderClass,
-          "relative rounded-lg border-2 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5",
-          outOfPosition && "ring-2 ring-red-500"
+          "relative overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5",
+          outOfPosition && "ring-2 ring-red-500/50"
         )}
         draggable={draggable}
         onDragStart={onDragStart}
       >
-        {/* Player image - positioned behind content */}
+        {/* Full card image */}
         {player.image_url && (
-          <div className="absolute inset-0 rounded-lg overflow-hidden">
-            <img
-              className="w-full h-full object-cover object-center opacity-20"
-              src={player.image_url}
-              alt={player.name}
-              referrerPolicy="no-referrer"
-            />
-          </div>
+          <img
+            className="w-full h-full object-cover"
+            src={player.image_url}
+            alt={player.name}
+            referrerPolicy="no-referrer"
+          />
         )}
 
-        {/* Top row - Rating and Position */}
-        <div className="absolute top-1 left-1 right-1 flex justify-between items-start z-10">
-          <div className="flex flex-col items-start">
-            {/* Rating */}
-            <div className={cls(
-              textClass,
-              "font-black px-1.5 py-0.5 bg-black/10 rounded text-center",
-              ratingSize
-            )}>
-              {player.rating || "-"}
-            </div>
-            
-            {/* Position */}
-            <div className={cls(
-              textClass,
-              "font-bold px-1.5 py-0.5 bg-black/10 rounded text-center mt-0.5",
-              textSize
-            )}>
-              {(player.positions?.[0] || "").toUpperCase()}
-            </div>
+        {/* Position overlay - top left */}
+        <div className="absolute top-2 left-2">
+          <div className={cls(
+            "bg-black/80 text-white font-bold px-2 py-1 rounded-md shadow-lg backdrop-blur-sm border border-white/20",
+            textSizes[size === "sm" ? "sm" : "md"].pos
+          )}>
+            {(player.positions?.[0] || "").toUpperCase()}
           </div>
+        </div>
 
-          {/* Chemistry dot */}
+        {/* Chemistry dot - top right */}
+        <div className="absolute top-2 right-2">
           <div 
             className={cls(
-              "w-2.5 h-2.5 rounded-full border border-white/50 shadow-sm",
-              getChemDot()
+              "w-3 h-3 rounded-full shadow-lg ring-2 ring-white/50",
+              getChemDotClass()
             )}
             title={`Chemistry: ${outOfPosition ? 0 : chem}/3${outOfPosition ? ' • Out of position' : ''}`}
           />
         </div>
 
-        {/* Special badges */}
-        {(player.isIcon || player.isHero) && size !== "sm" && (
-          <div className="absolute top-1 left-1/2 transform -translate-x-1/2">
-            {player.isIcon && (
-              <span className="bg-orange-600 text-white text-xs px-1 py-0.5 rounded font-bold">
-                ICN
-              </span>
-            )}
-            {player.isHero && (
-              <span className="bg-purple-600 text-white text-xs px-1 py-0.5 rounded font-bold">
-                HRO
-              </span>
-            )}
+        {/* Price pill - bottom center */}
+        {typeof player.price === "number" && (
+          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2">
+            <div className={cls(
+              "bg-black/90 text-yellow-300 font-bold px-3 py-1.5 rounded-full shadow-lg backdrop-blur-sm border border-yellow-400/30",
+              textSizes[size === "sm" ? "sm" : "md"].price
+            )}>
+              {player.price.toLocaleString()}
+            </div>
           </div>
         )}
 
-        {/* Bottom content - Name and Price */}
-        <div className="absolute bottom-1 left-1 right-1 z-10">
-          {/* Player name */}
-          <div className={cls(
-            textClass,
-            "font-semibold text-center truncate mb-1 px-1 py-0.5 bg-black/10 rounded",
-            nameSize
-          )}>
-            {player.name}
-          </div>
-
-          {/* Price */}
-          {typeof player.price === "number" && (
-            <div className="text-center">
-              <div className={cls(
-                textClass,
-                "font-bold px-2 py-0.5 bg-black/20 rounded-full inline-block",
-                textSize
-              )}>
-                {player.price.toLocaleString()}
+        {/* Special card indicators */}
+        {(player.isIcon || player.isHero) && size !== "sm" && (
+          <div className="absolute bottom-2 right-2">
+            {player.isIcon && (
+              <div className="bg-orange-600/90 text-white text-xs px-2 py-1 rounded font-bold shadow-sm backdrop-blur-sm">
+                ICN
               </div>
-            </div>
-          )}
-        </div>
+            )}
+            {player.isHero && (
+              <div className="bg-purple-600/90 text-white text-xs px-2 py-1 rounded font-bold shadow-sm backdrop-blur-sm">
+                HRO
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Remove button */}
@@ -230,8 +168,8 @@ function EnhancedPlayerCard({
 
       {/* Out-of-position indicator */}
       {outOfPosition && size !== "sm" && (
-        <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2">
-          <span className="text-xs text-red-400 bg-red-900/90 px-2 py-0.5 rounded-full font-bold">
+        <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2">
+          <span className="text-xs text-red-400 bg-red-900/90 px-2 py-1 rounded-full font-bold">
             OOP
           </span>
         </div>
@@ -239,16 +177,16 @@ function EnhancedPlayerCard({
 
       {/* Hover actions for squad builder */}
       {setSearchOpen && slotKey && (
-        <div className="absolute -bottom-6 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="absolute -bottom-8 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="flex justify-center gap-1">
             <button
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded font-bold"
+              className="bg-blue-600/95 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded font-bold backdrop-blur-sm"
               onClick={() => setSearchOpen(slotKey)}
             >
               Swap
             </button>
             <button
-              className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded font-bold"
+              className="bg-red-600/95 hover:bg-red-700 text-white text-xs px-2 py-1 rounded font-bold backdrop-blur-sm"
               onClick={onRemove}
             >
               Remove
