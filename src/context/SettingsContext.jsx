@@ -1,30 +1,56 @@
+// src/context/SettingsContext.jsx
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
 /**
- * Settings context normalises your server's flat usersettings row
- * into a nested shape the UI uses: { general: {...}, portfolio: {...} }.
- * It also exposes formatters and a saveSettings(partial) that fans out to:
- * - POST /api/portfolio/balance for startingCoins
- * - POST /api/settings for general (timezone/date_format, etc.)
+ * Server-driven settings with legacy compatibility for Overview widgets.
+ * - Normalises backend usersettings into: { general, portfolio }
+ * - Exposes legacy fields: visible_widgets, widget_order, recent_trades_limit
+ * - saveSettings(partial) smartly fans out to:
+ *     • POST /api/portfolio/balance (startingCoins)
+ *     • POST /api/settings          (timezone/date_format + visible_widgets)
+ * - Persists a compact snapshot to localStorage.user_settings for older code.
  */
 
 const SettingsContext = createContext(null);
 
+// ===== Defaults =====
 const DEFAULT_GENERAL = {
-  dateFormat: "DD/MM/YYYY",     // maps to API's usersettings.date_format (EU/US/ISO)
-  timeFormat: "24h",            // client-side only
+  dateFormat: "DD/MM/YYYY", // maps to server date_format: EU|US|ISO
+  timeFormat: "24h",        // client-only
   timezone: "Europe/London",
-  coinFormat: "short_m",        // client-side only (short_m | european_kk | full_commas | dot_thousands | space_thousands)
+  coinFormat: "short_m",    // client-only: short_m | european_kk | full_commas | dot_thousands | space_thousands
   compactThreshold: 100000,
   compactDecimals: 1,
 };
 
-const DEFAULT_PORTFOLIO = {
-  startingCoins: 0,
-};
+const DEFAULT_PORTFOLIO = { startingCoins: 0 };
+
+const DEFAULT_WIDGET_ORDER = [
+  "profit",
+  "trades",
+  "roi",
+  "winrate",
+  "avg_profit",
+  "best_trade",
+  "volume",
+  "profit_trend",
+  "tax",
+  "balance",
+  "latest_trade",
+  "top_earner",
+];
+const DEFAULT_VISIBLE = [...DEFAULT_WIDGET_ORDER];
+const DEFAULT_RECENT_TRADES_LIMIT = 5;
 
 export const SettingsProvider = ({ children }) => {
-  const [settings, setSettings] = useState({ general: DEFAULT_GENERAL, portfolio: DEFAULT_PORTFOLIO });
+  const [general, setGeneral] = useState(DEFAULT_GENERAL);
+  const [portfolio, setPortfolio] = useState(DEFAULT_PORTFOLIO);
+
+  // Legacy/overview-critical fields
+  const [visible_widgets, setVisibleWidgets] = useState(DEFAULT_VISIBLE);
+  const [widget_order, setWidgetOrder] = useState(DEFAULT_WIDGET_ORDER);
+  const [recent_trades_limit, setRecentTradesLimit] = useState(DEFAULT_RECENT_TRADES_LIMIT);
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -34,75 +60,104 @@ export const SettingsProvider = ({ children }) => {
     return v.toLocaleString("en-GB");
   }, []);
 
-  const formatDate = useCallback((d) => {
-    const dt = d instanceof Date ? d : new Date(d);
-    const opts = {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: (settings.general?.timeFormat ?? "24h") === "12h",
-      timeZone: settings.general?.timezone || "Europe/London",
-    };
-    return new Intl.DateTimeFormat("en-GB", opts).format(dt);
-  }, [settings.general]);
+  const formatDate = useCallback(
+    (d) => {
+      const dt = d instanceof Date ? d : new Date(d);
+      const opts = {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: (general.timeFormat ?? "24h") === "12h",
+        timeZone: general.timezone || "Europe/London",
+      };
+      return new Intl.DateTimeFormat("en-GB", opts).format(dt);
+    },
+    [general]
+  );
 
-  const formatCoins = useCallback((n, g = settings.general) => {
-    const cfg = {
-      coinFormat: g?.coinFormat ?? "short_m",
-      compactThreshold: g?.compactThreshold ?? 100000,
-      compactDecimals: g?.compactDecimals ?? 1,
-    };
-    const toFull = (x) => x.toLocaleString("en-GB"); // 1,234,567
+  const formatCoins = useCallback(
+    (n, g = general) => {
+      const cfg = {
+        coinFormat: g?.coinFormat ?? "short_m",
+        compactThreshold: g?.compactThreshold ?? 100000,
+        compactDecimals: g?.compactDecimals ?? 1,
+      };
+      const toFull = (x) => x.toLocaleString("en-GB");
 
-    if (cfg.coinFormat === "short_m" && n >= cfg.compactThreshold) {
-      if (n >= 1_000_000) return (n / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
-      if (n >= 1_000) return (n / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
-    }
-    if (cfg.coinFormat === "european_kk" && n >= cfg.compactThreshold) {
-      return (n / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "kk";
-    }
-    if (cfg.coinFormat === "dot_thousands") return toFull(n).replaceAll(",", ".");
-    if (cfg.coinFormat === "space_thousands") return toFull(n).replaceAll(",", " ");
-    if (cfg.coinFormat === "full_commas") return toFull(n);
-    return toFull(n);
-  }, [settings.general]);
+      if (cfg.coinFormat === "short_m" && n >= cfg.compactThreshold) {
+        if (n >= 1_000_000) return (n / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
+        if (n >= 1_000) return (n / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
+      }
+      if (cfg.coinFormat === "european_kk" && n >= cfg.compactThreshold) {
+        return (n / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "kk";
+      }
+      if (cfg.coinFormat === "dot_thousands") return toFull(n).replaceAll(",", ".");
+      if (cfg.coinFormat === "space_thousands") return toFull(n).replaceAll(",", " ");
+      if (cfg.coinFormat === "full_commas") return toFull(n);
+      return toFull(n);
+    },
+    [general]
+  );
 
-  // ---------- Load from backend ----------
+  // ---------- Load from backend + merge any legacy localStorage ----------
   useEffect(() => {
     (async () => {
       try {
-        const [sRes, pRes] = await Promise.all([
-          fetch("/api/settings"),
-          fetch("/api/profile"), // contains startingBalance per your main.py
-        ]);
+        // Hydrate legacy prefs early to avoid empty Overview on first paint
+        try {
+          const raw = localStorage.getItem("user_settings");
+          if (raw) {
+            const ls = JSON.parse(raw);
+            if (Array.isArray(ls.visible_widgets)) setVisibleWidgets(ls.visible_widgets);
+            if (Array.isArray(ls.widget_order)) setWidgetOrder(ls.widget_order);
+            if (Number.isFinite(ls.recent_trades_limit)) setRecentTradesLimit(ls.recent_trades_limit);
+          }
+        } catch {}
 
+        const [sRes, pRes] = await Promise.all([fetch("/api/settings"), fetch("/api/profile")]);
         const s = await sRes.json();
         const p = await pRes.json();
 
-        // Map flat server fields -> nested general
-        const general = {
+        // Map server -> general
+        const mappedGeneral = {
           ...DEFAULT_GENERAL,
           timezone: s.timezone || DEFAULT_GENERAL.timezone,
           dateFormat:
-            s.date_format === "US"
-              ? "MM/DD/YYYY"
-              : s.date_format === "ISO"
-              ? "YYYY-MM-DD"
-              : "DD/MM/YYYY",
-          // client-only prefs (if you later persist these, hydrate from server instead)
+            s.date_format === "US" ? "MM/DD/YYYY" : s.date_format === "ISO" ? "YYYY-MM-DD" : "DD/MM/YYYY",
+          // coin prefs are client-only until persisted server-side
           coinFormat: s.coinFormat ?? DEFAULT_GENERAL.coinFormat,
           compactThreshold: s.compactThreshold ?? DEFAULT_GENERAL.compactThreshold,
           compactDecimals: s.compactDecimals ?? DEFAULT_GENERAL.compactDecimals,
           timeFormat: "24h",
         };
+        setGeneral(mappedGeneral);
 
-        const portfolio = {
-          startingCoins: p?.startingBalance ?? DEFAULT_PORTFOLIO.startingCoins,
-        };
+        // Portfolio (starting balance comes from /api/profile fetch_dashboard_data)
+        setPortfolio({ startingCoins: p?.startingBalance ?? DEFAULT_PORTFOLIO.startingCoins });
 
-        setSettings({ general, portfolio });
+        // Widgets from server column (usersettings.visible_widgets)
+        const serverVisible =
+          Array.isArray(s.visible_widgets) && s.visible_widgets.length ? s.visible_widgets : DEFAULT_VISIBLE;
+        setVisibleWidgets(serverVisible);
+
+        // If you add an order column later, map here; for now keep existing/default
+        setWidgetOrder((prev) => (prev && prev.length ? prev : DEFAULT_WIDGET_ORDER));
+
+        // Persist compact legacy snapshot for any older code still reading localStorage
+        try {
+          const existing = JSON.parse(localStorage.getItem("user_settings") || "{}");
+          localStorage.setItem(
+            "user_settings",
+            JSON.stringify({
+              ...existing,
+              visible_widgets: serverVisible,
+              widget_order: DEFAULT_WIDGET_ORDER,
+              recent_trades_limit: DEFAULT_RECENT_TRADES_LIMIT,
+            })
+          );
+        } catch {}
       } catch (e) {
         console.error("Settings load failed:", e);
         setError(e);
@@ -115,15 +170,29 @@ export const SettingsProvider = ({ children }) => {
   // ---------- Save partial updates ----------
   const saveSettings = async (partial) => {
     // optimistic local merge
-    setSettings((prev) => {
-      const next = { ...prev, ...partial };
-      // deep merge for general/portfolio
-      if (partial.general) next.general = { ...prev.general, ...partial.general };
-      if (partial.portfolio) next.portfolio = { ...prev.portfolio, ...partial.portfolio };
-      return next;
-    });
+    if (partial.general) setGeneral((g) => ({ ...g, ...partial.general }));
+    if (partial.portfolio) setPortfolio((p) => ({ ...p, ...partial.portfolio }));
+    if (partial.visible_widgets) setVisibleWidgets(partial.visible_widgets);
+    if (partial.widget_order) setWidgetOrder(partial.widget_order);
+    if (partial.recent_trades_limit !== undefined) setRecentTradesLimit(partial.recent_trades_limit);
 
-    // starting balance -> dedicated endpoint
+    // Update legacy localStorage snapshot (so older code keeps working)
+    try {
+      const ls = JSON.parse(localStorage.getItem("user_settings") || "{}");
+      localStorage.setItem(
+        "user_settings",
+        JSON.stringify({
+          ...ls,
+          ...(partial.visible_widgets ? { visible_widgets: partial.visible_widgets } : {}),
+          ...(partial.widget_order ? { widget_order: partial.widget_order } : {}),
+          ...(partial.recent_trades_limit !== undefined
+            ? { recent_trades_limit: partial.recent_trades_limit }
+            : {}),
+        })
+      );
+    } catch {}
+
+    // Server: starting balance
     if (partial.portfolio?.startingCoins !== undefined) {
       try {
         await fetch("/api/portfolio/balance", {
@@ -136,21 +205,20 @@ export const SettingsProvider = ({ children }) => {
       }
     }
 
-    // general -> /api/settings (flat)
-    if (partial.general) {
-      const g = { ...settings.general, ...partial.general };
+    // Server: general (timezone, date_format) + also persist visible_widgets
+    if (partial.general || partial.visible_widgets) {
+      const g = { ...general, ...(partial.general || {}) };
       const mapped = {
-        // server-known fields only; others are kept client-side for now
         timezone: g.timezone,
         date_format: g.dateFormat === "MM/DD/YYYY" ? "US" : g.dateFormat === "YYYY-MM-DD" ? "ISO" : "EU",
-        // include the rest of required server columns with safe defaults so your UPSERT doesn't null them
+        // required columns to satisfy your UPSERT
         default_platform: "Console",
         custom_tags: [],
         currency_format: "coins",
         theme: "dark",
         include_tax_in_profit: true,
         default_chart_range: "30d",
-        visible_widgets: ["profit", "tax", "balance", "trades"],
+        visible_widgets: partial.visible_widgets || visible_widgets,
       };
       try {
         await fetch("/api/settings", {
@@ -162,23 +230,27 @@ export const SettingsProvider = ({ children }) => {
         setError(e);
       }
     }
-
-    return true;
   };
+
+  // Expose both legacy and new shapes
+  const settings = { general, portfolio, visible_widgets, widget_order, recent_trades_limit };
 
   return (
     <SettingsContext.Provider
       value={{
         settings,
-        general: settings.general,
-        portfolio: settings.portfolio,
+        general,
+        portfolio,
+        visible_widgets,
+        widget_order,
+        recent_trades_limit,
         isLoading,
         error,
         saveSettings,
         formatCurrency,
         formatDate,
         formatCoins,
-        // legacy fallbacks used elsewhere in your app:
+        // old callers sometimes use these:
         default_platform: "Console",
         default_quantity: 1,
       }}
