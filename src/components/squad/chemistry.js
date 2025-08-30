@@ -1,77 +1,104 @@
 // src/components/squad/chemistry.js
 import { isValidForSlot } from "../../utils/positions";
 
-const keyOf = (s) => (s ? String(s).trim().toLowerCase() : null);
+/**
+ * EA-style thresholds (FC25)
+ * Club:   2/4/7  => +1/+2/+3
+ * Nation: 2/5/8  => +1/+2/+3
+ * League: 3/5/8  => +1/+2/+3
+ */
+const clubChem   = (n) => (n >= 7 ? 3 : n >= 4 ? 2 : n >= 2 ? 1 : 0);
+const nationChem = (n) => (n >= 8 ? 3 : n >= 5 ? 2 : n >= 2 ? 1 : 0);
+const leagueChem = (n) => (n >= 8 ? 3 : n >= 5 ? 2 : n >= 3 ? 1 : 0);
 
-// EA thresholds
-const chemFromClub   = (n) => (n >= 7 ? 3 : n >= 4 ? 2 : n >= 2 ? 1 : 0);
-const chemFromNation = (n) => (n >= 8 ? 3 : n >= 5 ? 2 : n >= 2 ? 1 : 0);
-const chemFromLeague = (n) => (n >= 8 ? 3 : n >= 5 ? 2 : n >= 3 ? 1 : 0);
-
+/**
+ * Icons/Heroes contributions (approx EA behaviour):
+ * - Only counted if the player is IN POSITION.
+ * - Icon:
+ *    - Player gets 3 chem (in position)
+ *    - Contributes +2 to Nation tally and +1 to ALL leagues
+ * - Hero:
+ *    - Player gets 3 chem (in position)
+ *    - Contributes +2 to their League tally and +1 to Nation
+ */
 export function computeChemistry(placed, formation) {
-  const clubMap   = new Map();
-  const nationMap = new Map();
-  const leagueMap = new Map();
+  // tallies (only for in-position players)
+  const clubs = new Map();   // key -> count
+  const nations = new Map();
+  const leagues = new Map();
 
-  // Team-wide boosts from Icons/Heroes
-  let iconLeagueGlobalBoost = 0;   // +1 to ALL leagues (per in-position Icon)
-  const leagueExtra = new Map();   // league -> +2 (per in-position Hero)
-  const nationExtra = new Map();   // nation -> +2 (Icon) / +1 (Hero)
+  // for league-wide icon perk (+1 to every league once per icon)
+  let globalLeagueBonus = 0;
 
   const perPlayerChem = {};
 
-  // Pass 1: tally only players who are IN POSITION
-  for (const slot of formation) {
-    const p = placed[slot.key];
-    if (!p) continue;
-
-    const inPos = isValidForSlot(slot.pos, p.positions); // ✅ correct order
-    if (!inPos) continue;
-
-    const ck = keyOf(p.club);
-    const nk = keyOf(p.nation);
-    const lk = keyOf(p.league);
-
-    if (ck) clubMap.set(ck, (clubMap.get(ck) || 0) + 1);
-    if (nk) nationMap.set(nk, (nationMap.get(nk) || 0) + 1);
-    if (lk) leagueMap.set(lk, (leagueMap.get(lk) || 0) + 1);
-
-    // EA boosts
-    if (p.isIcon) {
-      if (nk) nationExtra.set(nk, (nationExtra.get(nk) || 0) + 2);
-      iconLeagueGlobalBoost += 1;
-    } else if (p.isHero) {
-      if (nk) nationExtra.set(nk, (nationExtra.get(nk) || 0) + 1);
-      if (lk) leagueExtra.set(lk, (leagueExtra.get(lk) || 0) + 2);
-    }
-  }
-
-  // Pass 2: compute chem per player
+  // ---- FIRST PASS: build tallies for in-position players
   for (const slot of formation) {
     const p = placed[slot.key];
     if (!p) continue;
 
     const inPos = isValidForSlot(slot.pos, p.positions);
-    if (!inPos) { perPlayerChem[p.id] = 0; continue; }
+    if (!inPos) continue;
 
-    if (p.isIcon || p.isHero) { perPlayerChem[p.id] = 3; continue; }
+    const ck = p.club ? p.club.toLowerCase() : null;
+    const nk = p.nation ? p.nation.toLowerCase() : null;
+    const lk = p.league ? p.league.toLowerCase() : null;
 
-    const ck = keyOf(p.club);
-    const nk = keyOf(p.nation);
-    const lk = keyOf(p.league);
-
-    const clubCount   = ck ? (clubMap.get(ck) || 0) : 0;
-    const nationCount = (nk ? (nationMap.get(nk) || 0) : 0) + (nk ? (nationExtra.get(nk) || 0) : 0);
-    const leagueCount = (lk ? (leagueMap.get(lk) || 0) : 0) + iconLeagueGlobalBoost + (lk ? (leagueExtra.get(lk) || 0) : 0);
-
-    const clubC   = chemFromClub(clubCount);
-    const nationC = chemFromNation(nationCount);
-    const leagueC = chemFromLeague(leagueCount);
-
-    let chem = Math.min(3, clubC + nationC + leagueC);
-    perPlayerChem[p.id] = chem;
+    if (p.isIcon) {
+      // icon contributes +2 nation, +1 to *all* leagues (tracked as a global bonus we add later)
+      if (nk) nations.set(nk, (nations.get(nk) || 0) + 2);
+      globalLeagueBonus += 1;
+    } else if (p.isHero) {
+      // hero contributes +2 league, +1 nation
+      if (lk) leagues.set(lk, (leagues.get(lk) || 0) + 2);
+      if (nk) nations.set(nk, (nations.get(nk) || 0) + 1);
+    } else {
+      if (ck) clubs.set(ck, (clubs.get(ck) || 0) + 1);
+      if (nk) nations.set(nk, (nations.get(nk) || 0) + 1);
+      if (lk) leagues.set(lk, (leagues.get(lk) || 0) + 1);
+    }
   }
 
-  const teamChem = Math.min(33, Object.values(perPlayerChem).reduce((a, b) => a + (b || 0), 0));
+  // apply the icon +1 global league bonus across all *present* leagues
+  if (globalLeagueBonus > 0 && leagues.size > 0) {
+    for (const [lk, cnt] of leagues.entries()) {
+      leagues.set(lk, cnt + globalLeagueBonus);
+    }
+  }
+
+  // ---- SECOND PASS: compute per-player chem
+  for (const slot of formation) {
+    const p = placed[slot.key];
+    if (!p) continue;
+
+    const inPos = isValidForSlot(slot.pos, p.positions);
+    if (!inPos) {
+      perPlayerChem[p.id] = 0;
+      continue;
+    }
+
+    if (p.isIcon || p.isHero) {
+      // EA: icons/heroes have 3 chem when in position
+      perPlayerChem[p.id] = 3;
+      continue;
+    }
+
+    const ck = p.club ? p.club.toLowerCase() : null;
+    const nk = p.nation ? p.nation.toLowerCase() : null;
+    const lk = p.league ? p.league.toLowerCase() : null;
+
+    const c = ck ? clubChem(clubs.get(ck) || 0) : 0;
+    const n = nk ? nationChem(nations.get(nk) || 0) : 0;
+    const l = lk ? leagueChem(leagues.get(lk) || 0) : 0;
+
+    perPlayerChem[p.id] = Math.min(3, c + n + l);
+  }
+
+  // ---- Team chem (sum, cap 33)
+  const teamChem = Math.min(
+    33,
+    Object.values(perPlayerChem).reduce((a, b) => a + (b || 0), 0)
+  );
+
   return { perPlayerChem, teamChem };
 }
