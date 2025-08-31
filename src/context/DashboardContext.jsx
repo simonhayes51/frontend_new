@@ -1,10 +1,10 @@
-// context/DashboardContext.jsx
+// src/context/DashboardContext.jsx
 import { createContext, useContext, useReducer, useEffect } from "react";
 import api from "../utils/axios";
 
 const DashboardContext = createContext();
 
-const dashboardReducer = (state, action) => {
+const reducer = (state, action) => {
   switch (action.type) {
     case "SET_LOADING":
       return { ...state, isLoading: action.payload };
@@ -15,17 +15,15 @@ const dashboardReducer = (state, action) => {
     case "ADD_TRADE":
       return {
         ...state,
-        trades: [action.payload, ...state.trades.slice(0, 9)], // keep 10 recent
-        netProfit: state.netProfit + (action.payload.profit || 0),
-        taxPaid: state.taxPaid + (action.payload.ea_tax || 0),
+        trades: [action.payload, ...state.trades.slice(0, 9)],
+        netProfit: (state.netProfit || 0) + (action.payload.profit || 0),
+        taxPaid: (state.taxPaid || 0) + (action.payload.ea_tax || 0),
         profile: {
           ...state.profile,
-          totalProfit: state.profile.totalProfit + (action.payload.profit || 0),
-          tradesLogged: state.profile.tradesLogged + 1,
+          totalProfit: (state.profile?.totalProfit || 0) + (action.payload.profit || 0),
+          tradesLogged: (state.profile?.tradesLogged || 0) + 1,
         },
       };
-    case "REFRESH_DATA":
-      return { ...state, shouldRefresh: true };
     default:
       return state;
   }
@@ -38,34 +36,24 @@ const initialState = {
   taxPaid: 0,
   startingBalance: 0,
   trades: [],
-  profile: {
-    totalProfit: 0,
-    tradesLogged: 0,
-    winRate: 0,
-    mostUsedTag: "N/A",
-    bestTrade: null,
-  },
-  shouldRefresh: false,
+  profile: { totalProfit: 0, tradesLogged: 0, winRate: 0, mostUsedTag: "N/A", bestTrade: null },
 };
 
 export const DashboardProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(dashboardReducer, initialState);
+  const [state, dispatch] = useReducer(reducer, initialState);
 
   const fetchDashboardData = async () => {
     try {
       dispatch({ type: "SET_LOADING", payload: true });
-      const response = await api.get("/api/dashboard");
-      dispatch({ type: "SET_DASHBOARD_DATA", payload: response.data });
-    } catch (error) {
-      console.error("Dashboard fetch error:", error);
-      dispatch({
-        type: "SET_ERROR",
-        payload: error.userMessage || "Failed to load dashboard data",
-      });
+      const res = await api.get("/api/dashboard");
+      dispatch({ type: "SET_DASHBOARD_DATA", payload: res.data });
+    } catch (err) {
+      console.error("Dashboard fetch error:", err);
+      dispatch({ type: "SET_ERROR", payload: err.userMessage || "Failed to load dashboard data" });
     }
   };
 
-  // Coerce numbers & drop empty trade_id (prevents 22P02 on backend)
+  // IMPORTANT: coerce numbers before POST (prevents 400s & bad math)
   const addTrade = async (tradeData) => {
     try {
       const payload = {
@@ -74,38 +62,31 @@ export const DashboardProvider = ({ children }) => {
         sell: Number(tradeData.sell || 0),
         quantity: Number(tradeData.quantity || 1),
       };
-      if (!payload.trade_id) delete payload.trade_id;
 
-      const response = await api.post("/api/trades", payload);
+      const res = await api.post("/api/trades", payload);
 
       const newTrade = {
         ...payload,
-        profit: response.data.profit,
-        ea_tax: response.data.ea_tax,
+        profit: res.data.profit,
+        ea_tax: res.data.ea_tax,
         timestamp: new Date().toISOString(),
       };
-
       dispatch({ type: "ADD_TRADE", payload: newTrade });
-      return { success: true, message: response.data.message };
-    } catch (error) {
-      console.error("Add trade error:", error);
-      return {
-        success: false,
-        message: error.userMessage || "Failed to add trade",
-      };
+
+      return { success: true, message: res.data.message };
+    } catch (err) {
+      console.error("Add trade error:", err);
+      return { success: false, message: err.userMessage || "Failed to add trade" };
     }
   };
 
   const getAllTrades = async () => {
     try {
-      const response = await api.get("/api/trades");
-      return { success: true, trades: response.data.trades };
-    } catch (error) {
-      console.error("Get trades error:", error);
-      return {
-        success: false,
-        message: error.userMessage || "Failed to load trades",
-      };
+      const res = await api.get("/api/trades");
+      return { success: true, trades: res.data.trades };
+    } catch (err) {
+      console.error("Get trades error:", err);
+      return { success: false, message: err.userMessage || "Failed to load trades" };
     }
   };
 
@@ -114,36 +95,18 @@ export const DashboardProvider = ({ children }) => {
       await api.delete(`/api/trades/${tradeId}`);
       await fetchDashboardData();
       return { success: true, message: "Trade deleted successfully" };
-    } catch (error) {
-      console.error("Delete trade error:", error);
-      return {
-        success: false,
-        message: error.userMessage || "Failed to delete trade",
-      };
+    } catch (err) {
+      console.error("Delete trade error:", err);
+      return { success: false, message: err.userMessage || "Failed to delete trade" };
     }
   };
 
-  const refreshData = () => fetchDashboardData();
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  useEffect(() => {
-    if (state.shouldRefresh) fetchDashboardData();
-  }, [state.shouldRefresh]);
-
-  const value = {
-    ...state,
-    addTrade,
-    getAllTrades,
-    deleteTrade,
-    refreshData,
-    fetchDashboardData,
-  };
+  useEffect(() => { fetchDashboardData(); }, []);
 
   return (
-    <DashboardContext.Provider value={value}>
+    <DashboardContext.Provider
+      value={{ ...state, addTrade, getAllTrades, deleteTrade, fetchDashboardData }}
+    >
       {children}
     </DashboardContext.Provider>
   );
