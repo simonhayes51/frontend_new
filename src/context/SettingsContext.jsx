@@ -1,6 +1,5 @@
 // src/context/SettingsContext.jsx
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import api from "../api/axios.js";
 
 /**
  * Server-driven settings with legacy compatibility for Overview widgets.
@@ -9,11 +8,42 @@ import api from "../api/axios.js";
  * - saveSettings(partial) fans out to:
  *     • POST /api/portfolio/balance (startingCoins)
  *     • POST /api/settings          (timezone/date_format + visible_widgets)
- *
- * NOTE: This version uses the shared Axios client (../api/axios)
- * so requests always hit the backend baseURL with cookies.
  */
 
+/* ---------- Runtime-safe API base (no axios, no hard build-time envs) ---------- */
+const API_BASE =
+  (typeof window !== "undefined" && window.__API_BASE__) ||
+  (typeof globalThis !== "undefined" && globalThis.__API_BASE__) ||
+  ((typeof import.meta !== "undefined" && import.meta.env) ? (import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL) : null) ||
+  "https://backend-production-1f1a.up.railway.app";
+
+const apiUrl = (p) => `${String(API_BASE).replace(/\/+$/, "")}${p}`;
+
+async function apiGet(path) {
+  const res = await fetch(apiUrl(path), { credentials: "include" });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch {}
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} – ${text.slice(0,200)}`);
+  if (!data) throw new Error(`Non-JSON response: ${text.slice(0,120)}`);
+  return data;
+}
+
+async function apiPostJson(path, body) {
+  const res = await fetch(apiUrl(path), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body ?? {}),
+  });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch {}
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} – ${text.slice(0,200)}`);
+  return data ?? {};
+}
+
+/* ---------- Context ---------- */
 const SettingsContext = createContext(null);
 
 // ===== Defaults =====
@@ -29,18 +59,8 @@ const DEFAULT_GENERAL = {
 const DEFAULT_PORTFOLIO = { startingCoins: 0 };
 
 const DEFAULT_WIDGET_ORDER = [
-  "profit",
-  "trades",
-  "roi",
-  "winrate",
-  "avg_profit",
-  "best_trade",
-  "volume",
-  "profit_trend",
-  "tax",
-  "balance",
-  "latest_trade",
-  "top_earner",
+  "profit","trades","roi","winrate","avg_profit","best_trade","volume",
+  "profit_trend","tax","balance","latest_trade","top_earner",
 ];
 const DEFAULT_VISIBLE = [...DEFAULT_WIDGET_ORDER];
 const DEFAULT_RECENT_TRADES_LIMIT = 5;
@@ -67,11 +87,8 @@ export const SettingsProvider = ({ children }) => {
     (d) => {
       const dt = d instanceof Date ? d : new Date(d);
       const opts = {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
+        year: "numeric", month: "short", day: "2-digit",
+        hour: "2-digit", minute: "2-digit",
         hour12: (general.timeFormat ?? "24h") === "12h",
         timeZone: general.timezone || "Europe/London",
       };
@@ -91,15 +108,15 @@ export const SettingsProvider = ({ children }) => {
       const toFull = (x) => x.toLocaleString("en-GB");
 
       if (cfg.coinFormat === "short_m" && num >= cfg.compactThreshold) {
-        if (num >= 1_000_000) return (num / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
-        if (num >= 1_000) return (num / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
+        if (num >= 1_000_000) return (num/1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
+        if (num >= 1_000)     return (num/1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
       }
       if (cfg.coinFormat === "european_kk" && num >= cfg.compactThreshold) {
-        return (num / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "kk";
+        return (num/1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "kk";
       }
-      if (cfg.coinFormat === "dot_thousands") return toFull(num).replaceAll(",", ".");
+      if (cfg.coinFormat === "dot_thousands")   return toFull(num).replaceAll(",", ".");
       if (cfg.coinFormat === "space_thousands") return toFull(num).replaceAll(",", " ");
-      if (cfg.coinFormat === "full_commas") return toFull(num);
+      if (cfg.coinFormat === "full_commas")     return toFull(num);
       return toFull(num);
     },
     [general]
@@ -109,30 +126,28 @@ export const SettingsProvider = ({ children }) => {
   useEffect(() => {
     (async () => {
       try {
-        // Hydrate legacy prefs early to avoid empty Overview on first paint
+        // hydrate legacy prefs early
         try {
           const raw = localStorage.getItem("user_settings");
           if (raw) {
             const ls = JSON.parse(raw);
             if (Array.isArray(ls.visible_widgets)) setVisibleWidgets(ls.visible_widgets);
-            if (Array.isArray(ls.widget_order)) setWidgetOrder(ls.widget_order);
+            if (Array.isArray(ls.widget_order))   setWidgetOrder(ls.widget_order);
             if (Number.isFinite(ls.recent_trades_limit)) setRecentTradesLimit(ls.recent_trades_limit);
           }
         } catch {}
 
-        // Load server settings/profile (JSON via axios)
+        // server loads
         const [s, p] = await Promise.all([
-          api.get("/api/settings").then((r) => r.data),
-          api.get("/api/profile").then((r) => r.data),
+          apiGet("/api/settings"),
+          apiGet("/api/profile"),
         ]);
 
-        // Map server -> general
         const mappedGeneral = {
           ...DEFAULT_GENERAL,
           timezone: s.timezone || DEFAULT_GENERAL.timezone,
-          dateFormat:
-            s.date_format === "US" ? "MM/DD/YYYY" : s.date_format === "ISO" ? "YYYY-MM-DD" : "DD/MM/YYYY",
-          // coin prefs are client-only until persisted server-side
+          dateFormat: s.date_format === "US" ? "MM/DD/YYYY" :
+                      s.date_format === "ISO" ? "YYYY-MM-DD" : "DD/MM/YYYY",
           coinFormat: s.coinFormat ?? DEFAULT_GENERAL.coinFormat,
           compactThreshold: s.compactThreshold ?? DEFAULT_GENERAL.compactThreshold,
           compactDecimals: s.compactDecimals ?? DEFAULT_GENERAL.compactDecimals,
@@ -140,18 +155,14 @@ export const SettingsProvider = ({ children }) => {
         };
         setGeneral(mappedGeneral);
 
-        // Portfolio (starting balance comes from /api/profile fetch_dashboard_data)
         setPortfolio({ startingCoins: p?.startingBalance ?? DEFAULT_PORTFOLIO.startingCoins });
 
-        // Widgets from server column (usersettings.visible_widgets)
         const serverVisible =
           Array.isArray(s.visible_widgets) && s.visible_widgets.length ? s.visible_widgets : DEFAULT_VISIBLE;
         setVisibleWidgets(serverVisible);
-
-        // If you add an order column later, map here; for now keep existing/default
         setWidgetOrder((prev) => (prev && prev.length ? prev : DEFAULT_WIDGET_ORDER));
 
-        // Persist compact legacy snapshot for any older code still reading localStorage
+        // persist compact legacy snapshot
         try {
           const existing = JSON.parse(localStorage.getItem("user_settings") || "{}");
           localStorage.setItem(
@@ -182,7 +193,7 @@ export const SettingsProvider = ({ children }) => {
     if (partial.widget_order) setWidgetOrder(partial.widget_order);
     if (partial.recent_trades_limit !== undefined) setRecentTradesLimit(partial.recent_trades_limit);
 
-    // Update legacy localStorage snapshot (so older code keeps working)
+    // legacy localStorage snapshot
     try {
       const ls = JSON.parse(localStorage.getItem("user_settings") || "{}");
       localStorage.setItem(
@@ -201,7 +212,7 @@ export const SettingsProvider = ({ children }) => {
     // Server: starting balance
     if (partial.portfolio?.startingCoins !== undefined) {
       try {
-        await api.post("/api/portfolio/balance", {
+        await apiPostJson("/api/portfolio/balance", {
           starting_balance: partial.portfolio.startingCoins,
         });
       } catch (e) {
@@ -209,7 +220,7 @@ export const SettingsProvider = ({ children }) => {
       }
     }
 
-    // Server: general (timezone, date_format) + also persist visible_widgets
+    // Server: general + widgets
     if (partial.general || partial.visible_widgets) {
       const g = { ...general, ...(partial.general || {}) };
       const mapped = {
@@ -225,14 +236,13 @@ export const SettingsProvider = ({ children }) => {
         visible_widgets: partial.visible_widgets || visible_widgets,
       };
       try {
-        await api.post("/api/settings", mapped);
+        await apiPostJson("/api/settings", mapped);
       } catch (e) {
         setError(e);
       }
     }
   };
 
-  // Expose both legacy and new shapes
   const settings = { general, portfolio, visible_widgets, widget_order, recent_trades_limit };
 
   return (
