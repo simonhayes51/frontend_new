@@ -1,4 +1,4 @@
-// src/pages/SquadBuilder.jsx
+// src/pages/SquadBuilder.jsx 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Search, X, Star, Trophy, DollarSign, FlaskConical, Coins, Users, Plus } from "lucide-react";
 import Pitch from "../components/squad/Pitch";
