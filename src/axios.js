@@ -1,9 +1,21 @@
 // src/api/axios.js
 import axios from "axios";
 
+// Accept runtime override (set in index.html), then Vite envs, then fallback.
+const FALLBACK = "https://backend-production-1f1a.up.railway.app";
+
+const viteEnv =
+  (typeof import.meta !== "undefined" && import.meta && import.meta.env) ? import.meta.env : {};
+
+const API_BASE =
+  (typeof window !== "undefined" && window.__API_BASE__) ||
+  viteEnv.VITE_API_URL ||
+  viteEnv.VITE_API_BASE || // also support the other name you used earlier
+  FALLBACK;
+
 const instance = axios.create({
-  // IMPORTANT: no trailing /api here
-  baseURL: import.meta.env.VITE_API_URL || "https://backend-production-1f1a.up.railway.app",
+  // IMPORTANT: do not include trailing /api here; call instance.get("/api/...").
+  baseURL: API_BASE,
   withCredentials: true, // send/receive session cookies
   timeout: 10000,
 });
@@ -14,11 +26,15 @@ instance.interceptors.request.use(
     config.headers["Content-Type"] = config.headers["Content-Type"] || "application/json";
 
     // Ensure we never end up with double slashes (//api/...)
-    if (config.url) {
-      config.url = config.url.replace(/([^:]\/)\/+/g, "$1");
+    if (config.url) config.url = config.url.replace(/([^:]\/)\/+/g, "$1");
+
+    // Helpful one-time log in dev
+    if (viteEnv?.DEV && !window.__AXIOS_BASE_LOGGED__) {
+      console.log("[axios] baseURL:", API_BASE);
+      window.__AXIOS_BASE_LOGGED__ = true;
     }
 
-    if (import.meta.env.DEV) {
+    if (viteEnv?.DEV) {
       console.log(`→ ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
     }
     return config;
@@ -32,7 +48,7 @@ instance.interceptors.request.use(
 // Response interceptor
 instance.interceptors.response.use(
   (response) => {
-    if (import.meta.env.DEV) {
+    if (viteEnv?.DEV) {
       console.log("←", response.status, response.config.url);
     }
     return response;
