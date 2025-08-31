@@ -1,6 +1,6 @@
 // src/context/SettingsContext.jsx
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import api from "../api/axios";
+import api from "../api/axios.js";
 
 /**
  * Server-driven settings with legacy compatibility for Overview widgets.
