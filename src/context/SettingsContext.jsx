@@ -1,5 +1,6 @@
 // src/context/SettingsContext.jsx
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import api from "../api/axios";
 
 /**
  * Server-driven settings with legacy compatibility for Overview widgets.
@@ -8,37 +9,12 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
  * - saveSettings(partial) fans out to:
  *     • POST /api/portfolio/balance (startingCoins)
  *     • POST /api/settings          (timezone/date_format + visible_widgets)
+ *
+ * NOTE: This version uses the shared Axios client (../api/axios)
+ * so requests always hit the backend baseURL with cookies.
  */
 
 const SettingsContext = createContext(null);
-
-// ----- API helpers (use VITE_API_BASE + cookies) -----
-const API_BASE = import.meta?.env?.VITE_API_BASE || "";
-const apiUrl = (p) => `${API_BASE}${p}`;
-
-async function apiGet(path) {
-  const res = await fetch(apiUrl(path), { credentials: "include" });
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { /* not JSON */ }
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText} – ${text.slice(0, 200)}`);
-  if (!data) throw new Error(`Non-JSON response: ${text.slice(0, 120)}`);
-  return data;
-}
-
-async function apiPostJson(path, body) {
-  const res = await fetch(apiUrl(path), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(body ?? {}),
-  });
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { /* ok for empty */ }
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText} – ${text.slice(0, 200)}`);
-  return data ?? {};
-}
 
 // ===== Defaults =====
 const DEFAULT_GENERAL = {
@@ -144,8 +120,11 @@ export const SettingsProvider = ({ children }) => {
           }
         } catch {}
 
-        // Load server settings/profile
-        const [s, p] = await Promise.all([apiGet("/api/settings"), apiGet("/api/profile")]);
+        // Load server settings/profile (JSON via axios)
+        const [s, p] = await Promise.all([
+          api.get("/api/settings").then((r) => r.data),
+          api.get("/api/profile").then((r) => r.data),
+        ]);
 
         // Map server -> general
         const mappedGeneral = {
@@ -222,7 +201,7 @@ export const SettingsProvider = ({ children }) => {
     // Server: starting balance
     if (partial.portfolio?.startingCoins !== undefined) {
       try {
-        await apiPostJson("/api/portfolio/balance", {
+        await api.post("/api/portfolio/balance", {
           starting_balance: partial.portfolio.startingCoins,
         });
       } catch (e) {
@@ -246,7 +225,7 @@ export const SettingsProvider = ({ children }) => {
         visible_widgets: partial.visible_widgets || visible_widgets,
       };
       try {
-        await apiPostJson("/api/settings", mapped);
+        await api.post("/api/settings", mapped);
       } catch (e) {
         setError(e);
       }
