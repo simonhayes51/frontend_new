@@ -12,8 +12,9 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 
 function pctString(x) {
   if (x === null || x === undefined || isNaN(x)) return "N/A";
-  const sign = x > 0 ? "+" : "";
-  return `${sign}${Number(x).toFixed(2)}%`;
+  const n = Number(x);
+  const sign = n > 0 ? "+" : "";
+  return `${sign}${n.toFixed(2)}%`;
 }
 
 function chunkTop10(list) {
@@ -25,19 +26,19 @@ const pillBase = "inline-flex items-center px-2 py-0.5 rounded-full text-xs";
 const cardBase =
   "bg-gray-900/70 rounded-2xl p-3 border border-gray-800 hover:border-gray-700 transition-colors";
 
-/* ------- Rank badge (gold/silver/bronze for top 3) ------- */
+/* ------- Rank badge (gold/silver/bronze for top 3; slightly larger) ------- */
 function RankBadge({ rank }) {
-  let bg = "bg-gray-800 text-gray-200"; // default
-  let size = "h-8 w-8 text-sm";         // default size
+  let bg = "bg-gray-800 text-gray-200";
+  let size = "h-8 w-8 text-sm";
 
   if (rank === 1) {
-    bg = "bg-yellow-500 text-black";    // gold
+    bg = "bg-yellow-500 text-black"; // gold
     size = "h-9 w-9 text-base";
   } else if (rank === 2) {
-    bg = "bg-gray-400 text-black";      // silver
+    bg = "bg-gray-400 text-black"; // silver
     size = "h-9 w-9 text-base";
   } else if (rank === 3) {
-    bg = "bg-amber-700 text-white";     // bronze
+    bg = "bg-amber-700 text-white"; // bronze
     size = "h-9 w-9 text-base";
   }
 
@@ -48,6 +49,31 @@ function RankBadge({ rank }) {
   );
 }
 
+/* ------- normaliser to match backend payload ------- */
+function normaliseItem(p) {
+  return {
+    name: p.name ?? "Unknown",
+    rating: p.rating ?? p.ovr ?? null,
+    pid: p.pid ?? p.card_id ?? p.id,
+    version: p.version ?? p.card_type ?? "",
+    image: p.image ?? p.image_url ?? null,
+    // console-only price (falls back to legacy fields if needed)
+    price_console:
+      p.price_console ??
+      p.price_ps ??
+      p.ps ??
+      (typeof p.price === "number" ? p.price : null),
+    percent:
+      p.percent ??
+      p.percent_24h ??
+      p.percent_12h ??
+      p.percent_6h ??
+      null,
+    club: p.club ?? null,
+    league: p.league ?? null,
+  };
+}
+
 export default function Trending() {
   const [trendType, setTrendType] = useState("fallers"); // "risers" | "fallers"
   const [timeframe, setTimeframe] = useState("24");      // "6" | "12" | "24"
@@ -56,9 +82,7 @@ export default function Trending() {
   const [err, setErr] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  // Platform for watchlist additions
-  const [platform, setPlatform] = useState("ps"); // "ps" | "xbox"
-  // Track which items were added (to disable button)
+  // Track which items were added (to disable the button)
   const [added, setAdded] = useState({}); // { [pid]: true }
 
   const fetchTrending = useCallback(async () => {
@@ -84,14 +108,14 @@ export default function Trending() {
 
   const [left, right] = useMemo(() => chunkTop10(items), [items]);
 
-  // Add to watchlist
+  // Add to watchlist (store as PS under the hood; UI shows "Console")
   async function addToWatchlist(p) {
     try {
       const payload = {
         card_id: p.pid,
         player_name: p.name,
         version: p.version || null,
-        platform,
+        platform: "ps", // backend expects 'ps' or 'xbox'; we treat Console as PS
         notes: null,
       };
       const r = await fetch(`${API_BASE}/api/watchlist`, {
@@ -124,7 +148,7 @@ export default function Trending() {
         <div>
           <h1 className="text-2xl font-bold text-white">Trending</h1>
           <p className="text-sm text-gray-400">
-            Live market movers from FUT.GG Momentum. Console prices (PS shown).
+            Live market movers from FUT.GG Momentum. Console prices.
           </p>
         </div>
 
@@ -174,23 +198,6 @@ export default function Trending() {
             ))}
           </div>
 
-          {/* Platform for watchlist add */}
-          <div className="h-6 w-px bg-gray-700 hidden md:block" />
-          <div className="inline-flex rounded-xl border border-gray-800 overflow-hidden">
-            {["ps", "xbox"].map((pl) => (
-              <button
-                key={pl}
-                onClick={() => setPlatform(pl)}
-                className={`px-3 py-2 text-sm uppercase ${
-                  platform === pl ? "bg-gray-900 text-white" : "bg-gray-900/40 text-gray-300"
-                }`}
-                title={`Watchlist platform: ${pl.toUpperCase()}`}
-              >
-                {pl}
-              </button>
-            ))}
-          </div>
-
           {/* Refresh */}
           <button
             onClick={fetchTrending}
@@ -206,8 +213,8 @@ export default function Trending() {
       {/* Status */}
       <div className="flex items-center justify-between">
         <div className="text-xs text-gray-400">
-          Showing {trendType} for <span className="font-medium">{timeframe}h</span>. Use the
-          Watchlist button to save players ({platform.toUpperCase()}).
+          Showing {trendType} for <span className="font-medium">{timeframe}h</span>. Add players
+          to your watchlist using the button on each card.
         </div>
         {lastUpdated && (
           <div className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</div>
@@ -295,22 +302,17 @@ export default function Trending() {
                         </strong>
                       </div>
 
-                      {/* Prices */}
+                      {/* Price (Console only) */}
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span
                           className={`${pillBase} border border-gray-800 bg-gray-900/60 text-gray-200`}
-                          title="PlayStation"
+                          title="Console"
                         >
-                          PS:{" "}
-                          {typeof p.price_ps === "number"
-                            ? p.price_ps.toLocaleString()
-                            : p.price_ps || "N/A"}
+                          Console:{" "}
+                          {typeof p.price_console === "number"
+                            ? p.price_console.toLocaleString()
+                            : p.price_console || "N/A"}
                         </span>
-                        {/* If you later populate Xbox in API, show it:
-                        <span className={`${pillBase} border border-gray-800 bg-gray-900/60 text-gray-200`} title="Xbox">
-                          XB: {typeof p.price_xb === "number" ? p.price_xb.toLocaleString() : p.price_xb || "N/A"}
-                        </span>
-                        */}
                       </div>
                     </div>
 
@@ -324,7 +326,7 @@ export default function Trending() {
                             ? "bg-gray-800 border-gray-700 text-gray-400 cursor-default"
                             : "bg-gray-900/50 border-gray-700 hover:border-gray-600 text-gray-100"
                         }`}
-                        title={`Add to Watchlist (${platform.toUpperCase()})`}
+                        title="Add to Watchlist (Console)"
                       >
                         <BookmarkPlus size={16} />
                         {added[p.pid] ? "Added" : "Watchlist"}
@@ -338,22 +340,4 @@ export default function Trending() {
       </div>
     </div>
   );
-}
-
-/* ------- helpers ------- */
-function normaliseItem(p) {
-  return {
-    name: p.name ?? "Unknown",
-    rating: p.rating ?? p.ovr ?? null,
-    pid: p.pid ?? p.card_id ?? p.id,
-    version: p.version ?? p.card_type ?? "",
-    image: p.image ?? p.image_url ?? null,
-    price_ps: p.price_ps ?? p.ps ?? null,
-    price_xb: p.price_xb ?? p.xb ?? p.xbox ?? null,
-    percent: p.percent ?? p.percent_24h ?? p.percent_12h ?? p.percent_6h ?? null,
-    percent_4h: p.percent_4h ?? null,
-    percent_24h: p.percent_24h ?? null,
-    club: p.club ?? null,
-    league: p.league ?? null,
-  };
 }
