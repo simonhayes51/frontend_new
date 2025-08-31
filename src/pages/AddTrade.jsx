@@ -3,15 +3,14 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useSettings } from "../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
 
-/* Runtime-safe API base (same as SettingsContext) */
-const API_BASE =
-  (typeof window !== "undefined" && window.__API_BASE__) ||
-  (typeof globalThis !== "undefined" && globalThis.__API_BASE__) ||
-  ((typeof import.meta !== "undefined" && import.meta.env) ? (import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL) : null) ||
-  "https://backend-production-1f1a.up.railway.app";
-const apiUrl = (p) => `${String(API_BASE).replace(/\/+$/, "")}${p}`;
+const API_BASE = import.meta?.env?.VITE_API_BASE || "";
+const apiUrl = (p) => `${API_BASE}${p}`;
 
-const parseNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+const parseNum = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
 const eaTaxEach = (sell) => Math.floor(parseNum(sell) * 0.05);
 const netEach = (sell) => parseNum(sell) - eaTaxEach(sell);
 const profitEach = (buy, sell) => netEach(sell) - parseNum(buy);
@@ -58,7 +57,7 @@ export default function AddTrade() {
 
   const taxTotal = useMemo(() => eaTaxEach(sell) * qty, [sell, qty]);
   const profitBeforeTax = useMemo(() => (sell - buy) * qty, [sell, buy, qty]);
-  const profitAfterTax = useMemo(() => profitEach(buy, sell) * qty, [buy, sell, qty]);
+  const profitAfterTax = useMemo(() => (profitEach(buy, sell) * qty), [buy, sell, qty]);
 
   const canSubmit =
     form.player.trim().length > 0 &&
@@ -97,8 +96,11 @@ export default function AddTrade() {
       });
 
       const text = await res.text();
-      if (!res.ok) throw new Error(`POST /api/trades ${res.status} – ${text.slice(0,200)}`);
+      if (!res.ok) {
+        throw new Error(`POST /api/trades ${res.status} – ${text.slice(0,200)}`);
+      }
 
+      // success – go to Trades list
       navigate("/trades");
     } catch (err) {
       console.error("[AddTrade] submit failed:", err);
@@ -207,11 +209,15 @@ export default function AddTrade() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
             <div className="text-xs text-gray-400">EA Tax (5%)</div>
-            <div className="text-lg font-semibold text-red-400">{formatCurrency(taxTotal)} coins</div>
+            <div className="text-lg font-semibold text-red-400">
+              {formatCurrency(taxTotal)} coins
+            </div>
           </div>
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
             <div className="text-xs text-gray-400">Profit (before tax)</div>
-            <div className="text-lg font-semibold">{formatCurrency(profitBeforeTax)} coins</div>
+            <div className="text-lg font-semibold">
+              {formatCurrency(profitBeforeTax)} coins
+            </div>
           </div>
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
             <div className="text-xs text-gray-400">Profit (after tax)</div>
@@ -221,7 +227,9 @@ export default function AddTrade() {
           </div>
         </div>
 
-        {error && <div className="text-red-400 text-sm">{error}</div>}
+        {error && (
+          <div className="text-red-400 text-sm">{error}</div>
+        )}
 
         <div className="flex items-center gap-2 pt-2">
           <button
