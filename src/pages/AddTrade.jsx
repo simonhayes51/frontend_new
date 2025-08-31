@@ -1,257 +1,227 @@
-// src/pages/AddTrade.jsx
-import React, { useMemo, useState, useEffect } from "react";
+// Updated AddTrade component with settings integration
+import React, { useState, useEffect } from "react";
+import { useDashboard } from "../context/DashboardContext";
 import { useSettings } from "../context/SettingsContext";
-import { useNavigate } from "react-router-dom";
 
-const API_BASE = import.meta?.env?.VITE_API_BASE || "";
-const apiUrl = (p) => `${API_BASE}${p}`;
-
-const parseNum = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-};
-
-const eaTaxEach = (sell) => Math.floor(parseNum(sell) * 0.05);
-const netEach = (sell) => parseNum(sell) - eaTaxEach(sell);
-const profitEach = (buy, sell) => netEach(sell) - parseNum(buy);
-
-export default function AddTrade() {
-  const navigate = useNavigate();
-  const settings = (typeof useSettings === "function" ? useSettings() : {}) || {};
-
-  const formatCurrency =
-    typeof settings.formatCurrency === "function"
-      ? settings.formatCurrency
-      : (n) => (Number(n) || 0).toLocaleString("en-GB");
-
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-
+const AddTrade = () => {
+  const { addTrade } = useDashboard();
+  const { default_platform, custom_tags, isLoading: settingsLoading } = useSettings();
+  
   const [form, setForm] = useState({
     player: "",
     version: "",
-    platform: settings?.default_platform || "Console",
-    quantity: settings?.default_quantity || 1,
     buy: "",
     sell: "",
+    quantity: 1,
+    platform: "Console",
     tag: "",
-    timestamp: new Date().toISOString(),
   });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState(null);
 
-  // keep defaults in sync if user changes settings elsewhere
+  // Update form when settings load
   useEffect(() => {
-    if (settings?.default_platform) {
-      setForm((f) => ({ ...f, platform: settings.default_platform }));
+    if (!settingsLoading && default_platform) {
+      setForm(prev => ({ ...prev, platform: default_platform }));
     }
-  }, [settings?.default_platform]);
+  }, [default_platform, settingsLoading]);
 
-  useEffect(() => {
-    if (settings?.default_quantity) {
-      setForm((f) => ({ ...f, quantity: settings.default_quantity }));
-    }
-  }, [settings?.default_quantity]);
-
-  const qty = Math.max(1, parseNum(form.quantity));
-  const buy = parseNum(form.buy);
-  const sell = parseNum(form.sell);
-
-  const taxTotal = useMemo(() => eaTaxEach(sell) * qty, [sell, qty]);
-  const profitBeforeTax = useMemo(() => (sell - buy) * qty, [sell, buy, qty]);
-  const profitAfterTax = useMemo(() => (profitEach(buy, sell) * qty), [buy, sell, qty]);
-
-  const canSubmit =
-    form.player.trim().length > 0 &&
-    sell > 0 &&
-    buy >= 0 &&
-    qty > 0;
-
-  const onChange = (e) => {
-    const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const onSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    if (!canSubmit || submitting) return;
-
-    const payload = {
-      player: form.player.trim(),
-      version: form.version.trim() || "N/A",
-      platform: form.platform || "Console",
-      quantity: qty,
-      buy,
-      sell,
-      tag: (form.tag || "").trim() || "General", // backend requires non-empty
-      timestamp: form.timestamp || new Date().toISOString(),
-    };
-
+    setLoading(true);
+    
     try {
-      setSubmitting(true);
-      const res = await fetch(apiUrl("/api/trades"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      const text = await res.text();
-      if (!res.ok) {
-        throw new Error(`POST /api/trades ${res.status} – ${text.slice(0,200)}`);
+      const result = await addTrade(form);
+      
+      if (result.success) {
+        setMessage("Trade logged successfully!");
+        setForm({
+          player: "",
+          version: "",
+          buy: "",
+          sell: "",
+          quantity: 1,
+          platform: default_platform || "Console",
+          tag: "",
+        });
+      } else {
+        setMessage("Failed to log trade: " + result.message);
       }
-
-      // success – go to Trades list
-      navigate("/trades");
     } catch (err) {
-      console.error("[AddTrade] submit failed:", err);
-      setError(String(err.message || err));
+      console.error(err);
+      setMessage("Failed to log trade.");
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
+  };
+
+  // Get all available tags (custom + common ones)
+  const getAllTags = () => {
+    const commonTags = ["Snipe", "Investment", "Flip", "Pack Pull", "SBC", "Risky"];
+    return [...custom_tags, ...commonTags].filter((tag, index, self) => 
+      self.indexOf(tag) === index
+    );
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <h1 className="text-xl font-bold mb-4">Add Trade</h1>
+    <div className="p-4 max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">Add Trade</h1>
+      
+      {message && (
+        <div className={`mb-4 p-3 rounded ${
+          message.includes('success') ? 'bg-green-800' : 'bg-red-800'
+        }`}>
+          {message}
+        </div>
+      )}
 
-      <form onSubmit={onSubmit} className="space-y-4 bg-gray-900/70 border border-gray-800 p-4 rounded-2xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-gray-300">Player *</span>
-            <input
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200"
-              name="player"
-              value={form.player}
-              onChange={onChange}
-              placeholder="e.g., Mbappé"
-              required
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block mb-2 font-medium">Player Name</label>
+            <input 
+              name="player" 
+              placeholder="e.g. Cristiano Ronaldo" 
+              value={form.player} 
+              onChange={handleChange} 
+              className="w-full p-3 bg-gray-800 rounded-lg" 
+              required 
             />
-          </label>
+          </div>
 
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-gray-300">Version</span>
-            <input
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200"
-              name="version"
-              value={form.version}
-              onChange={onChange}
-              placeholder="e.g., Gold, IF, TOTW"
+          <div>
+            <label className="block mb-2 font-medium">Version</label>
+            <input 
+              name="version" 
+              placeholder="e.g. Gold Rare, TOTW" 
+              value={form.version} 
+              onChange={handleChange} 
+              className="w-full p-3 bg-gray-800 rounded-lg" 
+              required 
             />
-          </label>
+          </div>
 
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-gray-300">Platform</span>
-            <select
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200"
-              name="platform"
-              value={form.platform}
-              onChange={onChange}
+          <div>
+            <label className="block mb-2 font-medium">Buy Price</label>
+            <input 
+              name="buy" 
+              type="number" 
+              placeholder="Purchase price" 
+              value={form.buy} 
+              onChange={handleChange} 
+              className="w-full p-3 bg-gray-800 rounded-lg" 
+              required 
+            />
+          </div>
+
+          <div>
+            <label className="block mb-2 font-medium">Sell Price</label>
+            <input 
+              name="sell" 
+              type="number" 
+              placeholder="Sale price" 
+              value={form.sell} 
+              onChange={handleChange} 
+              className="w-full p-3 bg-gray-800 rounded-lg" 
+              required 
+            />
+          </div>
+
+          <div>
+            <label className="block mb-2 font-medium">Quantity</label>
+            <input 
+              name="quantity" 
+              type="number" 
+              placeholder="Number of cards" 
+              value={form.quantity} 
+              onChange={handleChange} 
+              className="w-full p-3 bg-gray-800 rounded-lg" 
+              required 
+              min="1"
+            />
+          </div>
+
+          <div>
+            <label className="block mb-2 font-medium">Platform</label>
+            <select 
+              name="platform" 
+              value={form.platform} 
+              onChange={handleChange} 
+              className="w-full p-3 bg-gray-800 rounded-lg"
             >
               <option value="Console">Console</option>
-              <option value="PlayStation">PlayStation</option>
-              <option value="Xbox">Xbox</option>
               <option value="PC">PC</option>
             </select>
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-gray-300">Quantity</span>
-            <input
-              type="number"
-              min={1}
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200"
-              name="quantity"
-              value={form.quantity}
-              onChange={onChange}
-            />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-gray-300">Buy Price</span>
-            <input
-              type="number"
-              min={0}
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200"
-              name="buy"
-              value={form.buy}
-              onChange={onChange}
-              placeholder="e.g., 12000"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-gray-300">Sell Price</span>
-            <input
-              type="number"
-              min={0}
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200"
-              name="sell"
-              value={form.sell}
-              onChange={onChange}
-              placeholder="e.g., 15000"
-              required
-            />
-          </label>
-
-          <label className="flex flex-col gap-1 md:col-span-2">
-            <span className="text-sm text-gray-300">Tag</span>
-            <input
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200"
-              name="tag"
-              value={form.tag}
-              onChange={onChange}
-              placeholder="optional (e.g., SBC fodder, flip)"
-            />
-          </label>
-        </div>
-
-        {/* Live preview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
-            <div className="text-xs text-gray-400">EA Tax (5%)</div>
-            <div className="text-lg font-semibold text-red-400">
-              {formatCurrency(taxTotal)} coins
-            </div>
-          </div>
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
-            <div className="text-xs text-gray-400">Profit (before tax)</div>
-            <div className="text-lg font-semibold">
-              {formatCurrency(profitBeforeTax)} coins
-            </div>
-          </div>
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
-            <div className="text-xs text-gray-400">Profit (after tax)</div>
-            <div className={`text-lg font-semibold ${profitAfterTax >= 0 ? "text-green-400" : "text-red-400"}`}>
-              {formatCurrency(profitAfterTax)} coins
-            </div>
           </div>
         </div>
 
-        {error && (
-          <div className="text-red-400 text-sm">{error}</div>
+        <div>
+          <label className="block mb-2 font-medium">Tag</label>
+          <div className="flex gap-2">
+            <input 
+              name="tag" 
+              placeholder="Custom tag or select from dropdown" 
+              value={form.tag} 
+              onChange={handleChange} 
+              className="flex-1 p-3 bg-gray-800 rounded-lg" 
+            />
+            <select 
+              onChange={(e) => setForm({...form, tag: e.target.value})} 
+              className="p-3 bg-gray-800 rounded-lg"
+              value=""
+            >
+              <option value="">Quick Tags</option>
+              {getAllTags().map(tag => (
+                <option key={tag} value={tag}>{tag}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Trade Preview */}
+        {form.buy && form.sell && form.quantity && (
+          <div className="bg-gray-800 p-4 rounded-lg">
+            <h3 className="font-medium mb-2">Trade Preview</h3>
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="text-gray-400">Gross Profit:</span>
+                <p className="font-mono">
+                  {((form.sell - form.buy) * form.quantity).toLocaleString()} coins
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-400">EA Tax (5%):</span>
+                <p className="font-mono text-red-400">
+                  -{Math.floor(form.sell * form.quantity * 0.05).toLocaleString()} coins
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-400">Net Profit:</span>
+                <p className={`font-mono ${
+                  ((form.sell - form.buy) * form.quantity - Math.floor(form.sell * form.quantity * 0.05)) >= 0 
+                    ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {(((form.sell - form.buy) * form.quantity) - Math.floor(form.sell * form.quantity * 0.05)).toLocaleString()} coins
+                </p>
+              </div>
+            </div>
+          </div>
         )}
 
-        <div className="flex items-center gap-2 pt-2">
-          <button
-            type="submit"
-            disabled={!canSubmit || submitting}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${
-              canSubmit && !submitting
-                ? "bg-[#91db32] hover:opacity-90 text-black"
-                : "bg-gray-800 text-gray-500 cursor-not-allowed"
-            }`}
-          >
-            {submitting ? "Saving..." : "Save Trade"}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="px-4 py-2 rounded-lg text-sm bg-gray-900 border border-gray-700 hover:border-gray-600 text-gray-200"
-          >
-            Cancel
-          </button>
-        </div>
+        <button 
+          disabled={loading} 
+          type="submit" 
+          className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-medium transition-colors disabled:opacity-50"
+        >
+          {loading ? "Logging Trade..." : "Log Trade"}
+        </button>
       </form>
     </div>
   );
-}
+};
+
+export default AddTrade;
