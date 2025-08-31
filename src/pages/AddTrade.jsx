@@ -1,5 +1,4 @@
-import React, { useMemo, useState } from "react";
-import { useDashboard } from "../context/DashboardContext";
+import React, { useMemo, useState, useEffect } from "react";
 import { useSettings } from "../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
 
@@ -8,46 +7,57 @@ const parseNum = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+const eaTaxEach = (sell) => Math.floor(parseNum(sell) * 0.05);
+const netEach = (sell) => parseNum(sell) - eaTaxEach(sell);
+const profitEach = (buy, sell) => netEach(sell) - parseNum(buy);
+
+// If you have an env for API base, use it. Otherwise, relative works when
+// frontend is served behind the same domain/proxy as the backend.
+const API_BASE = import.meta?.env?.VITE_API_BASE || "";
+
 export default function AddTrade() {
   const navigate = useNavigate();
-
-  // Contexts (guarded)
-  const dash = useDashboard?.() || {};
-  const settings = useSettings?.() || {};
-
-  const addTrade =
-    typeof dash.addTrade === "function"
-      ? dash.addTrade
-      : (t) => {
-          console.warn("[AddTrade] dash.addTrade missing; trade:", t);
-        };
+  const settings = (typeof useSettings === "function" ? useSettings() : {}) || {};
 
   const formatCurrency =
     typeof settings.formatCurrency === "function"
       ? settings.formatCurrency
       : (n) => (Number(n) || 0).toLocaleString("en-GB");
 
-  // Form state (never iterable-destructured)
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
   const [form, setForm] = useState({
     player: "",
     version: "",
-    platform: "Console",
-    quantity: 1,
+    platform: settings?.default_platform || "Console",
+    quantity: settings?.default_quantity || 1,
     buy: "",
     sell: "",
     tag: "",
     timestamp: new Date().toISOString(),
   });
 
+  // keep defaults in sync if user changes settings elsewhere
+  useEffect(() => {
+    if (settings?.default_platform) {
+      setForm((f) => ({ ...f, platform: settings.default_platform }));
+    }
+  }, [settings?.default_platform]);
+
+  useEffect(() => {
+    if (settings?.default_quantity) {
+      setForm((f) => ({ ...f, quantity: settings.default_quantity }));
+    }
+  }, [settings?.default_quantity]);
+
   const qty = Math.max(1, parseNum(form.quantity));
   const buy = parseNum(form.buy);
   const sell = parseNum(form.sell);
 
-  // FUT: EA tax is 5% of sell price
-  const eaTax = useMemo(() => Math.round(sell * qty * 0.05), [sell, qty]);
-
-  // In your data model, `profit` is BEFORE tax (the UI subtracts tax if the user wants)
-  const baseProfit = useMemo(() => (sell - buy) * qty, [sell, buy, qty]);
+  const taxTotal = useMemo(() => eaTaxEach(sell) * qty, [sell, qty]);
+  const profitBeforeTax = useMemo(() => (sell - buy) * qty, [sell, buy, qty]);
+  const profitAfterTax = useMemo(() => (profitEach(buy, sell) * qty), [buy, sell, qty]);
 
   const canSubmit =
     form.player.trim().length > 0 &&
@@ -60,29 +70,48 @@ export default function AddTrade() {
     setForm((f) => ({ ...f, [name]: value }));
   };
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    setError("");
+    if (!canSubmit || submitting) return;
 
-    const trade = {
+    // Backend expects: player, version, buy, sell, quantity, platform, tag
+    const payload = {
       player: form.player.trim(),
       version: form.version.trim() || "N/A",
       platform: form.platform || "Console",
       quantity: qty,
       buy,
       sell,
-      profit: baseProfit,       // stored pre-tax (matches your Dashboard logic)
-      ea_tax: eaTax,
-      tag: form.tag.trim() || undefined,
+      // Send tag, default to "General" so your backend required_fields passes
+      tag: (form.tag || "").trim() || "General",
+      // backend calculates profit/ea_tax again (authoritative),
+      // no need to send profit/ea_tax from client
       timestamp: form.timestamp || new Date().toISOString(),
     };
 
     try {
-      addTrade(trade);
+      setSubmitting(true);
+      const res = await fetch(`${API_BASE}/api/trades`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include", // IMPORTANT for your SessionMiddleware
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.detail || `HTTP ${res.status}`);
+      }
+
+      // success – go to Trades list
       navigate("/trades");
     } catch (err) {
-      console.error("Failed to add trade", err);
-      alert("Failed to add trade. Check console for details.");
+      console.error("[AddTrade] submit failed:", err);
+      setError(String(err.message || err));
+      // keep user on the form; they can retry
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -176,7 +205,7 @@ export default function AddTrade() {
               name="tag"
               value={form.tag}
               onChange={onChange}
-              placeholder="optional label (e.g., SBC fodder, flip)"
+              placeholder="optional (e.g., SBC fodder, flip)"
             />
           </label>
         </div>
@@ -185,31 +214,39 @@ export default function AddTrade() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
             <div className="text-xs text-gray-400">EA Tax (5%)</div>
-            <div className="text-lg font-semibold text-red-400">{formatCurrency(eaTax)} coins</div>
+            <div className="text-lg font-semibold text-red-400">
+              {formatCurrency(taxTotal)} coins
+            </div>
           </div>
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
             <div className="text-xs text-gray-400">Profit (before tax)</div>
-            <div className="text-lg font-semibold">{formatCurrency(baseProfit)} coins</div>
+            <div className="text-lg font-semibold">
+              {formatCurrency(profitBeforeTax)} coins
+            </div>
           </div>
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
             <div className="text-xs text-gray-400">Profit (after tax)</div>
-            <div className={`text-lg font-semibold ${baseProfit - eaTax >= 0 ? "text-green-400" : "text-red-400"}`}>
-              {formatCurrency(baseProfit - eaTax)} coins
+            <div className={`text-lg font-semibold ${profitAfterTax >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {formatCurrency(profitAfterTax)} coins
             </div>
           </div>
         </div>
 
+        {error && (
+          <div className="text-red-400 text-sm">{error}</div>
+        )}
+
         <div className="flex items-center gap-2 pt-2">
           <button
             type="submit"
-            disabled={!canSubmit}
+            disabled={!canSubmit || submitting}
             className={`px-4 py-2 rounded-lg text-sm font-medium ${
-              canSubmit
-                ? "bg-purple-600 hover:bg-purple-500 text-white"
+              canSubmit && !submitting
+                ? "bg-[#91db32] hover:opacity-90 text-black"
                 : "bg-gray-800 text-gray-500 cursor-not-allowed"
             }`}
           >
-            Save Trade
+            {submitting ? "Saving..." : "Save Trade"}
           </button>
           <button
             type="button"
