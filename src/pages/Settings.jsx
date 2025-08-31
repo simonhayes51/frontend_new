@@ -16,6 +16,8 @@ import { useSettings } from "../context/SettingsContext";
 import SettingsTrading from "./SettingsTrading.jsx"; // keep extension for case-sensitive builds
 
 const ACCENT = "#91db32";
+const API_BASE = import.meta?.env?.VITE_API_BASE || "";
+const apiUrl = (p) => `${API_BASE}${p}`;
 
 export default function Settings() {
   // from SettingsContext (server-driven + legacy compatible)
@@ -165,18 +167,22 @@ export default function Settings() {
               <div className="flex items-end gap-2">
                 <button
                   className="px-3 py-2 rounded-lg border border-gray-800 bg-gray-900 text-gray-200 inline-flex items-center gap-2"
-                  onClick={() =>
-                    fetch("/api/export/trades?format=csv")
-                      .then((r) => r.blob())
-                      .then((b) => {
-                        const url = URL.createObjectURL(b);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = "trades-export.csv";
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      })
-                  }
+                  onClick={() => (async () => {
+                    const r = await fetch(apiUrl("/api/export/trades?format=csv"), {
+                      credentials: "include",
+                    });
+                    if (!r.ok) {
+                      const t = await r.text().catch(() => "");
+                      throw new Error(`Export failed: ${r.status} ${t.slice(0,120)}`);
+                    }
+                    const b = await r.blob();
+                    const url = URL.createObjectURL(b);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "trades-export.csv";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  })().catch(e => alert(e.message))}
                 >
                   <Download size={16} /> Export CSV
                 </button>
@@ -192,10 +198,18 @@ export default function Settings() {
                       if (!f) return;
                       const fd = new FormData();
                       fd.append("file", f);
-                      fetch("/api/import/trades", { method: "POST", body: fd })
-                        .then((r) => r.json())
+                      fetch(apiUrl("/api/import/trades"), {
+                        method: "POST",
+                        body: fd,
+                        credentials: "include",
+                      })
+                        .then(async (r) => {
+                          const text = await r.text();
+                          if (!r.ok) throw new Error(`Import failed: ${r.status} ${text.slice(0,120)}`);
+                          return JSON.parse(text);
+                        })
                         .then((j) => alert(`Import complete: ${j.imported_count} imported`))
-                        .catch(() => alert("Import failed"));
+                        .catch((err) => alert(err.message || "Import failed"));
                     }}
                   />
                 </label>
@@ -204,7 +218,18 @@ export default function Settings() {
                   className="ml-auto px-3 py-2 rounded-lg text-white bg-red-600/80 hover:bg-red-600 inline-flex items-center gap-2"
                   onClick={() => {
                     if (!confirm("Reset ALL data (trades + starting balance)? This cannot be undone.")) return;
-                    fetch("/api/data/delete-all?confirm=true", { method: "DELETE" }).then(() => location.reload());
+                    fetch(apiUrl("/api/data/delete-all?confirm=true"), {
+                      method: "DELETE",
+                      credentials: "include",
+                    })
+                      .then(async (r) => {
+                        if (!r.ok) {
+                          const t = await r.text().catch(() => "");
+                          throw new Error(`Delete failed: ${r.status} ${t.slice(0,120)}`);
+                        }
+                        location.reload();
+                      })
+                      .catch((e) => alert(e.message));
                   }}
                 >
                   <Trash2 size={16} /> Reset data
