@@ -1,6 +1,6 @@
 // src/pages/SquadBuilder.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Search, X, Star, Trophy, DollarSign, FlaskConical, Coin, , Users, Plus } from "lucide-react";
+import { Search, X, Star, Trophy, DollarSign, FlaskConical, Coin, Users, Plus } from "lucide-react";
 import Pitch from "../components/squad/Pitch";
 import { FORMATIONS } from "../components/squad/formations";
 import { VERTICAL_COORDS } from "../components/squad/formations_vertical";
