@@ -65,15 +65,20 @@ export const DashboardProvider = ({ children }) => {
     }
   };
 
-  // ---- CHANGED: coerce numbers before posting, so backend accepts them ----
   const addTrade = async (tradeData) => {
     try {
+      // Make sure numbers are numbers
       const payload = {
         ...tradeData,
         buy: Number(tradeData.buy || 0),
         sell: Number(tradeData.sell || 0),
         quantity: Number(tradeData.quantity || 1),
       };
+
+      // Don’t send empty trade_id (breaks BIGINT in Postgres)
+      if (!payload.trade_id) {
+        delete payload.trade_id;
+      }
 
       const response = await api.post("/api/trades", payload);
 
