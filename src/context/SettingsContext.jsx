@@ -5,20 +5,47 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
  * Server-driven settings with legacy compatibility for Overview widgets.
  * - Normalises backend usersettings into: { general, portfolio }
  * - Exposes legacy fields: visible_widgets, widget_order, recent_trades_limit
- * - saveSettings(partial) smartly fans out to:
+ * - saveSettings(partial) fans out to:
  *     • POST /api/portfolio/balance (startingCoins)
  *     • POST /api/settings          (timezone/date_format + visible_widgets)
- * - Persists a compact snapshot to localStorage.user_settings for older code.
  */
 
 const SettingsContext = createContext(null);
 
+// ----- API helpers (use VITE_API_BASE + cookies) -----
+const API_BASE = import.meta?.env?.VITE_API_BASE || "";
+const apiUrl = (p) => `${API_BASE}${p}`;
+
+async function apiGet(path) {
+  const res = await fetch(apiUrl(path), { credentials: "include" });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch { /* not JSON */ }
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} – ${text.slice(0, 200)}`);
+  if (!data) throw new Error(`Non-JSON response: ${text.slice(0, 120)}`);
+  return data;
+}
+
+async function apiPostJson(path, body) {
+  const res = await fetch(apiUrl(path), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body ?? {}),
+  });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch { /* ok for empty */ }
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} – ${text.slice(0, 200)}`);
+  return data ?? {};
+}
+
 // ===== Defaults =====
 const DEFAULT_GENERAL = {
   dateFormat: "DD/MM/YYYY", // maps to server date_format: EU|US|ISO
-  timeFormat: "24h",        // client-only
+  timeFormat: "24h",
   timezone: "Europe/London",
-  coinFormat: "short_m",    // client-only: short_m | european_kk | full_commas | dot_thousands | space_thousands
+  coinFormat: "short_m",
   compactThreshold: 100000,
   compactDecimals: 1,
 };
@@ -79,6 +106,7 @@ export const SettingsProvider = ({ children }) => {
 
   const formatCoins = useCallback(
     (n, g = general) => {
+      const num = Number(n) || 0;
       const cfg = {
         coinFormat: g?.coinFormat ?? "short_m",
         compactThreshold: g?.compactThreshold ?? 100000,
@@ -86,17 +114,17 @@ export const SettingsProvider = ({ children }) => {
       };
       const toFull = (x) => x.toLocaleString("en-GB");
 
-      if (cfg.coinFormat === "short_m" && n >= cfg.compactThreshold) {
-        if (n >= 1_000_000) return (n / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
-        if (n >= 1_000) return (n / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
+      if (cfg.coinFormat === "short_m" && num >= cfg.compactThreshold) {
+        if (num >= 1_000_000) return (num / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
+        if (num >= 1_000) return (num / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
       }
-      if (cfg.coinFormat === "european_kk" && n >= cfg.compactThreshold) {
-        return (n / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "kk";
+      if (cfg.coinFormat === "european_kk" && num >= cfg.compactThreshold) {
+        return (num / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "kk";
       }
-      if (cfg.coinFormat === "dot_thousands") return toFull(n).replaceAll(",", ".");
-      if (cfg.coinFormat === "space_thousands") return toFull(n).replaceAll(",", " ");
-      if (cfg.coinFormat === "full_commas") return toFull(n);
-      return toFull(n);
+      if (cfg.coinFormat === "dot_thousands") return toFull(num).replaceAll(",", ".");
+      if (cfg.coinFormat === "space_thousands") return toFull(num).replaceAll(",", " ");
+      if (cfg.coinFormat === "full_commas") return toFull(num);
+      return toFull(num);
     },
     [general]
   );
@@ -116,9 +144,8 @@ export const SettingsProvider = ({ children }) => {
           }
         } catch {}
 
-        const [sRes, pRes] = await Promise.all([fetch("/api/settings"), fetch("/api/profile")]);
-        const s = await sRes.json();
-        const p = await pRes.json();
+        // Load server settings/profile
+        const [s, p] = await Promise.all([apiGet("/api/settings"), apiGet("/api/profile")]);
 
         // Map server -> general
         const mappedGeneral = {
@@ -195,10 +222,8 @@ export const SettingsProvider = ({ children }) => {
     // Server: starting balance
     if (partial.portfolio?.startingCoins !== undefined) {
       try {
-        await fetch("/api/portfolio/balance", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ starting_balance: partial.portfolio.startingCoins }),
+        await apiPostJson("/api/portfolio/balance", {
+          starting_balance: partial.portfolio.startingCoins,
         });
       } catch (e) {
         setError(e);
@@ -221,11 +246,7 @@ export const SettingsProvider = ({ children }) => {
         visible_widgets: partial.visible_widgets || visible_widgets,
       };
       try {
-        await fetch("/api/settings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(mapped),
-        });
+        await apiPostJson("/api/settings", mapped);
       } catch (e) {
         setError(e);
       }
