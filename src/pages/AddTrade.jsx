@@ -2,15 +2,9 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useSettings } from "../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
+import api from "../api/axios.js"; // ⬅️ use the shared axios client (adjust path if needed)
 
-const API_BASE = import.meta?.env?.VITE_API_BASE || "";
-const apiUrl = (p) => `${API_BASE}${p}`;
-
-const parseNum = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-};
-
+const parseNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const eaTaxEach = (sell) => Math.floor(parseNum(sell) * 0.05);
 const netEach = (sell) => parseNum(sell) - eaTaxEach(sell);
 const profitEach = (buy, sell) => netEach(sell) - parseNum(buy);
@@ -57,7 +51,7 @@ export default function AddTrade() {
 
   const taxTotal = useMemo(() => eaTaxEach(sell) * qty, [sell, qty]);
   const profitBeforeTax = useMemo(() => (sell - buy) * qty, [sell, buy, qty]);
-  const profitAfterTax = useMemo(() => (profitEach(buy, sell) * qty), [buy, sell, qty]);
+  const profitAfterTax = useMemo(() => profitEach(buy, sell) * qty, [buy, sell, qty]);
 
   const canSubmit =
     form.player.trim().length > 0 &&
@@ -75,6 +69,7 @@ export default function AddTrade() {
     setError("");
     if (!canSubmit || submitting) return;
 
+    // FastAPI requires: player, version, buy, sell, quantity, platform, tag
     const payload = {
       player: form.player.trim(),
       version: form.version.trim() || "N/A",
@@ -82,29 +77,26 @@ export default function AddTrade() {
       quantity: qty,
       buy,
       sell,
-      tag: (form.tag || "").trim() || "General", // backend requires non-empty
+      tag: (form.tag || "").trim() || "General", // ensure non-empty
       timestamp: form.timestamp || new Date().toISOString(),
     };
 
     try {
       setSubmitting(true);
-      const res = await fetch(apiUrl("/api/trades"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      const text = await res.text();
-      if (!res.ok) {
-        throw new Error(`POST /api/trades ${res.status} – ${text.slice(0,200)}`);
+      const res = await api.post("/api/trades", payload); // axios sends cookies via withCredentials
+      if (res?.status >= 200 && res?.status < 300) {
+        navigate("/trades");
+      } else {
+        throw new Error(`Unexpected status ${res?.status}`);
       }
-
-      // success – go to Trades list
-      navigate("/trades");
     } catch (err) {
+      const serverMsg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        err?.userMessage ||
+        err?.message;
       console.error("[AddTrade] submit failed:", err);
-      setError(String(err.message || err));
+      setError(serverMsg || "Failed to add trade");
     } finally {
       setSubmitting(false);
     }
@@ -227,9 +219,7 @@ export default function AddTrade() {
           </div>
         </div>
 
-        {error && (
-          <div className="text-red-400 text-sm">{error}</div>
-        )}
+        {error && <div className="text-red-400 text-sm">{error}</div>}
 
         <div className="flex items-center gap-2 pt-2">
           <button
