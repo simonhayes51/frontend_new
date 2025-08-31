@@ -1,6 +1,10 @@
+// src/pages/AddTrade.jsx
 import React, { useMemo, useState, useEffect } from "react";
 import { useSettings } from "../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
+
+const API_BASE = import.meta?.env?.VITE_API_BASE || "";
+const apiUrl = (p) => `${API_BASE}${p}`;
 
 const parseNum = (v) => {
   const n = Number(v);
@@ -10,10 +14,6 @@ const parseNum = (v) => {
 const eaTaxEach = (sell) => Math.floor(parseNum(sell) * 0.05);
 const netEach = (sell) => parseNum(sell) - eaTaxEach(sell);
 const profitEach = (buy, sell) => netEach(sell) - parseNum(buy);
-
-// If you have an env for API base, use it. Otherwise, relative works when
-// frontend is served behind the same domain/proxy as the backend.
-const API_BASE = import.meta?.env?.VITE_API_BASE || "";
 
 export default function AddTrade() {
   const navigate = useNavigate();
@@ -75,7 +75,6 @@ export default function AddTrade() {
     setError("");
     if (!canSubmit || submitting) return;
 
-    // Backend expects: player, version, buy, sell, quantity, platform, tag
     const payload = {
       player: form.player.trim(),
       version: form.version.trim() || "N/A",
@@ -83,25 +82,22 @@ export default function AddTrade() {
       quantity: qty,
       buy,
       sell,
-      // Send tag, default to "General" so your backend required_fields passes
-      tag: (form.tag || "").trim() || "General",
-      // backend calculates profit/ea_tax again (authoritative),
-      // no need to send profit/ea_tax from client
+      tag: (form.tag || "").trim() || "General", // backend requires non-empty
       timestamp: form.timestamp || new Date().toISOString(),
     };
 
     try {
       setSubmitting(true);
-      const res = await fetch(`${API_BASE}/api/trades`, {
+      const res = await fetch(apiUrl("/api/trades"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // IMPORTANT for your SessionMiddleware
+        credentials: "include",
         body: JSON.stringify(payload),
       });
 
+      const text = await res.text();
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j?.detail || `HTTP ${res.status}`);
+        throw new Error(`POST /api/trades ${res.status} – ${text.slice(0,200)}`);
       }
 
       // success – go to Trades list
@@ -109,7 +105,6 @@ export default function AddTrade() {
     } catch (err) {
       console.error("[AddTrade] submit failed:", err);
       setError(String(err.message || err));
-      // keep user on the form; they can retry
     } finally {
       setSubmitting(false);
     }
