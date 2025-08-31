@@ -1,15 +1,19 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { RefreshCcw, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
+import {
+  RefreshCcw,
+  TrendingUp,
+  TrendingDown,
+  Loader2,
+  BookmarkPlus,
+} from "lucide-react";
 
 const ACCENT = "#91db32";
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-const numberEmoji = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"];
-
 function pctString(x) {
   if (x === null || x === undefined || isNaN(x)) return "N/A";
   const sign = x > 0 ? "+" : "";
-  return `${sign}${x.toFixed(2)}%`;
+  return `${sign}${Number(x).toFixed(2)}%`;
 }
 
 function chunkTop10(list) {
@@ -21,13 +25,41 @@ const pillBase = "inline-flex items-center px-2 py-0.5 rounded-full text-xs";
 const cardBase =
   "bg-gray-900/70 rounded-2xl p-3 border border-gray-800 hover:border-gray-700 transition-colors";
 
+/* ------- Rank badge (gold/silver/bronze for top 3) ------- */
+function RankBadge({ rank }) {
+  let bg = "bg-gray-800 text-gray-200"; // default
+  let size = "h-8 w-8 text-sm";         // default size
+
+  if (rank === 1) {
+    bg = "bg-yellow-500 text-black";    // gold
+    size = "h-9 w-9 text-base";
+  } else if (rank === 2) {
+    bg = "bg-gray-400 text-black";      // silver
+    size = "h-9 w-9 text-base";
+  } else if (rank === 3) {
+    bg = "bg-amber-700 text-white";     // bronze
+    size = "h-9 w-9 text-base";
+  }
+
+  return (
+    <div className={`flex items-center justify-center rounded-full font-bold ${bg} ${size}`}>
+      {rank}
+    </div>
+  );
+}
+
 export default function Trending() {
-  const [trendType, setTrendType] = useState("fallers");
-  const [timeframe, setTimeframe] = useState("24");
+  const [trendType, setTrendType] = useState("fallers"); // "risers" | "fallers"
+  const [timeframe, setTimeframe] = useState("24");      // "6" | "12" | "24"
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
+
+  // Platform for watchlist additions
+  const [platform, setPlatform] = useState("ps"); // "ps" | "xbox"
+  // Track which items were added (to disable button)
+  const [added, setAdded] = useState({}); // { [pid]: true }
 
   const fetchTrending = useCallback(async () => {
     setLoading(true);
@@ -37,7 +69,7 @@ export default function Trending() {
       const r = await fetch(url, { credentials: "include" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
-      setItems(data.items || []);
+      setItems((data.items || []).map(normaliseItem));
       setLastUpdated(new Date());
     } catch (e) {
       setErr(`Failed to load trending: ${e.message}`);
@@ -52,16 +84,51 @@ export default function Trending() {
 
   const [left, right] = useMemo(() => chunkTop10(items), [items]);
 
+  // Add to watchlist
+  async function addToWatchlist(p) {
+    try {
+      const payload = {
+        card_id: p.pid,
+        player_name: p.name,
+        version: p.version || null,
+        platform,
+        notes: null,
+      };
+      const r = await fetch(`${API_BASE}/api/watchlist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      if (r.status === 401) {
+        // not logged in -> bounce to login
+        window.location.href = `${API_BASE}/api/login`;
+        return;
+      }
+      if (!r.ok) {
+        const text = await r.text().catch(() => "");
+        throw new Error(text || `HTTP ${r.status}`);
+      }
+
+      setAdded((prev) => ({ ...prev, [p.pid]: true }));
+    } catch (e) {
+      alert(`Failed to add to watchlist: ${e.message}`);
+    }
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-4">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Trending</h1>
           <p className="text-sm text-gray-400">
-            Live market movers from FUT.GG Momentum. Console prices (PS only).
+            Live market movers from FUT.GG Momentum. Console prices (PS shown).
           </p>
         </div>
 
+        {/* Controls */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Type buttons */}
           <button
@@ -94,7 +161,7 @@ export default function Trending() {
           {/* Timeframe pills */}
           <div className="h-6 w-px bg-gray-700 hidden md:block" />
           <div className="inline-flex rounded-xl border border-gray-800 overflow-hidden">
-            {["6","12","24"].map((tf) => (
+            {["6", "12", "24"].map((tf) => (
               <button
                 key={tf}
                 onClick={() => setTimeframe(tf)}
@@ -103,6 +170,23 @@ export default function Trending() {
                 }`}
               >
                 {tf}h
+              </button>
+            ))}
+          </div>
+
+          {/* Platform for watchlist add */}
+          <div className="h-6 w-px bg-gray-700 hidden md:block" />
+          <div className="inline-flex rounded-xl border border-gray-800 overflow-hidden">
+            {["ps", "xbox"].map((pl) => (
+              <button
+                key={pl}
+                onClick={() => setPlatform(pl)}
+                className={`px-3 py-2 text-sm uppercase ${
+                  platform === pl ? "bg-gray-900 text-white" : "bg-gray-900/40 text-gray-300"
+                }`}
+                title={`Watchlist platform: ${pl.toUpperCase()}`}
+              >
+                {pl}
               </button>
             ))}
           </div>
@@ -122,12 +206,11 @@ export default function Trending() {
       {/* Status */}
       <div className="flex items-center justify-between">
         <div className="text-xs text-gray-400">
-          Showing {trendType} for <span className="font-medium">{timeframe}h</span>.
+          Showing {trendType} for <span className="font-medium">{timeframe}h</span>. Use the
+          Watchlist button to save players ({platform.toUpperCase()}).
         </div>
         {lastUpdated && (
-          <div className="text-xs text-gray-400">
-            Updated {lastUpdated.toLocaleTimeString()}
-          </div>
+          <div className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</div>
         )}
       </div>
 
@@ -140,8 +223,8 @@ export default function Trending() {
 
       {/* Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {[left, right].map((col, idx) => (
-          <div key={idx} className="space-y-3">
+        {[left, right].map((col, colIdx) => (
+          <div key={colIdx} className="space-y-3">
             {loading && (
               <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -161,60 +244,116 @@ export default function Trending() {
             )}
 
             {!loading &&
-              col.map((p, i) => (
-                <div key={`${p.pid}-${i}`} className={`${cardBase} flex items-center gap-3`}>
-                  <div className="shrink-0 text-lg">{numberEmoji[idx * 5 + i]}</div>
+              col.map((p, i) => {
+                const rank = colIdx * 5 + i + 1;
+                const isUp = Number(p.percent ?? 0) > 0;
 
-                  {p.image ? (
-                    <img
-                      src={p.image}
-                      alt={p.name}
-                      className="h-16 w-12 object-contain rounded-lg bg-gray-800/60"
-                    />
-                  ) : (
-                    <div className="h-16 w-12 rounded-lg bg-gray-800" />
-                  )}
+                return (
+                  <div key={`${p.pid}-${i}`} className={`${cardBase} flex items-center gap-3`}>
+                    {/* Rank */}
+                    <RankBadge rank={rank} />
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="truncate text-white font-semibold">
-                        {p.name}
-                        {p.rating ? <span className="text-gray-400"> • {p.rating}</span> : null}
+                    {/* Image */}
+                    {p.image ? (
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        className="h-16 w-12 object-contain rounded-lg bg-gray-800/60"
+                      />
+                    ) : (
+                      <div className="h-16 w-12 rounded-lg bg-gray-800" />
+                    )}
+
+                    {/* Main */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <div className="truncate text-white font-semibold">
+                          {p.name}
+                          {p.rating ? <span className="text-gray-400"> • {p.rating}</span> : null}
+                        </div>
+                        {p.version ? (
+                          <span
+                            className={pillBase}
+                            style={{
+                              background: "rgba(145,219,50,0.08)",
+                              color: ACCENT,
+                              border: `1px solid ${ACCENT}22`,
+                            }}
+                          >
+                            {p.version}
+                          </span>
+                        ) : null}
                       </div>
-                      {p.version ? (
-                        <span
-                          className={`${pillBase}`}
-                          style={{ background: "rgba(145,219,50,0.08)", color: ACCENT }}
+
+                      {/* Percent */}
+                      <div className="mt-1 text-sm text-gray-300 leading-tight flex items-center gap-2">
+                        <strong
+                          className="tabular-nums"
+                          style={{ color: isUp ? ACCENT : "#f87171" }}
                         >
-                          {p.version}
+                          {pctString(p.percent)}
+                        </strong>
+                      </div>
+
+                      {/* Prices */}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`${pillBase} border border-gray-800 bg-gray-900/60 text-gray-200`}
+                          title="PlayStation"
+                        >
+                          PS:{" "}
+                          {typeof p.price_ps === "number"
+                            ? p.price_ps.toLocaleString()
+                            : p.price_ps || "N/A"}
                         </span>
-                      ) : null}
+                        {/* If you later populate Xbox in API, show it:
+                        <span className={`${pillBase} border border-gray-800 bg-gray-900/60 text-gray-200`} title="Xbox">
+                          XB: {typeof p.price_xb === "number" ? p.price_xb.toLocaleString() : p.price_xb || "N/A"}
+                        </span>
+                        */}
+                      </div>
                     </div>
 
-                    <div className="mt-1 text-sm text-gray-300 leading-tight flex items-center gap-2">
-                      <span>{trendType === "risers" ? "📈" : "📉"}</span>
-                      <strong
-                        className="tabular-nums"
-                        style={{ color: p.percent > 0 ? ACCENT : "#f87171" }}
+                    {/* Add to Watchlist */}
+                    <div className="shrink-0">
+                      <button
+                        onClick={() => addToWatchlist(p)}
+                        disabled={!!added[p.pid]}
+                        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border ${
+                          added[p.pid]
+                            ? "bg-gray-800 border-gray-700 text-gray-400 cursor-default"
+                            : "bg-gray-900/50 border-gray-700 hover:border-gray-600 text-gray-100"
+                        }`}
+                        title={`Add to Watchlist (${platform.toUpperCase()})`}
                       >
-                        {pctString(p.percent)}
-                      </strong>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span
-                        className={`${pillBase} border border-gray-800 bg-gray-900/60 text-gray-200`}
-                        title="PlayStation"
-                      >
-                        PS: {p.price_ps ? p.price_ps.toLocaleString() : "N/A"}
-                      </span>
+                        <BookmarkPlus size={16} />
+                        {added[p.pid] ? "Added" : "Watchlist"}
+                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
           </div>
         ))}
       </div>
     </div>
   );
+}
+
+/* ------- helpers ------- */
+function normaliseItem(p) {
+  return {
+    name: p.name ?? "Unknown",
+    rating: p.rating ?? p.ovr ?? null,
+    pid: p.pid ?? p.card_id ?? p.id,
+    version: p.version ?? p.card_type ?? "",
+    image: p.image ?? p.image_url ?? null,
+    price_ps: p.price_ps ?? p.ps ?? null,
+    price_xb: p.price_xb ?? p.xb ?? p.xbox ?? null,
+    percent: p.percent ?? p.percent_24h ?? p.percent_12h ?? p.percent_6h ?? null,
+    percent_4h: p.percent_4h ?? null,
+    percent_24h: p.percent_24h ?? null,
+    club: p.club ?? null,
+    league: p.league ?? null,
+  };
 }
