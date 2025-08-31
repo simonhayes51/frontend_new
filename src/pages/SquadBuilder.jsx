@@ -1,6 +1,6 @@
 // src/pages/SquadBuilder.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Search, X, Star, Trophy, DollarSign, Users, Plus } from "lucide-react";
+import { Search, X, Star, Trophy, DollarSign, FlaskConical, Coin, , Users, Plus } from "lucide-react";
 import Pitch from "../components/squad/Pitch";
 import { FORMATIONS } from "../components/squad/formations";
 import { VERTICAL_COORDS } from "../components/squad/formations_vertical";
@@ -318,11 +318,11 @@ export default function SquadBuilder() {
               <span className="font-semibold">{avgRating}</span>
             </div>
             <div className="flex items-center gap-2 bg-gray-800/80 border border-gray-700 px-3 py-2 rounded-lg">
-              <Trophy size={16} className="text-blue-400" />
+              <FlaskConical size={16} className="text-blue-400" />
               <span className="font-semibold">{teamChem}/33</span>
             </div>
             <div className="flex items-center gap-2 bg-gray-800/80 border border-gray-700 px-3 py-2 rounded-lg">
-              <DollarSign size={16} className="text-green-400" />
+              <Coin size={16} className="text-green-400" />
               <span className="font-semibold">{coins(squadPrice)}</span>
             </div>
             <button
