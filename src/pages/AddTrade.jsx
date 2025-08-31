@@ -2,7 +2,14 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useSettings } from "../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
-import api from "../api/axios.js"; // ⬅️ use the shared axios client (adjust path if needed)
+
+/* Runtime-safe API base (same as SettingsContext) */
+const API_BASE =
+  (typeof window !== "undefined" && window.__API_BASE__) ||
+  (typeof globalThis !== "undefined" && globalThis.__API_BASE__) ||
+  ((typeof import.meta !== "undefined" && import.meta.env) ? (import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL) : null) ||
+  "https://backend-production-1f1a.up.railway.app";
+const apiUrl = (p) => `${String(API_BASE).replace(/\/+$/, "")}${p}`;
 
 const parseNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const eaTaxEach = (sell) => Math.floor(parseNum(sell) * 0.05);
@@ -69,7 +76,6 @@ export default function AddTrade() {
     setError("");
     if (!canSubmit || submitting) return;
 
-    // FastAPI requires: player, version, buy, sell, quantity, platform, tag
     const payload = {
       player: form.player.trim(),
       version: form.version.trim() || "N/A",
@@ -77,26 +83,26 @@ export default function AddTrade() {
       quantity: qty,
       buy,
       sell,
-      tag: (form.tag || "").trim() || "General", // ensure non-empty
+      tag: (form.tag || "").trim() || "General", // backend requires non-empty
       timestamp: form.timestamp || new Date().toISOString(),
     };
 
     try {
       setSubmitting(true);
-      const res = await api.post("/api/trades", payload); // axios sends cookies via withCredentials
-      if (res?.status >= 200 && res?.status < 300) {
-        navigate("/trades");
-      } else {
-        throw new Error(`Unexpected status ${res?.status}`);
-      }
+      const res = await fetch(apiUrl("/api/trades"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      const text = await res.text();
+      if (!res.ok) throw new Error(`POST /api/trades ${res.status} – ${text.slice(0,200)}`);
+
+      navigate("/trades");
     } catch (err) {
-      const serverMsg =
-        err?.response?.data?.detail ||
-        err?.response?.data?.message ||
-        err?.userMessage ||
-        err?.message;
       console.error("[AddTrade] submit failed:", err);
-      setError(serverMsg || "Failed to add trade");
+      setError(String(err.message || err));
     } finally {
       setSubmitting(false);
     }
@@ -201,15 +207,11 @@ export default function AddTrade() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
             <div className="text-xs text-gray-400">EA Tax (5%)</div>
-            <div className="text-lg font-semibold text-red-400">
-              {formatCurrency(taxTotal)} coins
-            </div>
+            <div className="text-lg font-semibold text-red-400">{formatCurrency(taxTotal)} coins</div>
           </div>
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
             <div className="text-xs text-gray-400">Profit (before tax)</div>
-            <div className="text-lg font-semibold">
-              {formatCurrency(profitBeforeTax)} coins
-            </div>
+            <div className="text-lg font-semibold">{formatCurrency(profitBeforeTax)} coins</div>
           </div>
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
             <div className="text-xs text-gray-400">Profit (after tax)</div>
