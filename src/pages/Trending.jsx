@@ -74,6 +74,39 @@ function normaliseItem(p) {
   };
 }
 
+/** Extract [timestamp(ms), price] pairs (or prices) from various shapes */
+function extractPricesFromHistory(data) {
+  let points = [];
+  if (Array.isArray(data)) points = data;
+  else if (Array.isArray(data?.points)) points = data.points;
+  else if (Array.isArray(data?.series)) points = data.series;
+  else if (Array.isArray(data?.data)) points = data.data;
+
+  // Normalise to arrays of [t, v] or [v]
+  const out = [];
+  for (const p of points) {
+    if (Array.isArray(p)) {
+      // [t, v] or [v]
+      if (p.length >= 2) out.push([Number(p[0]), Number(p[1])]);
+      else if (p.length === 1) out.push([NaN, Number(p[0])]);
+    } else if (p && typeof p === "object") {
+      const t = Number(p.t ?? p.time ?? p.ts ?? p.timestamp);
+      const v = Number(p.v ?? p.price ?? p.y ?? p.value);
+      if (!Number.isNaN(v)) out.push([Number.isNaN(t) ? NaN : t, v]);
+    } else if (typeof p === "number") {
+      out.push([NaN, p]);
+    }
+  }
+  return out;
+}
+
+function mean(nums) {
+  if (!nums.length) return null;
+  let sum = 0;
+  for (const n of nums) sum += n;
+  return sum / nums.length;
+}
+
 export default function Trending() {
   const [trendType, setTrendType] = useState("fallers"); // "risers" | "fallers"
   const [timeframe, setTimeframe] = useState("24");      // "6" | "12" | "24"
@@ -84,6 +117,8 @@ export default function Trending() {
 
   // Track which items were added (to disable the button)
   const [added, setAdded] = useState({}); // { [pid]: true }
+  // Average price map (by pid)
+  const [avgMap, setAvgMap] = useState({}); // { [pid]: number|null }
 
   const fetchTrending = useCallback(async () => {
     setLoading(true);
@@ -105,6 +140,56 @@ export default function Trending() {
   useEffect(() => {
     fetchTrending();
   }, [fetchTrending]);
+
+  // Fetch averages for visible items when list or timeframe changes
+  useEffect(() => {
+    if (!items.length) {
+      setAvgMap({});
+      return;
+    }
+    let cancelled = false;
+
+    (async () => {
+      const hours = Number(timeframe) || 24;
+      const now = Date.now();
+      const cutoff = now - hours * 3600 * 1000;
+
+      const entries = await Promise.all(
+        items.map(async (p) => {
+          try {
+            const url = `${API_BASE}/api/price-history?playerId=${encodeURIComponent(
+              p.pid
+            )}&platform=ps&tf=today`;
+            const r = await fetch(url, { credentials: "include" });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+
+            const pts = extractPricesFromHistory(data);
+            // Slice by cutoff if timestamps are present; else use all today's points
+            const slice = pts.filter(
+              ([t, v]) => !Number.isFinite(t) || t >= cutoff
+            );
+            const prices = slice.map(([_, v]) => v).filter((v) => Number.isFinite(v));
+            const avg = mean(prices);
+
+            return [p.pid, avg];
+          } catch {
+            return [p.pid, null];
+          }
+        })
+      );
+
+      if (!cancelled) {
+        const next = {};
+        for (const [pid, avg] of entries) next[pid] = avg;
+        setAvgMap(next);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [items, timeframe]);
 
   const [left, right] = useMemo(() => chunkTop10(items), [items]);
 
@@ -132,7 +217,7 @@ export default function Trending() {
       }
       if (!r.ok) {
         const text = await r.text().catch(() => "");
-        throw new Error(text || `HTTP ${r.status}`);
+        throw new Error(text || `HTTP ${r.status}`;
       }
 
       setAdded((prev) => ({ ...prev, [p.pid]: true }));
@@ -254,6 +339,7 @@ export default function Trending() {
               col.map((p, i) => {
                 const rank = colIdx * 5 + i + 1;
                 const isUp = Number(p.percent ?? 0) > 0;
+                const avg = avgMap[p.pid];
 
                 return (
                   <div key={`${p.pid}-${i}`} className={`${cardBase} flex items-center gap-3`}>
@@ -302,7 +388,7 @@ export default function Trending() {
                         </strong>
                       </div>
 
-                      {/* Price (Console only) */}
+                      {/* Price (Console + Average) */}
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span
                           className={`${pillBase} border border-gray-800 bg-gray-900/60 text-gray-200`}
@@ -312,6 +398,16 @@ export default function Trending() {
                           {typeof p.price_console === "number"
                             ? p.price_console.toLocaleString()
                             : p.price_console || "N/A"}
+                        </span>
+
+                        <span
+                          className={`${pillBase} border border-gray-800 bg-gray-900/60 text-gray-300`}
+                          title={`Average (${timeframe}h)`}
+                        >
+                          Avg ({timeframe}h):{" "}
+                          {typeof avg === "number"
+                            ? Math.round(avg).toLocaleString()
+                            : "N/A"}
                         </span>
                       </div>
                     </div>
