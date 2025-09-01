@@ -23,6 +23,7 @@ const Trending     = lazy(() => import("./pages/Trending"));  // 👈 NEW
 const Login        = lazy(() => import("./pages/Login"));
 const AccessDenied = lazy(() => import("./pages/AccessDenied"));
 const NotFound     = lazy(() => import("./pages/NotFound"));
+const PlayerCompare = lazy(() => import("./pages/PlayerCompare"));
 
 function App() {
   return (
@@ -53,6 +54,7 @@ function App() {
                   <Route path="add-trade" element={<AddTrade />} />
                   <Route path="trades" element={<Trades />} />
                   <Route path="player-search" element={<PlayerSearch />} />
+                  <Route path="player-compare" element={<PlayerCompare />} />
                   <Route path="profile" element={<Profile />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="analytics" element={<ProfitGraph />} />
