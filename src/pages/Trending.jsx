@@ -148,7 +148,7 @@ export default function Trending() {
         <div>
           <h1 className="text-2xl font-bold text-white">Trending</h1>
           <p className="text-sm text-gray-400">
-            Live market movers from FUT.GG Momentum. Console prices.
+            Live market movers. Console prices.
           </p>
         </div>
 
