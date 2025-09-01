@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
-import { useSettings } from "../context/SettingsContext";
-import { LineChart, PencilLine, RotateCcw, CalendarClock, TrendingUp, TrendingDown, Bell, Settings as Cog } from "lucide-react";
+import { useSettings, ALL_WIDGET_KEYS } from "../context/SettingsContext";
+import {
+  LineChart, PencilLine, RotateCcw, Plus, X, CalendarClock, TrendingUp, TrendingDown,
+  Bell, Settings as Cog
+} from "lucide-react";
 
 const ACCENT = "#91db32";
 
-// Card styles – consistent height across widgets
 const cardBase =
   "bg-gray-900/70 rounded-2xl p-4 border border-gray-800 hover:border-gray-700 transition-colors h-[150px] flex flex-col justify-between";
 const cardTitle = "text-[13px] font-semibold text-gray-200/90 leading-none";
@@ -14,23 +16,42 @@ const cardBig = "text-[clamp(20px,1.8vw,26px)] font-extrabold leading-tight trac
 const subText = "text-[12px] text-gray-400 leading-snug";
 const chip = "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-gray-800 text-gray-300";
 
+const ALL_WIDGET_LABELS = {
+  profit: "Net Profit",
+  tax: "EA Tax Paid",
+  trades: "Total Trades",
+  profit_trend: "Profit Trend",
+  winrate: "Win Rate",
+  avg_profit: "Average Profit / Trade",
+  best_trade: "Best Trade",
+  volume: "Coin Volume",
+  latest_trade: "Latest Trade",
+  top_earner: "Top Earner",
+  balance: "Starting Balance",
+  promo: "Next Promo",
+  trending: "Trending (6h)",
+  alerts: "Watchlist Alerts",
+};
+
 export default function Dashboard() {
   const { netProfit, taxPaid, startingBalance, trades: rawTrades, isLoading, error } = useDashboard();
   const {
     formatCurrency, formatDate,
     visible_widgets, widget_order,
-    include_tax_in_profit, alerts, saveSettings,
-    recent_trades_limit,
-    isLoading: settingsLoading
+    include_tax_in_profit, alerts, saveSettings, toggleWidget,
+    recent_trades_limit, isLoading: settingsLoading
   } = useSettings();
 
   const [tf, setTf] = useState("7D");
   const [editLayout, setEditLayout] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const trades = Array.isArray(rawTrades) ? rawTrades : [];
   const vis = Array.isArray(visible_widgets) ? visible_widgets : [];
   const order = Array.isArray(widget_order) ? widget_order : [];
   const previewLimit = Number.isFinite(recent_trades_limit) && recent_trades_limit > 0 ? recent_trades_limit : 5;
+
+  const hiddenWidgets = ALL_WIDGET_KEYS.filter((k) => !vis.includes(k));
 
   const filterByTimeframe = useCallback((all, tfKey) => {
     if (tfKey === "ALL") return all;
@@ -102,7 +123,7 @@ export default function Dashboard() {
     return { dAttr, w, h, last: ysRaw[ysRaw.length - 1] };
   }, [trades, include_tax_in_profit]);
 
-  // order calc
+  // ordering
   const orderedKeys = useMemo(() => {
     const set = new Set(vis);
     const primary = order.filter((k) => set.has(k));
@@ -156,15 +177,16 @@ export default function Dashboard() {
       const h = Math.floor(t / 3600000), m = Math.floor((t % 3600000)/60000), s = Math.floor((t % 60000)/1000);
       return `${h}h ${m}m ${s}s`;
     };
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`${API}/api/events/next`, { credentials: "include" });
-        const js = await res.json();
-        setData(js);
-      } catch { setData(null); } finally { setLoading(false); }
-    };
-    useEffect(() => { load(); }, []); // eslint-disable-line
+    useEffect(() => {
+      (async () => {
+        setLoading(true);
+        try {
+          const res = await fetch(`${API}/api/events/next`, { credentials: "include" });
+          const js = await res.json();
+          setData(js);
+        } catch { setData(null); } finally { setLoading(false); }
+      })();
+    }, []); // eslint-disable-line
     useEffect(() => {
       if (!data?.start_at) return;
       setCountdown(tick(data.start_at));
@@ -189,7 +211,7 @@ export default function Dashboard() {
               {data.name || "Daily Content Drop"}
             </div>
             <div className={subText}>
-              {countdown ? `Starts in ${countdown}` : "—"} • {fmtUK(data.start_at)} UK
+              Starts in {countdown} • {fmtUK(data.start_at)} UK
             </div>
           </>
         ) : (
@@ -199,35 +221,31 @@ export default function Dashboard() {
     );
   };
 
-  // ---- Trending ----
+  // ---- Trending (fixed to 6h) ----
   const TrendingCard = () => {
     const API = import.meta.env.VITE_API_URL || "";
     const [type, setType] = useState("risers");
-    const [hours, setHours] = useState("24");
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`${API}/api/trending?type=${type}&tf=${hours}`, { credentials: "include" });
-        const js = await res.json();
-        setItems(Array.isArray(js?.items) ? js.items.slice(0, 3) : []); // show 3 for consistent height
-      } catch { setItems([]); } finally { setLoading(false); }
-    };
-    useEffect(() => { load(); }, [type, hours]); // eslint-disable-line
+    useEffect(() => {
+      (async () => {
+        setLoading(true);
+        try {
+          const res = await fetch(`${API}/api/trending?type=${type}&tf=6`, { credentials: "include" });
+          const js = await res.json();
+          setItems(Array.isArray(js?.items) ? js.items.slice(0, 3) : []);
+        } catch { setItems([]); } finally { setLoading(false); }
+      })();
+    }, [type]); // eslint-disable-line
 
     return (
       <div className={cardBase}>
         <div className="flex items-center justify-between">
-          <div className={cardTitle}>Trending</div>
+          <div className={cardTitle}>Trending (6h)</div>
           <div className="flex items-center gap-1">
             <button onClick={() => setType("risers")} className={`text-[10px] px-2 py-0.5 rounded ${type==="risers" ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}><TrendingUp size={10}/>Risers</button>
             <button onClick={() => setType("fallers")} className={`text-[10px] px-2 py-0.5 rounded ${type==="fallers" ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}><TrendingDown size={10}/>Fallers</button>
-            <div className="w-px h-4 bg-gray-700 mx-1" />
-            {["6","12","24"].map(h => (
-              <button key={h} onClick={() => setHours(h)} className={`text-[10px] px-2 py-0.5 rounded ${hours===h ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}>{h}h</button>
-            ))}
           </div>
         </div>
         <div className="mt-1 space-y-1.5">
@@ -262,11 +280,12 @@ export default function Dashboard() {
     );
   };
 
-  // ---- Watchlist Alerts ----
+  // ---- Watchlist Alerts (with inline settings) ----
   const AlertsCard = () => {
     const API = import.meta.env.VITE_API_URL || "";
     const [counts, setCounts] = useState({ watch: 0, alerts: 0 });
     const [loading, setLoading] = useState(true);
+    const [open, setOpen] = useState(false);
 
     const load = async () => {
       setLoading(true);
@@ -289,7 +308,9 @@ export default function Dashboard() {
       <div className={cardBase}>
         <div className="flex items-center justify-between">
           <div className={cardTitle}>Watchlist Alerts</div>
-          <span className={chip}><Bell size={10}/>{alerts.delivery === "discord" ? "Discord" : "In-app"}</span>
+          <button onClick={() => setOpen((v) => !v)} className={chip} title="Settings">
+            <Cog size={10} /> {alerts.delivery === "discord" ? "Discord" : "In-app"}
+          </button>
         </div>
 
         {!alerts.enabled ? (
@@ -303,7 +324,7 @@ export default function Dashboard() {
                 Enable
               </button>
               <Link to="/settings#alerts" className="text-xs underline text-gray-300 hover:text-white inline-flex items-center gap-1">
-                <Cog size={12}/> Settings
+                Open Settings
               </Link>
             </div>
           </>
@@ -321,6 +342,45 @@ export default function Dashboard() {
             </div>
             <div className={subText}>Threshold: {alerts.thresholdPct}% • Cooldown: {alerts.cooldownMin}m</div>
           </>
+        )}
+
+        {open && (
+          <div className="absolute z-10 mt-2 right-4 bottom-4 bg-gray-950 border border-gray-800 rounded-xl p-3 w-72">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[12px] font-semibold">Alert Settings</div>
+              <button className="text-gray-400 hover:text-gray-200" onClick={() => setOpen(false)}><X size={14}/></button>
+            </div>
+            <label className="flex items-center gap-2 text-[12px] mb-2">
+              <input type="checkbox" checked={alerts.enabled} onChange={(e)=>saveSettings({ alerts:{ enabled: e.target.checked }})}/>
+              Enable alerts
+            </label>
+            <div className="grid grid-cols-2 gap-2 text-[12px]">
+              <label className="flex flex-col">
+                <span className="text-gray-400">Threshold %</span>
+                <input type="number" min={1} max={50} step={0.5} className="bg-gray-900 border border-gray-800 rounded px-2 py-1"
+                  value={alerts.thresholdPct}
+                  onChange={(e)=>saveSettings({ alerts:{ thresholdPct: Math.max(1, Math.min(50, Number(e.target.value)||0)) }})}/>
+              </label>
+              <label className="flex flex-col">
+                <span className="text-gray-400">Cooldown (m)</span>
+                <input type="number" min={5} max={180} className="bg-gray-900 border border-gray-800 rounded px-2 py-1"
+                  value={alerts.cooldownMin}
+                  onChange={(e)=>saveSettings({ alerts:{ cooldownMin: Math.max(5, Math.min(180, Number(e.target.value)||0)) }})}/>
+              </label>
+              <label className="flex flex-col col-span-2">
+                <span className="text-gray-400">Delivery</span>
+                <select className="bg-gray-900 border border-gray-800 rounded px-2 py-1"
+                  value={alerts.delivery}
+                  onChange={(e)=>saveSettings({ alerts:{ delivery: e.target.value }})}>
+                  <option value="inapp">In-app</option>
+                  <option value="discord">Discord DM</option>
+                </select>
+              </label>
+              <Link to="/settings#alerts" className="text-[12px] underline text-gray-300 hover:text-white mt-1">
+                Open full settings →
+              </Link>
+            </div>
+          </div>
         )}
       </div>
     );
@@ -378,7 +438,7 @@ export default function Dashboard() {
       case "best_trade": return (
         <div className={cardBase}>
           <div className={cardTitle}>Best Trade ({tf})</div>
-          <div className="text-green-400 {cardBig}">
+          <div className="text-green-400">
             <span className={cardBig}>{formatCurrency(totals.best.value === -Infinity ? 0 : totals.best.value)}</span>
           </div>
           <div className={subText}>{totals.best.trade ? `${totals.best.trade.player ?? "Unknown"} (${totals.best.trade.version ?? "—"})` : "—"}</div>
@@ -391,7 +451,7 @@ export default function Dashboard() {
         </div>
       );
       case "volume":     return (
-        <div className={cardBase}>
+        <div className={cardBase}}>
           <div className={cardTitle}>Coin Volume ({tf})</div>
           <div className={`${cardBig} text-gray-200`}>{formatCurrency(totals.volume.total)}</div>
           <div className={subText}>Buys: {formatCurrency(totals.volume.buy)} • Sells: {formatCurrency(totals.volume.sell)}</div>
@@ -458,21 +518,64 @@ export default function Dashboard() {
             ))}
           </div>
           <div className="w-px h-4 bg-gray-700" />
-          <button onClick={() => setEditLayout((v) => !v)} className={`text-xs px-3 py-1 rounded-lg border ${editLayout ? "bg-gray-800 border-gray-700" : "bg-gray-900/70 border-gray-800 hover:border-gray-700"} flex items-center gap-1.5`} title="Reorder widgets on the dashboard">
+          <button onClick={() => setEditLayout((v) => !v)} className={`text-xs px-3 py-1 rounded-lg border ${editLayout ? "bg-gray-800 border-gray-700" : "bg-gray-900/70 border-gray-800 hover:border-gray-700"} flex items-center gap-1.5`} title="Reorder / show / hide widgets">
             <PencilLine size={12} /> {editLayout ? "Done" : "Edit"}
           </button>
           {editLayout && (
-            <button onClick={resetLayout} className="text-xs px-3 py-1 rounded-lg bg-gray-900/70 border border-gray-800 hover:border-gray-700 flex items-center gap-1.5" title="Reset current layout">
-              <RotateCcw size={12} /> Reset
-            </button>
+            <>
+              <button onClick={resetLayout} className="text-xs px-3 py-1 rounded-lg bg-gray-900/70 border border-gray-800 hover:border-gray-700 flex items-center gap-1.5" title="Reset layout">
+                <RotateCcw size={12} /> Reset
+              </button>
+              <button onClick={() => setPickerOpen(true)} className="text-xs px-3 py-1 rounded-lg bg-gray-900/70 border border-gray-800 hover:border-gray-700 flex items-center gap-1.5" title="Add hidden widgets">
+                <Plus size={12} /> Add
+              </button>
+            </>
           )}
         </div>
       </div>
 
+      {/* Add widget picker */}
+      {editLayout && pickerOpen && (
+        <div className="mb-3 p-3 bg-gray-950 border border-gray-800 rounded-xl">
+          <div className="text-sm text-gray-300 mb-2">Hidden widgets</div>
+          {hiddenWidgets.length === 0 ? (
+            <div className="text-xs text-gray-500">No hidden widgets.</div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {hiddenWidgets.map((k) => (
+                <button
+                  key={k}
+                  className="text-xs px-2 py-1 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700"
+                  onClick={() => { toggleWidget(k, true); }}
+                >
+                  + {ALL_WIDGET_LABELS[k] || k}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6" onDragOver={onDragOver}>
         {orderedKeys.map((key, idx) => (
-          <div key={key} draggable={editLayout} onDragStart={onDragStart(idx)} onDrop={onDrop(idx)} className={`${editLayout ? "cursor-move" : ""} group relative`} style={editLayout ? { outline: "1px dashed rgba(145,219,50,0.3)", borderRadius: "1rem" } : undefined}>
+          <div
+            key={key}
+            draggable={editLayout}
+            onDragStart={onDragStart(idx)}
+            onDrop={onDrop(idx)}
+            className={`${editLayout ? "cursor-move" : ""} group relative`}
+            style={editLayout ? { outline: "1px dashed rgba(145,219,50,0.3)", borderRadius: "1rem" } : undefined}
+          >
+            {editLayout && (
+              <button
+                onClick={() => toggleWidget(key, false)}
+                className="absolute -top-2 -right-2 bg-gray-900 border border-gray-800 rounded-full p-1 text-gray-300 hover:text-white"
+                title="Hide widget"
+              >
+                <X size={14} />
+              </button>
+            )}
             {renderWidget(key)}
           </div>
         ))}
