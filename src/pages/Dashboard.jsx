@@ -396,7 +396,7 @@ export default function Dashboard() {
         <div className={`${cardBase} !justify-start`}>
           <div className={cardTitle}>Net Profit</div>
           <div className={`${cardHuge} mt-1`} style={{ color: ACCENT }}>
-            {formatCurrency(totals.totalProfit)} coins
+            {formatCurrency(totals.totalProfit)} </br>coins
           </div>
           {!include_tax_in_profit && (
             <div className={`${subText} mt-1`}>Before tax: {formatCurrency(totals.gross)} coins</div>
