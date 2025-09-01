@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import {
   RefreshCcw,
   TrendingUp,
@@ -9,6 +10,17 @@ import {
 
 const ACCENT = "#91db32";
 const API_BASE = import.meta.env.VITE_API_URL || "";
+
+// Change this if your Player Search route differs
+const PLAYER_SEARCH_PATH = "/player-search";
+
+function buildPlayerSearchUrl(p) {
+  const params = new URLSearchParams();
+  if (p.pid) params.set("id", String(p.pid));
+  if (p.name) params.set("q", p.name);
+  if (p.version) params.set("ver", p.version);
+  return `${PLAYER_SEARCH_PATH}?${params.toString()}`;
+}
 
 function pctString(x) {
   if (x === null || x === undefined || isNaN(x)) return "N/A";
@@ -274,8 +286,14 @@ export default function Trending() {
                     {/* Main */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <div className="truncate text-white font-semibold">
-                          {p.name}
+                        <div className="truncate font-semibold">
+                          <Link
+                            to={buildPlayerSearchUrl(p)}
+                            className="text-white hover:underline"
+                            aria-label={`Open Player Search for ${p.name}`}
+                          >
+                            {p.name}
+                          </Link>
                           {p.rating ? <span className="text-gray-400"> • {p.rating}</span> : null}
                         </div>
                         {p.version ? (
