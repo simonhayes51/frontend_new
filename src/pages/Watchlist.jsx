@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useRef, useCallback } from "react"
 import { getWatchlist, addWatch, deleteWatch, refreshWatch } from "../api/watchlist";
 import { Link } from "react-router-dom";
 import api from "../axios";
+import { useDashboard } from "../context/DashboardContext"; // <-- for addTrade()
 
 // Tiny inline icons to keep deps minimal
 const Icon = {
@@ -26,6 +27,16 @@ const Icon = {
       <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 7h13M3 12h9M3 17h5" />
     </svg>
   ),
+  Lightning: (props) => (
+    <svg className={`w-4 h-4 ${props.className||""}`} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/>
+    </svg>
+  ),
+};
+
+const toNum = (v, d = 0) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : d;
 };
 
 function Price({ value }) {
@@ -62,7 +73,24 @@ export default function Watchlist() {
   const [busyId, setBusyId] = useState(null);
   const [sort, setSort] = useState(SORTS.SMART);
 
-  // autocomplete state
+  // QUICK ADD state
+  const { addTrade } = useDashboard();
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [busyQuick, setBusyQuick] = useState(false);
+  const [quickMsg, setQuickMsg] = useState(null);
+  const [quickForm, setQuickForm] = useState({
+    player: "",
+    version: "",
+    card_id: null,
+    platform: "ps",
+    buy: "",
+    sell: "",
+    quantity: 1,
+    tag: "",
+    notes: "",
+  });
+
+  // autocomplete state for Add-to-Watchlist modal
   const [suggestions, setSuggestions] = useState([]);
   const [sugLoading, setSugLoading] = useState(false);
   const [sugOpen, setSugOpen] = useState(false);
@@ -201,7 +229,58 @@ export default function Watchlist() {
     }
   };
 
-  // close suggestions on click outside
+  // QUICK ADD helpers
+  const openQuickAdd = (it) => {
+    setQuickMsg(null);
+    setQuickForm({
+      player: it.player_name || "",
+      version: it.version || "Base",
+      card_id: it.card_id ?? null,
+      platform: it.platform || "ps",
+      buy: "",
+      sell: "",
+      quantity: 1,
+      tag: "",
+      notes: "",
+    });
+    setQuickOpen(true);
+  };
+
+  const submitQuickAdd = async (e) => {
+    e.preventDefault();
+    setBusyQuick(true);
+    setQuickMsg(null);
+    try {
+      const payload = {
+        player: (quickForm.player || "").trim(),
+        version: (quickForm.version || "").trim(),
+        buy: toNum(quickForm.buy, 0),
+        sell: quickForm.sell === "" ? null : toNum(quickForm.sell, 0),
+        quantity: Math.max(1, toNum(quickForm.quantity, 1)),
+        platform: quickForm.platform, // note: your app uses 'ps'/'xbox' here already
+        tag: quickForm.tag || "",
+        notes: quickForm.notes || "",
+        card_id: quickForm.card_id ?? null, // harmless if backend ignores
+      };
+
+      if (!payload.player || !payload.version || !Number.isFinite(payload.buy)) {
+        setQuickMsg({ type: "error", text: "Please enter at least a valid Buy price." });
+        setBusyQuick(false);
+        return;
+      }
+
+      await addTrade(payload);
+      setQuickOpen(false);
+      // optionally refresh something, but not required for watchlist
+    } catch (err) {
+      console.error("Quick add failed:", err);
+      setQuickMsg({ type: "error", text: "Failed to add trade. Please try again." });
+    } finally {
+      setBusyQuick(false);
+    }
+  };
+
+  // close suggestions on click outside (watchlist add modal)
   useEffect(() => {
     const onDoc = (e) => {
       if (!inputRef.current) return;
@@ -217,12 +296,10 @@ export default function Watchlist() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-white">Player Watchlist</h1>
-          <p className="text-gray-400 text-sm">
-            Track starting price vs current price.{" "}
-          </p>
+          <p className="text-gray-400 text-sm">Track starting price vs current price.</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
           {/* Sort picker */}
           <div className="flex items-center gap-1 bg-gray-900/70 border border-[#2A2F36] rounded-md px-2 py-1 text-gray-300">
             <Icon.Sort />
@@ -251,7 +328,7 @@ export default function Watchlist() {
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
-          {/* Add */}
+          {/* Add to Watchlist */}
           <button
             onClick={() => setShowAdd(true)}
             className="px-3 py-2 rounded-md bg-lime-500/90 hover:bg-lime-500 text-black font-semibold flex items-center gap-2"
@@ -310,19 +387,15 @@ export default function Watchlist() {
                 </div>
 
                 <div className="col-span-2 text-right flex justify-end gap-2 flex-wrap">
-                  {/* NEW: Add Trade button that passes player + version + card_id */}
-                  <Link
-                    to="/add-trade" // change if your route differs
-                    state={{
-                      player: it.player_name,
-                      version: it.version || "Base",
-                      card_id: it.card_id,
-                    }}
+                  {/* QUICK ADD button */}
+                  <button
+                    onClick={() => openQuickAdd(it)}
                     className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-lime-500/90 hover:bg-lime-500 text-black font-semibold text-xs"
-                    title="Add a trade with this player prefilled"
+                    title="Quick Add trade using this row's player & card type"
                   >
-                    + Add Trade
-                  </Link>
+                    <Icon.Lightning className="text-black" />
+                    Quick Add
+                  </button>
 
                   <button
                     onClick={() => handleRefreshRow(it.id)}
@@ -348,7 +421,7 @@ export default function Watchlist() {
         )}
       </div>
 
-      {/* Add Modal */}
+      {/* Add-to-Watchlist Modal (existing) */}
       {showAdd && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="w-full max-w-md bg-[#111318] border border-[#2A2F36] rounded-xl p-5">
@@ -469,6 +542,133 @@ export default function Watchlist() {
                 className="w-full py-2 rounded-md bg-lime-500/90 hover:bg-lime-500 text-black font-bold"
               >
                 {busyAdd ? "Adding…" : "Add to Watchlist"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK ADD Trade Modal */}
+      {quickOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="w-full max-w-md bg-[#111318] border border-[#2A2F36] rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white">Quick Add Trade</h2>
+              <button
+                onClick={() => setQuickOpen(false)}
+                className="text-gray-400 hover:text-white p-1 rounded-md hover:bg-gray-800/60"
+                aria-label="Close"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={submitQuickAdd} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Player</label>
+                  <input
+                    className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                    value={quickForm.player}
+                    onChange={(e) => setQuickForm((f) => ({ ...f, player: e.target.value }))}
+                    placeholder="Player"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Card Type</label>
+                  <input
+                    className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                    value={quickForm.version}
+                    onChange={(e) => setQuickForm((f) => ({ ...f, version: e.target.value }))}
+                    placeholder="Base / IF / RTTK …"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Buy</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                    value={quickForm.buy}
+                    onChange={(e) => setQuickForm((f) => ({ ...f, buy: e.target.value }))}
+                    placeholder="e.g. 12,500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Sell (optional)</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                    value={quickForm.sell}
+                    onChange={(e) => setQuickForm((f) => ({ ...f, sell: e.target.value }))}
+                    placeholder="e.g. 15,000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Qty</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                    value={quickForm.quantity}
+                    onChange={(e) => setQuickForm((f) => ({ ...f, quantity: e.target.value }))}
+                    placeholder="1"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Platform</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                    value={quickForm.platform}
+                    onChange={(e) => setQuickForm((f) => ({ ...f, platform: e.target.value }))}
+                  >
+                    <option value="ps">PS</option>
+                    <option value="xbox">Xbox</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Tag (optional)</label>
+                  <input
+                    className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                    value={quickForm.tag}
+                    onChange={(e) => setQuickForm((f) => ({ ...f, tag: e.target.value }))}
+                    placeholder="e.g. Flip, SBC, RTTK…"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-1">Notes (optional)</label>
+                <textarea
+                  className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                  rows={3}
+                  value={quickForm.notes}
+                  onChange={(e) => setQuickForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Why this trade? Targets, timing, etc."
+                />
+              </div>
+
+              {quickMsg?.type === "error" && (
+                <div className="text-red-400 text-sm">{quickMsg.text}</div>
+              )}
+
+              <button
+                disabled={busyQuick}
+                className="w-full py-2 rounded-md bg-lime-500/90 hover:bg-lime-500 text-black font-bold"
+              >
+                {busyQuick ? "Adding…" : "Add Trade"}
               </button>
             </form>
           </div>
