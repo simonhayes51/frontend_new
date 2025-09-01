@@ -451,7 +451,7 @@ export default function Dashboard() {
         </div>
       );
       case "volume":     return (
-        <div className={cardBase}}>
+        <div className={cardBase}>
           <div className={cardTitle}>Coin Volume ({tf})</div>
           <div className={`${cardBig} text-gray-200`}>{formatCurrency(totals.volume.total)}</div>
           <div className={subText}>Buys: {formatCurrency(totals.volume.buy)} • Sells: {formatCurrency(totals.volume.sell)}</div>
