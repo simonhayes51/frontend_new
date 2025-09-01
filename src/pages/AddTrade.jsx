@@ -10,75 +10,22 @@ const toNum = (v, d = 0) => {
   return Number.isFinite(n) ? n : d;
 };
 
-/** ---- lightweight player search (endpoint-agnostic) ---- */
-const ENDPOINTS = [
-  "/api/player-search",
-  "/api/players/search",
-  "/api/search/players",
-  "/api/search",
-];
-
-function pickName(p) {
-  return (
-    p?.name ||
-    p?.player_name ||
-    p?.full_name ||
-    [p?.first_name, p?.last_name].filter(Boolean).join(" ") ||
-    p?.shortName ||
-    ""
-  );
-}
-function pickVersion(p) {
-  return (
-    p?.version ||
-    p?.card_type ||
-    p?.rarity ||
-    p?.program ||
-    p?.type ||
-    p?.cardType ||
-    ""
-  );
-}
-function pickRating(p) {
-  return p?.rating ?? p?.ovr ?? p?.overall ?? p?.r ?? null;
-}
-function normaliseResults(res) {
-  const arr = Array.isArray(res)
-    ? res
-    : res?.results || res?.players || res?.data || [];
-  return (arr || [])
-    .map((p) => ({
-      id:
-        p?.id ||
-        p?.pid ||
-        p?.player_id ||
-        p?.futbin_id ||
-        p?.futgg_id ||
-        `${pickName(p)}-${pickRating(p) || ""}`,
-      name: pickName(p),
-      version: pickVersion(p),
-      rating: pickRating(p),
-      raw: p,
-    }))
-    .filter((x) => x.name);
-}
-
-async function searchPlayersAPI(query, signal) {
-  if (!query || query.trim().length < 2) return [];
-  for (const path of ENDPOINTS) {
-    try {
-      const url = `${API_BASE}${path}?q=${encodeURIComponent(query.trim())}`;
-      const r = await fetch(url, { signal });
-      if (!r.ok) continue;
-      const data = await r.json();
-      const list = normaliseResults(data);
-      if (list.length) return list.slice(0, 10);
-    } catch {
-      // try next endpoint
-    }
+// ---- SAME autocomplete as PlayerSearch ----
+const searchPlayers = async (query) => {
+  if (!query.trim()) return [];
+  try {
+    const r = await fetch(
+      `${API_BASE}/api/search-players?q=${encodeURIComponent(query)}`,
+      { credentials: "include" }
+    );
+    if (!r.ok) return [];
+    const data = await r.json();
+    return data.players || [];
+  } catch (e) {
+    console.error("Search failed:", e);
+    return [];
   }
-  return [];
-}
+};
 
 export default function AddTrade() {
   const { addTrade } = useDashboard();
@@ -109,17 +56,17 @@ export default function AddTrade() {
   const acRef = useRef(null);
   const abortRef = useRef(null);
 
-  // Close dropdown on outside click
+  // close on outside click
   useEffect(() => {
-    function onDocClick(e) {
+    const onDocClick = (e) => {
       if (!acRef.current) return;
       if (!acRef.current.contains(e.target)) setOpen(false);
-    }
+    };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  // Debounced search whenever form.player changes
+  // Debounced search (matches PlayerSearch)
   useEffect(() => {
     const q = form.player;
     if (!q || q.trim().length < 2) {
@@ -128,7 +75,6 @@ export default function AddTrade() {
       setSearching(false);
       return;
     }
-
     setSearching(true);
     setOpen(true);
     setHighlight(-1);
@@ -139,14 +85,22 @@ export default function AddTrade() {
 
     const t = setTimeout(async () => {
       try {
-        const list = await searchPlayersAPI(q, controller.signal);
-        setSuggestions(list);
+        const players = await searchPlayers(q);
+        // normalise to the bits we need
+        const mapped = players.map((p) => ({
+          id: p.card_id ?? p.id ?? `${p.name}-${p.rating ?? ""}`,
+          name: p.name || p.player_name || "",
+          rating: p.rating ?? null,
+          version: p.version || p.card_type || "", // used to auto-fill
+          image_url: p.image_url,
+        }));
+        setSuggestions(mapped.slice(0, 10));
       } catch {
         setSuggestions([]);
       } finally {
         setSearching(false);
       }
-    }, 200); // debounce
+    }, 250);
 
     return () => {
       clearTimeout(t);
@@ -154,7 +108,7 @@ export default function AddTrade() {
     };
   }, [form.player]);
 
-  // Adopt settings when they arrive
+  // adopt settings
   useEffect(() => {
     if (!settingsLoading && default_platform) {
       setForm((s) => ({ ...s, platform: default_platform }));
@@ -170,7 +124,7 @@ export default function AddTrade() {
     setForm((prev) => ({
       ...prev,
       player: s.name,
-      version: s.version || prev.version, // auto-fill version; preserve if empty from API
+      version: s.version || prev.version, // auto-fill from search result
     }));
     setOpen(false);
     setHighlight(-1);
@@ -178,7 +132,6 @@ export default function AddTrade() {
 
   const handleNameKeyDown = (e) => {
     if (!open || !suggestions.length) return;
-
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setHighlight((h) => Math.min(h + 1, suggestions.length - 1));
@@ -216,10 +169,8 @@ export default function AddTrade() {
 
     try {
       const result = await addTrade(payload);
-
       if (result?.success) {
         setMessage("Trade logged successfully!");
-        // Clear entry fields; keep platform & quantity for speed
         setForm((s) => ({
           ...s,
           player: "",
@@ -232,9 +183,7 @@ export default function AddTrade() {
         setSuggestions([]);
         setOpen(false);
       } else {
-        setMessage(
-          "Failed to log trade: " + (result?.message || "Unknown error")
-        );
+        setMessage("Failed to log trade: " + (result?.message || "Unknown error"));
       }
     } catch (err) {
       console.error(err);
@@ -249,7 +198,7 @@ export default function AddTrade() {
     return [...new Set([...(custom_tags || []), ...common])];
   }, [custom_tags]);
 
-  // Calculated preview numbers (always numeric)
+  // preview
   const qty = toNum(form.quantity, 1);
   const buy = toNum(form.buy, 0);
   const sell = toNum(form.sell, 0);
@@ -264,9 +213,7 @@ export default function AddTrade() {
       {message && (
         <div
           className={`mb-4 p-3 rounded ${
-            message.toLowerCase().includes("success")
-              ? "bg-green-800"
-              : "bg-red-800"
+            message.toLowerCase().includes("success") ? "bg-green-800" : "bg-red-800"
           }`}
         >
           {message}
@@ -275,7 +222,7 @@ export default function AddTrade() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Player with autocomplete */}
+          {/* Player with autocomplete (matches PlayerSearch) */}
           <Field label="Player Name">
             <div className="relative" ref={acRef}>
               <input
@@ -286,25 +233,18 @@ export default function AddTrade() {
                 onChange={handleChange}
                 onKeyDown={handleNameKeyDown}
                 onFocus={() => {
-                  if (form.player.trim().length >= 2 && suggestions.length) {
-                    setOpen(true);
-                  }
+                  if (form.player.trim().length >= 2 && suggestions.length) setOpen(true);
                 }}
                 className="w-full p-3 bg-gray-800 rounded-lg"
                 required
               />
-
               {open && (
                 <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-lg border border-gray-700 bg-gray-800 shadow-lg">
                   {searching && (
-                    <div className="px-3 py-2 text-sm text-gray-400">
-                      Searching…
-                    </div>
+                    <div className="px-3 py-2 text-sm text-gray-400">Searching…</div>
                   )}
                   {!searching && suggestions.length === 0 && (
-                    <div className="px-3 py-2 text-sm text-gray-400">
-                      No matches
-                    </div>
+                    <div className="px-3 py-2 text-sm text-gray-400">No matches</div>
                   )}
                   {!searching &&
                     suggestions.map((s, idx) => (
@@ -321,12 +261,9 @@ export default function AddTrade() {
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <div className="font-medium">{s.name}</div>
-                          {s.rating != null && (
-                            <span className="ml-3 inline-flex items-center rounded-full bg-gray-900 px-2 py-0.5 text-xs">
-                              {s.rating}
-                            </span>
-                          )}
+                          <div className="font-medium truncate">
+                            {s.name} {s.rating != null ? `(${s.rating})` : ""}
+                          </div>
                         </div>
                         {s.version && (
                           <div className="text-xs text-gray-400">{s.version}</div>
@@ -338,7 +275,7 @@ export default function AddTrade() {
             </div>
           </Field>
 
-          {/* Auto-filled but still editable */}
+          {/* Auto-filled but editable */}
           <Field label="Version">
             <input
               name="version"
