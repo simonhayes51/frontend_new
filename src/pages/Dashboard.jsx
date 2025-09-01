@@ -393,11 +393,13 @@ export default function Dashboard() {
       case "trending":  return <TrendingCard />;
       case "alerts":    return <AlertsCard />;
       case "profit":    return (
-        <div className={`${cardBase} !justify-start`}>
+        <div className={cardBase}>
           <div className={cardTitle}>Net Profit</div>
-          <div className={`${cardBig} mt-1`} style={{ color: ACCENT }}>
-            {formatCurrency(totals.totalProfit)}></div>
-          <div className={`${cardBig} mt-1`} style={{ color: ACCENT }}>coins</div>
+          <div className="text-green-400">
+            <span className={cardBig}>{formatCurrency(totals.totalProfit)}</span>
+          </div>
+          <div className={subText}></div>
+        </div>
         </div>
       );
       case "tax":       return (
