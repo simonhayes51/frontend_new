@@ -396,7 +396,7 @@ export default function Dashboard() {
           <div className={cardBase}>
             <div className={cardTitle}>Net Profit</div>
             <div className="text-green-400">
-              <span className={cardBig}>{formatCurrency(totals.totalProfit)}</span> coins
+              <span className={cardBig}>{formatCurrency(totals.totalProfit)} coins</span>
             </div>
             <div className={subText}></div>
           </div>
@@ -442,7 +442,7 @@ export default function Dashboard() {
         <div className={cardBase}>
           <div className={cardTitle}>Best Trade ({tf})</div>
           <div className="text-green-400">
-            <span className={cardBig}>{formatCurrency(totals.best.value === -Infinity ? 0 : totals.best.value)}</span>
+            <span className={cardBig}>{formatCurrency(totals.best.value === -Infinity ? 0 : totals.best.value)} coins</span>
           </div>
           <div className={subText}>{totals.best.trade ? `${totals.best.trade.player ?? "Unknown"} (${totals.best.trade.version ?? "—"})` : "—"}</div>
         </div>
@@ -451,7 +451,7 @@ export default function Dashboard() {
         <div className={cardBase}>
           <div className={cardTitle}>Average Profit per Trade ({tf})</div>
           <div className="text-green-400">
-            <span className={cardBig}>{formatCurrency(totals.avgProfit)}</span> coins
+            <span className={cardBig}>{formatCurrency(totals.avgProfit)} coins</span>
           </div>
           <div className={subText}></div>
         </div>
@@ -502,7 +502,7 @@ export default function Dashboard() {
       case "top_earner": return (
         <div className={cardBase}>
           <div className={cardTitle}>Top Earner ({tf})</div>
-          <div className={`${cardBig} text-green-400`}>{formatCurrency(Math.max(0, totals.topEarner.total))}</div>
+          <div className={`${cardBig} text-green-400`}>{formatCurrency(Math.max(0, totals.topEarner.total))} coins</div>
           <div className={subText}>{totals.topEarner.player ? totals.topEarner.player : "—"}</div>
         </div>
       );
