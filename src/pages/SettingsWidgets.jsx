@@ -6,6 +6,10 @@ const ALL_WIDGETS = [
   { key: "tax", label: "EA Tax Paid" },
   { key: "balance", label: "Starting Balance" },
   { key: "trades", label: "Total Trades" },
+
+  // NEW: Next Promo toggle
+  { key: "promo", label: "Next Promo" },
+
   { key: "roi", label: "ROI" },
   { key: "winrate", label: "Win Rate" },
   { key: "best_trade", label: "Best Trade" },
