@@ -1,10 +1,24 @@
+// src/pages/Trades.jsx
 import React, { useEffect, useState } from "react";
 import { useDashboard } from "../context/DashboardContext";
+import { useSettings } from "../context/SettingsContext";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
+const TAX_RATE = 0.05; // EA 5%
+
+const toNumber = (v) => {
+  if (v == null) return 0;
+  if (typeof v === "string") return Number(v.replace(/[, ]/g, "")) || 0;
+  return Number(v) || 0;
+};
+const fmt = (n) => (Number(n) || 0).toLocaleString("en-GB");
 
 const Trades = () => {
   const { getAllTrades } = useDashboard();
+  const { include_tax_in_profit, includeTaxInProfit } = useSettings();
+  const includeTax =
+    typeof includeTaxInProfit === "boolean" ? includeTaxInProfit : include_tax_in_profit;
+
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -14,9 +28,6 @@ const Trades = () => {
 
   // deletion state
   const [deletingId, setDeletingId] = useState(null); // trade_id being deleted
-
-  // Helpers
-  const safeNumber = (value) => Number(value || 0).toLocaleString();
 
   const safeDate = (date) => {
     try {
@@ -135,7 +146,7 @@ const Trades = () => {
         throw new Error(`Save failed (${r.status}). ${txt || "Please try again."}`);
       }
 
-      await refreshTrades(); // get recomputed tax/profit from server
+      await refreshTrades(); // refetch
       closeEdit();
     } catch (err) {
       console.error(err);
@@ -163,79 +174,87 @@ const Trades = () => {
                 <th>Qty</th>
                 <th>Buy</th>
                 <th>Sell</th>
-                <th>Profit</th>
+                <th>Profit{includeTax ? " (after tax)" : ""}</th>
                 <th>Date</th>
                 <th className="text-right pr-1">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {trades.map((trade) => (
-                <tr
-                  key={trade.trade_id ?? `${trade.player}-${trade.timestamp}`}
-                  className="border-b border-gray-800"
-                >
-                  <td className="py-2">{trade.player || "N/A"}</td>
-                  <td>{trade.version || "N/A"}</td>
-                  <td>{trade.quantity || 0}</td>
-                  <td>{safeNumber(trade.buy)}</td>
-                  <td>{safeNumber(trade.sell)}</td>
-                  <td
-                    className={(trade.profit || 0) >= 0 ? "text-green-400" : "text-red-400"}
-                  >
-                    {safeNumber(trade.profit)}
-                  </td>
-                  <td>{safeDate(trade.timestamp)}</td>
-                  <td className="py-2">
-                    <div className="flex gap-2 justify-end">
-                      {/* Edit (Pencil) */}
-                      <button
-                        onClick={() => openEdit(trade)}
-                        className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700"
-                        title="Edit trade"
-                        aria-label="Edit trade"
-                      >
-                        {/* Heroicons Pencil Square */}
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          className="w-5 h-5"
-                        >
-                          <path d="M16.862 2.487a1.5 1.5 0 0 1 2.122 0l2.529 2.53a1.5 1.5 0 0 1 0 2.121l-9.9 9.9a1.5 1.5 0 0 1-.67.39l-4.41 1.176a.75.75 0 0 1-.92-.92l1.175-4.41a1.5 1.5 0 0 1 .39-.67l9.904-9.904Z" />
-                          <path d="M21 15.75a.75.75 0 0 1 .75.75v3A3.75 3.75 0 0 1 18 23.25H6A3.75 3.75 0 0 1 2.25 19.5v-12A3.75 3.75 0 0 1 6 3.75h3a.75.75 0 0 1 0 1.5H6A2.25 2.25 0 0 0 3.75 7.5v12A2.25 2.25 0 0 0 6 21.75h12A2.25 2.25 0 0 0 20.25 19.5v-3a.75.75 0 0 1 .75-.75Z" />
-                        </svg>
-                      </button>
+              {trades.map((trade) => {
+                // --- compute EA tax + profit like dashboard ---
+                const qty = toNumber(trade.quantity ?? 1) || 1;
+                const buy = toNumber(trade.buy);
+                const sell = toNumber(trade.sell);
+                const taxPerUnit = Math.floor(sell * TAX_RATE);
+                const grossPerUnit = sell - buy;
+                const netPerUnit = sell - taxPerUnit - buy;
+                const computedProfit = (includeTax ? netPerUnit : grossPerUnit) * qty;
 
-                      {/* Delete (Trash) */}
-                      <button
-                        onClick={() => handleDelete(trade)}
-                        disabled={deletingId === trade.trade_id}
-                        className={`p-2 rounded-lg border ${
-                          deletingId === trade.trade_id
-                            ? "bg-red-900/40 text-red-300 border-red-800 cursor-not-allowed"
-                            : "bg-red-900/30 text-red-300 hover:bg-red-900/50 border-red-800"
-                        }`}
-                        title="Delete trade"
-                        aria-label="Delete trade"
-                      >
-                        {/* Heroicons Trash */}
-                        {deletingId === trade.trade_id ? (
-                          <span className="text-xs">…</span>
-                        ) : (
+                return (
+                  <tr
+                    key={trade.trade_id ?? `${trade.player}-${trade.timestamp}`}
+                    className="border-b border-gray-800"
+                  >
+                    <td className="py-2">{trade.player || "N/A"}</td>
+                    <td>{trade.version || "N/A"}</td>
+                    <td>{qty}</td>
+                    <td>{fmt(buy)}</td>
+                    <td>{fmt(sell)}</td>
+                    <td className={computedProfit >= 0 ? "text-green-400" : "text-red-400"}>
+                      {fmt(computedProfit)}
+                    </td>
+                    <td>{safeDate(trade.timestamp)}</td>
+                    <td className="py-2">
+                      <div className="flex gap-2 justify-end">
+                        {/* Edit (Pencil) */}
+                        <button
+                          onClick={() => openEdit(trade)}
+                          className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700"
+                          title="Edit trade"
+                          aria-label="Edit trade"
+                        >
+                          {/* Heroicons Pencil Square */}
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
                             viewBox="0 0 24 24"
                             fill="currentColor"
                             className="w-5 h-5"
                           >
-                            <path d="M9 2.25a1.5 1.5 0 0 0-1.5 1.5V4.5H4.5a.75.75 0 0 0 0 1.5h.563l.84 12.266A3.75 3.75 0 0 0 9.64 21.75h4.72a3.75 3.75 0 0 0 3.736-3.484L18.936 6h.564a.75.75 0 0 0 0-1.5H16.5V3.75a1.5 1.5 0 0 0-1.5-1.5H9Zm2.25 6a.75.75 0 0 1 .75.75v8.25a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm3 0a.75.75 0 0 1 .75.75v8.25a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75ZM9 3.75h6V4.5H9V3.75Z" />
+                            <path d="M16.862 2.487a1.5 1.5 0 0 1 2.122 0l2.529 2.53a1.5 1.5 0 0 1 0 2.121l-9.9 9.9a1.5 1.5 0 0 1-.67.39l-4.41 1.176a.75.75 0 0 1-.92-.92l1.175-4.41a1.5 1.5 0 0 1 .39-.67l9.904-9.904Z" />
+                            <path d="M21 15.75a.75.75 0 0 1 .75.75v3A3.75 3.75 0 0 1 18 23.25H6A3.75 3.75 0 0 1 2.25 19.5v-12A3.75 3.75 0 0 1 6 3.75h3a.75.75 0 0 1 0 1.5H6A2.25 2.25 0 0 0 3.75 7.5v12A2.25 2.25 0 0 0 6 21.75h12A2.25 2.25 0 0 0 20.25 19.5v-3a.75.75 0 0 1 .75-.75Z" />
                           </svg>
-                        )}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        </button>
+
+                        {/* Delete (Trash) */}
+                        <button
+                          onClick={() => handleDelete(trade)}
+                          disabled={deletingId === trade.trade_id}
+                          className={`p-2 rounded-lg border ${
+                            deletingId === trade.trade_id
+                              ? "bg-red-900/40 text-red-300 border-red-800 cursor-not-allowed"
+                              : "bg-red-900/30 text-red-300 hover:bg-red-900/50 border-red-800"
+                          }`}
+                          title="Delete trade"
+                          aria-label="Delete trade"
+                        >
+                          {deletingId === trade.trade_id ? (
+                            <span className="text-xs">…</span>
+                          ) : (
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              className="w-5 h-5"
+                            >
+                              <path d="M9 2.25a1.5 1.5 0 0 0-1.5 1.5V4.5H4.5a.75.75 0 0 0 0 1.5h.563l.84 12.266A3.75 3.75 0 0 0 9.64 21.75h4.72a3.75 3.75 0 0 0 3.736-3.484L18.936 6h.564a.75.75 0 0 0 0-1.5H16.5V3.75a1.5 1.5 0 0 0-1.5-1.5H9Zm2.25 6a.75.75 0 0 1 .75.75v8.25a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm3 0a.75.75 0 0 1 .75.75v8.25a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75ZM9 3.75h6V4.5H9V3.75Z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
