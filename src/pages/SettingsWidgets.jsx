@@ -6,20 +6,18 @@ const ALL_WIDGETS = [
   { key: "tax", label: "EA Tax Paid" },
   { key: "balance", label: "Starting Balance" },
   { key: "trades", label: "Total Trades" },
+  { key: "profit_trend", label: "Profit Trend (7D)" },
+  { key: "winrate", label: "Win Rate" },
+  { key: "avg_profit", label: "Average Profit / Trade" },
+  { key: "best_trade", label: "Best Trade" },
+  { key: "volume", label: "Coin Volume" },
+  { key: "latest_trade", label: "Latest Trade" },
+  { key: "top_earner", label: "Top Earner" },
 
-  // NEW widgets
+  // New
   { key: "promo", label: "Next Promo" },
   { key: "trending", label: "Trending (Risers/Fallers)" },
   { key: "alerts", label: "Watchlist Alerts" },
-
-  { key: "roi", label: "ROI" },
-  { key: "winrate", label: "Win Rate" },
-  { key: "best_trade", label: "Best Trade" },
-  { key: "avg_profit", label: "Average Profit / Trade" },
-  { key: "volume", label: "Coin Volume" },
-  { key: "profit_trend", label: "Profit Trend (7D)" },
-  { key: "latest_trade", label: "Latest Trade" },
-  { key: "top_earner", label: "Top Earner" },
 ];
 
 export default function SettingsWidgets() {
@@ -27,26 +25,26 @@ export default function SettingsWidgets() {
     include_tax_in_profit,
     visible_widgets,
     recent_trades_limit,
+    alerts,
     saveSettings,
   } = useSettings();
 
   const toggleWidget = (key) => {
-    if (visible_widgets.includes(key)) {
-      saveSettings({ visible_widgets: visible_widgets.filter((w) => w !== key) });
-    } else {
-      saveSettings({ visible_widgets: [...visible_widgets, key] });
-    }
+    const on = visible_widgets.includes(key);
+    const next = on ? visible_widgets.filter((w) => w !== key) : [...visible_widgets, key];
+    saveSettings({ visible_widgets: next });
   };
 
   const resetDefaults = () => {
     localStorage.removeItem("user_settings");
+    localStorage.removeItem("alerts_settings");
     window.location.reload();
   };
 
   return (
-    <div>
+    <div id="widgets" className="space-y-10">
       {/* Profit calc */}
-      <div className="mb-8">
+      <section>
         <h2 className="text-lg font-semibold mb-2">Profit Calculation</h2>
         <label className="flex items-center gap-3 cursor-pointer">
           <input
@@ -56,10 +54,10 @@ export default function SettingsWidgets() {
           />
           <span className="text-gray-300">Include EA Tax in profit numbers</span>
         </label>
-      </div>
+      </section>
 
       {/* Recent trades limit */}
-      <div className="mb-8">
+      <section>
         <h2 className="text-lg font-semibold mb-2">Recent Trades Limit</h2>
         <select
           className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200"
@@ -70,12 +68,12 @@ export default function SettingsWidgets() {
           <option value={10}>Show last 10</option>
           <option value={20}>Show last 20</option>
         </select>
-      </div>
+      </section>
 
       {/* Widget toggles */}
-      <div className="mb-8">
+      <section>
         <h2 className="text-lg font-semibold mb-4">Visible Widgets</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {ALL_WIDGETS.map((w) => (
             <label
               key={w.key}
@@ -90,7 +88,67 @@ export default function SettingsWidgets() {
             </label>
           ))}
         </div>
-      </div>
+      </section>
+
+      {/* Watchlist Alerts */}
+      <section id="alerts">
+        <h2 className="text-lg font-semibold mb-2">Watchlist Alerts</h2>
+
+        <div className="bg-gray-900 rounded-xl border border-gray-700 p-4 space-y-4">
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={alerts.enabled}
+              onChange={(e) => saveSettings({ alerts: { enabled: e.target.checked } })}
+            />
+            <span className="text-gray-200">Enable alerts</span>
+          </label>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <label className="flex flex-col text-sm">
+              <span className="text-gray-400 mb-1">Threshold (absolute % move)</span>
+              <input
+                type="number"
+                min={1} max={50} step={0.5}
+                className="bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-gray-200"
+                value={alerts.thresholdPct}
+                onChange={(e) => saveSettings({ alerts: { thresholdPct: Math.max(1, Math.min(50, Number(e.target.value) || 0)) } })}
+                disabled={!alerts.enabled}
+              />
+            </label>
+
+            <label className="flex flex-col text-sm">
+              <span className="text-gray-400 mb-1">Cooldown (minutes)</span>
+              <input
+                type="number"
+                min={5} max={180}
+                className="bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-gray-200"
+                value={alerts.cooldownMin}
+                onChange={(e) => saveSettings({ alerts: { cooldownMin: Math.max(5, Math.min(180, Number(e.target.value) || 0)) } })}
+                disabled={!alerts.enabled}
+              />
+            </label>
+
+            <label className="flex flex-col text-sm">
+              <span className="text-gray-400 mb-1">Delivery</span>
+              <select
+                className="bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-gray-200"
+                value={alerts.delivery}
+                onChange={(e) => saveSettings({ alerts: { delivery: e.target.value } })}
+                disabled={!alerts.enabled}
+              >
+                <option value="inapp">In-app</option>
+                <option value="discord">Discord DM</option>
+              </select>
+            </label>
+          </div>
+
+          <p className="text-xs text-gray-500">
+            Alerts trigger when a watchlist item’s price change meets your threshold. Delivery “Discord DM” requires the bot; otherwise alerts
+            show in-app (for now).
+          </p>
+        </div>
+      </section>
 
       <button
         onClick={resetDefaults}
