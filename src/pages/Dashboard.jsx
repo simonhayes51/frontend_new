@@ -396,7 +396,7 @@ export default function Dashboard() {
           <div className={cardBase}>
             <div className={cardTitle}>Net Profit</div>
             <div className="text-green-400">
-              <span className={cardBig}>{formatCurrency(totals.totalProfit)}</span>
+              <span className={cardBig}>{formatCurrency(totals.totalProfit)}</span> coins
             </div>
             <div className={subText}></div>
           </div>
@@ -449,9 +449,9 @@ export default function Dashboard() {
       );
       case "avg_profit": return (
         <div className={cardBase}>
-          <div className={cardTitle}>Average Profit / Trade ({tf})</div>
+          <div className={cardTitle}>Average Profit per Trade ({tf})</div>
           <div className="text-green-400">
-            <span className={cardBig}>{formatCurrency(totals.avgProfit)}</span>
+            <span className={cardBig}>{formatCurrency(totals.avgProfit)}</span> coins
           </div>
           <div className={subText}></div>
         </div>
