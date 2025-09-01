@@ -46,10 +46,10 @@ const DesktopSidebar = () => {
     { path: "/add-trade", label: "Add Trade" },
     { path: "/trades", label: "Trades" },
     { path: "/player-search", label: "Player Search" },
-    { path: "/squad", label: "Squad Builder" },
+    { path: "/player-compare", label: "Compare" },    
     { path: "/watchlist", label: "Watchlist" },
     { path: "/trending", label: "Trending" }, // NEW
-    { path: "/analytics", label: "Analytics" },
+    { path: "/squad", label: "Squad Builder" },
   ];
 
   const isActive = (p) => location.pathname === p;
