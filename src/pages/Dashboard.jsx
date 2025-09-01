@@ -393,13 +393,13 @@ export default function Dashboard() {
       case "trending":  return <TrendingCard />;
       case "alerts":    return <AlertsCard />;
       case "profit":    return (
-        <div className={cardBase}>
-          <div className={cardTitle}>Net Profit</div>
-          <div className="text-green-400">
-            <span className={cardBig}>{formatCurrency(totals.totalProfit)}</span>
+          <div className={cardBase}>
+            <div className={cardTitle}>Net Profit</div>
+            <div className="text-green-400">
+              <span className={cardBig}>{formatCurrency(totals.totalProfit)}</span>
+            </div>
+            <div className={subText}></div>
           </div>
-          <div className={subText}></div>
-        </div>
       );
       case "tax":       return (
         <div className={cardBase}>
@@ -450,7 +450,10 @@ export default function Dashboard() {
       case "avg_profit": return (
         <div className={cardBase}>
           <div className={cardTitle}>Average Profit / Trade ({tf})</div>
-          <div className={cardBig} style={{ color: ACCENT }}>{formatCurrency(totals.avgProfit)}</div>
+          <div className="text-green-400">
+            <span className={cardBig}>{formatCurrency(totals.avgProfit)}</span>
+          </div>
+          <div className={subText}></div>
         </div>
       );
       case "volume":     return (
