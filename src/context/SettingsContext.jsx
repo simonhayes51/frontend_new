@@ -12,9 +12,11 @@ const DEFAULT_GENERAL = {
   compactDecimals: 1,
 };
 
-const DEFAULT_PORTFOLIO = { startingCoins: 0 };
-
+// New widgets are included up-front so new users see them immediately
 const DEFAULT_WIDGET_ORDER = [
+  "promo",        // 📅 Next Promo
+  "trending",     // 📈 Trending
+  "alerts",       // 🔔 Watchlist Alerts
   "profit",
   "trades",
   "roi",
@@ -28,14 +30,18 @@ const DEFAULT_WIDGET_ORDER = [
   "latest_trade",
   "top_earner",
 ];
+
 const DEFAULT_VISIBLE = [...DEFAULT_WIDGET_ORDER];
 const DEFAULT_RECENT_TRADES_LIMIT = 5;
 
 export const SettingsProvider = ({ children }) => {
   const [general, setGeneral] = useState(DEFAULT_GENERAL);
-  const [portfolio, setPortfolio] = useState(DEFAULT_PORTFOLIO);
+  const [include_tax_in_profit, setIncludeTaxInProfit] = useState(true);
 
-  // Legacy/overview-critical fields
+  // Portfolio (server-backed)
+  const [portfolio, setPortfolio] = useState({ startingCoins: 0 });
+
+  // Overview/legacy fields
   const [visible_widgets, setVisibleWidgets] = useState(DEFAULT_VISIBLE);
   const [widget_order, setWidgetOrder] = useState(DEFAULT_WIDGET_ORDER);
   const [recent_trades_limit, setRecentTradesLimit] = useState(DEFAULT_RECENT_TRADES_LIMIT);
@@ -90,11 +96,11 @@ export const SettingsProvider = ({ children }) => {
     [general]
   );
 
-  // ---------- Load from backend + merge any legacy localStorage ----------
+  // ---------- Load from backend + merge legacy localStorage ----------
   useEffect(() => {
     (async () => {
       try {
-        // Legacy: hydrate from localStorage first so UI doesn’t flash empty
+        // 1) Hydrate legacy first (so UI doesn’t flash)
         try {
           const raw = localStorage.getItem("user_settings");
           if (raw) {
@@ -102,45 +108,52 @@ export const SettingsProvider = ({ children }) => {
             if (Array.isArray(ls.visible_widgets)) setVisibleWidgets(ls.visible_widgets);
             if (Array.isArray(ls.widget_order)) setWidgetOrder(ls.widget_order);
             if (Number.isFinite(ls.recent_trades_limit)) setRecentTradesLimit(ls.recent_trades_limit);
+            if (typeof ls.include_tax_in_profit === "boolean") setIncludeTaxInProfit(ls.include_tax_in_profit);
           }
         } catch {}
 
+        // 2) Fetch server
         const [sRes, pRes] = await Promise.all([fetch("/api/settings"), fetch("/api/profile")]);
         const s = await sRes.json();
         const p = await pRes.json();
 
-        // Map server -> general
+        // General mapping
         const mappedGeneral = {
           ...DEFAULT_GENERAL,
           timezone: s.timezone || DEFAULT_GENERAL.timezone,
           dateFormat: s.date_format === "US" ? "MM/DD/YYYY" : s.date_format === "ISO" ? "YYYY-MM-DD" : "DD/MM/YYYY",
-          // coin prefs remain client-only until you add columns
           coinFormat: s.coinFormat ?? DEFAULT_GENERAL.coinFormat,
           compactThreshold: s.compactThreshold ?? DEFAULT_GENERAL.compactThreshold,
           compactDecimals: s.compactDecimals ?? DEFAULT_GENERAL.compactDecimals,
           timeFormat: "24h",
         };
         setGeneral(mappedGeneral);
+        setIncludeTaxInProfit(typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true);
 
         // Portfolio
-        setPortfolio({ startingCoins: p?.startingBalance ?? DEFAULT_PORTFOLIO.startingCoins });
+        setPortfolio({ startingCoins: p?.startingBalance ?? 0 });
 
-        // Widgets (from server column usersettings.visible_widgets)
-        const serverVisible = Array.isArray(s.visible_widgets) && s.visible_widgets.length ? s.visible_widgets : DEFAULT_VISIBLE;
-        setVisibleWidgets(serverVisible);
+        // Widgets: take server visible list, but UNION with defaults so new widgets appear for existing users
+        const serverVisible = Array.isArray(s.visible_widgets) ? s.visible_widgets : [];
+        const mergedVisible = Array.from(new Set([...(serverVisible.length ? serverVisible : DEFAULT_VISIBLE), ...DEFAULT_VISIBLE]));
+        setVisibleWidgets(mergedVisible);
 
-        // If you ever add a server column for order, prefer it here
+        // Order: prefer any existing order, otherwise defaults (already includes new widgets)
         setWidgetOrder((prev) => (prev && prev.length ? prev : DEFAULT_WIDGET_ORDER));
 
-        // persist a compact legacy object for any code that still reads localStorage
-        const compat = {
-          visible_widgets: serverVisible,
-          widget_order: DEFAULT_WIDGET_ORDER,
-          recent_trades_limit: DEFAULT_RECENT_TRADES_LIMIT,
-        };
+        // Persist a compact legacy snapshot
         try {
           const existing = JSON.parse(localStorage.getItem("user_settings") || "{}");
-          localStorage.setItem("user_settings", JSON.stringify({ ...existing, ...compat }));
+          localStorage.setItem(
+            "user_settings",
+            JSON.stringify({
+              ...existing,
+              visible_widgets: mergedVisible,
+              widget_order: DEFAULT_WIDGET_ORDER,
+              recent_trades_limit: DEFAULT_RECENT_TRADES_LIMIT,
+              include_tax_in_profit: typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true,
+            })
+          );
         } catch {}
       } catch (e) {
         console.error("Settings load failed:", e);
@@ -151,18 +164,17 @@ export const SettingsProvider = ({ children }) => {
     })();
   }, []);
 
-  // ---------- Save partial updates ----------
+  // ---------- Save partial updates (also persist to server when relevant) ----------
   const saveSettings = async (partial) => {
     // optimistic local
     if (partial.general) setGeneral((g) => ({ ...g, ...partial.general }));
     if (partial.portfolio) setPortfolio((p) => ({ ...p, ...partial.portfolio }));
-
-    // legacy/overview prefs
     if (partial.visible_widgets) setVisibleWidgets(partial.visible_widgets);
     if (partial.widget_order) setWidgetOrder(partial.widget_order);
     if (partial.recent_trades_limit !== undefined) setRecentTradesLimit(partial.recent_trades_limit);
+    if (typeof partial.include_tax_in_profit === "boolean") setIncludeTaxInProfit(partial.include_tax_in_profit);
 
-    // write legacy snapshot for any old code reading localStorage
+    // legacy snapshot (for any old code reading localStorage)
     try {
       const ls = JSON.parse(localStorage.getItem("user_settings") || "{}");
       localStorage.setItem(
@@ -172,6 +184,7 @@ export const SettingsProvider = ({ children }) => {
           ...(partial.visible_widgets ? { visible_widgets: partial.visible_widgets } : {}),
           ...(partial.widget_order ? { widget_order: partial.widget_order } : {}),
           ...(partial.recent_trades_limit !== undefined ? { recent_trades_limit: partial.recent_trades_limit } : {}),
+          ...(typeof partial.include_tax_in_profit === "boolean" ? { include_tax_in_profit: partial.include_tax_in_profit } : {}),
         })
       );
     } catch {}
@@ -189,20 +202,20 @@ export const SettingsProvider = ({ children }) => {
       }
     }
 
-    // server: general settings (timezone, date_format)
-    if (partial.general) {
-      const g = { ...general, ...partial.general };
+    // server: persist settings whenever general OR visible_widgets OR include_tax_in_profit changes
+    if (partial.general || partial.visible_widgets || typeof partial.include_tax_in_profit === "boolean") {
+      const g = { ...general, ...(partial.general || {}) };
+      const nextVisible = partial.visible_widgets || visible_widgets;
       const mapped = {
         timezone: g.timezone,
         date_format: g.dateFormat === "MM/DD/YYYY" ? "US" : g.dateFormat === "YYYY-MM-DD" ? "ISO" : "EU",
-        // required columns so UPSERT works safely
         default_platform: "Console",
         custom_tags: [],
         currency_format: "coins",
         theme: "dark",
-        include_tax_in_profit: true,
+        include_tax_in_profit: typeof partial.include_tax_in_profit === "boolean" ? partial.include_tax_in_profit : include_tax_in_profit,
         default_chart_range: "30d",
-        visible_widgets, // persist to server too so it survives device changes
+        visible_widgets: nextVisible,
       };
       try {
         await fetch("/api/settings", {
@@ -216,7 +229,6 @@ export const SettingsProvider = ({ children }) => {
     }
   };
 
-  // expose both legacy and new shapes
   const settings = { general, portfolio, visible_widgets, widget_order, recent_trades_limit };
 
   return (
@@ -226,10 +238,13 @@ export const SettingsProvider = ({ children }) => {
         settings,
         general,
         portfolio,
+        include_tax_in_profit,
+
         // legacy shortcuts used across app
         visible_widgets,
         widget_order,
         recent_trades_limit,
+
         // utils
         isLoading,
         error,
@@ -237,6 +252,7 @@ export const SettingsProvider = ({ children }) => {
         formatCurrency,
         formatDate,
         formatCoins,
+
         // old callers sometimes use these:
         default_platform: "Console",
         default_quantity: 1,
