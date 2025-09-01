@@ -13,10 +13,8 @@ const ALL_WIDGETS = [
   { key: "volume", label: "Coin Volume" },
   { key: "latest_trade", label: "Latest Trade" },
   { key: "top_earner", label: "Top Earner" },
-
-  // New
   { key: "promo", label: "Next Promo" },
-  { key: "trending", label: "Trending (Risers/Fallers)" },
+  { key: "trending", label: "Trending (6h)" },
   { key: "alerts", label: "Watchlist Alerts" },
 ];
 
@@ -144,8 +142,7 @@ export default function SettingsWidgets() {
           </div>
 
           <p className="text-xs text-gray-500">
-            Alerts trigger when a watchlist item’s price change meets your threshold. Delivery “Discord DM” requires the bot; otherwise alerts
-            show in-app (for now).
+            Alerts trigger when a watchlist item’s <em>change %</em> meets your threshold. “Discord DM” requires your bot token & guild setup.
           </p>
         </div>
       </section>
