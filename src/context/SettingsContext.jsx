@@ -1,3 +1,4 @@
+// src/context/SettingsContext.jsx
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
 const SettingsContext = createContext(null);
@@ -40,6 +41,9 @@ const DEFAULT_ALERTS = {
   delivery: "inapp", // "inapp" | "discord"
 };
 
+// ===== EA tax (5%) single source of truth =====
+const EA_TAX_RATE = 0.05; // 5%
+
 export const SettingsProvider = ({ children }) => {
   const [general, setGeneral] = useState(DEFAULT_GENERAL);
   const [portfolio, setPortfolio] = useState({ startingCoins: 0 });
@@ -59,8 +63,11 @@ export const SettingsProvider = ({ children }) => {
   const formatDate = useCallback((d) => {
     const dt = d instanceof Date ? d : new Date(d);
     return new Intl.DateTimeFormat("en-GB", {
-      year: "numeric", month: "short", day: "2-digit",
-      hour: "2-digit", minute: "2-digit",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
       hour12: (general.timeFormat ?? "24h") === "12h",
       timeZone: general.timezone || "Europe/London",
     }).format(dt);
@@ -68,12 +75,27 @@ export const SettingsProvider = ({ children }) => {
   const formatCoins = useCallback((n, g = general) => {
     const toFull = (x) => (Number(x) || 0).toLocaleString("en-GB");
     const cfg = { coinFormat: g.coinFormat, compactThreshold: g.compactThreshold, compactDecimals: g.compactDecimals };
-    if (cfg.coinFormat === "short_m" && n >= cfg.compactThreshold) {
-      if (n >= 1_000_000) return (n/1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
-      if (n >= 1_000)     return (n/1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
+    const num = Number(n) || 0;
+    if (cfg.coinFormat === "short_m" && num >= cfg.compactThreshold) {
+      if (num >= 1_000_000) return (num / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
+      if (num >= 1_000) return (num / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
     }
-    return toFull(n);
+    return toFull(num);
   }, [general]);
+
+  // ---------- Tax & Profit helpers ----------
+  const calcTax = React.useCallback((sellPrice) => {
+    const s = Number(sellPrice) || 0;
+    // EA fee rounds down to whole coins
+    return Math.floor(s * EA_TAX_RATE);
+  }, []);
+
+  const calcProfit = React.useCallback((buy, sell, includeTax) => {
+    const b = Number(buy) || 0;
+    const s = Number(sell) || 0;
+    const fee = calcTax(s);
+    return includeTax ? (s - fee - b) : (s - b);
+  }, [calcTax]);
 
   // ---------- Load settings ----------
   useEffect(() => {
@@ -101,7 +123,10 @@ export const SettingsProvider = ({ children }) => {
         setGeneral((g) => ({
           ...g,
           timezone: s.timezone || g.timezone,
-          dateFormat: s.date_format === "US" ? "MM/DD/YYYY" : s.date_format === "ISO" ? "YYYY-MM-DD" : g.dateFormat,
+          dateFormat:
+            s.date_format === "US" ? "MM/DD/YYYY" :
+            s.date_format === "ISO" ? "YYYY-MM-DD" :
+            g.dateFormat,
         }));
         setIncludeTaxInProfit(typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true);
         setPortfolio({ startingCoins: p?.startingBalance ?? 0 });
@@ -114,13 +139,18 @@ export const SettingsProvider = ({ children }) => {
         if (!Array.isArray(s.widget_order) || !s.widget_order?.length) setWidgetOrder(DEFAULT_WIDGET_ORDER);
 
         // persist compact legacy snapshot
-        localStorage.setItem("user_settings", JSON.stringify({
-          visible_widgets: mergedVis,
-          widget_order: DEFAULT_WIDGET_ORDER,
-          recent_trades_limit: DEFAULT_RECENT_TRADES_LIMIT,
-          include_tax_in_profit: typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true,
-        }));
-        if (!localStorage.getItem("alerts_settings")) localStorage.setItem("alerts_settings", JSON.stringify(DEFAULT_ALERTS));
+        localStorage.setItem(
+          "user_settings",
+          JSON.stringify({
+            visible_widgets: mergedVis,
+            widget_order: DEFAULT_WIDGET_ORDER,
+            recent_trades_limit: DEFAULT_RECENT_TRADES_LIMIT,
+            include_tax_in_profit: typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true,
+          })
+        );
+        if (!localStorage.getItem("alerts_settings")) {
+          localStorage.setItem("alerts_settings", JSON.stringify(DEFAULT_ALERTS));
+        }
       } catch (e) {
         console.error("Settings load failed:", e);
         setError(e);
@@ -148,13 +178,16 @@ export const SettingsProvider = ({ children }) => {
 
     // legacy snapshot
     const ls = JSON.parse(localStorage.getItem("user_settings") || "{}");
-    localStorage.setItem("user_settings", JSON.stringify({
-      ...ls,
-      ...(partial.visible_widgets ? { visible_widgets: partial.visible_widgets } : {}),
-      ...(partial.widget_order ? { widget_order: partial.widget_order } : {}),
-      ...(partial.recent_trades_limit !== undefined ? { recent_trades_limit: partial.recent_trades_limit } : {}),
-      ...(typeof partial.include_tax_in_profit === "boolean" ? { include_tax_in_profit: partial.include_tax_in_profit } : {}),
-    }));
+    localStorage.setItem(
+      "user_settings",
+      JSON.stringify({
+        ...ls,
+        ...(partial.visible_widgets ? { visible_widgets: partial.visible_widgets } : {}),
+        ...(partial.widget_order ? { widget_order: partial.widget_order } : {}),
+        ...(partial.recent_trades_limit !== undefined ? { recent_trades_limit: partial.recent_trades_limit } : {}),
+        ...(typeof partial.include_tax_in_profit === "boolean" ? { include_tax_in_profit: partial.include_tax_in_profit } : {}),
+      })
+    );
 
     // server: portfolio + general + visible + include_tax
     if (partial.portfolio?.startingCoins !== undefined) {
@@ -164,7 +197,9 @@ export const SettingsProvider = ({ children }) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ starting_balance: partial.portfolio.startingCoins }),
         });
-      } catch (e) { setError(e); }
+      } catch (e) {
+        setError(e);
+      }
     }
     if (partial.general || partial.visible_widgets || typeof partial.include_tax_in_profit === "boolean") {
       const g = { ...general, ...(partial.general || {}) };
@@ -175,7 +210,10 @@ export const SettingsProvider = ({ children }) => {
         custom_tags: [],
         currency_format: "coins",
         theme: "dark",
-        include_tax_in_profit: typeof partial.include_tax_in_profit === "boolean" ? partial.include_tax_in_profit : include_tax_in_profit,
+        include_tax_in_profit:
+          typeof partial.include_tax_in_profit === "boolean"
+            ? partial.include_tax_in_profit
+            : include_tax_in_profit,
         default_chart_range: "30d",
         visible_widgets: partial.visible_widgets || visible_widgets,
       };
@@ -185,7 +223,9 @@ export const SettingsProvider = ({ children }) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(mapped),
         });
-      } catch (e) { setError(e); }
+      } catch (e) {
+        setError(e);
+      }
     }
   };
 
@@ -193,23 +233,32 @@ export const SettingsProvider = ({ children }) => {
   const toggleWidget = (key, show) => {
     if (!ALL_WIDGET_KEYS.includes(key)) return;
     const set = new Set(visible_widgets);
-    if (show) set.add(key); else set.delete(key);
+    if (show) set.add(key);
+    else set.delete(key);
     saveSettings({ visible_widgets: Array.from(set) });
   };
 
   const settings = { general, portfolio, visible_widgets, widget_order, recent_trades_limit, alerts };
 
   return (
-    <SettingsContext.Provider value={{
-      settings,
-      general, portfolio,
-      visible_widgets, widget_order, recent_trades_limit,
-      alerts, include_tax_in_profit,
-      isLoading, error,
-      saveSettings, toggleWidget,
-      formatCurrency, formatDate, formatCoins,
-      default_platform: "Console", default_quantity: 1,
-    }}>
+    <SettingsContext.Provider
+      value={{
+        settings,
+        general, portfolio,
+        visible_widgets, widget_order, recent_trades_limit,
+        alerts, include_tax_in_profit,
+        includeTaxInProfit: include_tax_in_profit, // camelCase alias for consumers
+        taxRate: EA_TAX_RATE,
+        calcTax,
+        calcProfit,
+
+        isLoading, error,
+        saveSettings, toggleWidget,
+        formatCurrency, formatDate, formatCoins,
+        default_platform: "Console",
+        default_quantity: 1,
+      }}
+    >
       {children}
     </SettingsContext.Provider>
   );
