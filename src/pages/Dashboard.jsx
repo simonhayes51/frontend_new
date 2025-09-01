@@ -235,7 +235,7 @@ export default function Dashboard() {
         try {
           const res = await fetch(`${API}/api/trending?type=${type}&tf=6`, { credentials: "include" });
           const js = await res.json();
-          setItems(Array.isArray(js?.items) ? js.items.slice(0, 3) : []);
+          setItems(Array.isArray(js?.items) ? js.items.slice(0, 2) : []);
         } catch { setItems([]); } finally { setLoading(false); }
       })();
     }, [type]); // eslint-disable-line
