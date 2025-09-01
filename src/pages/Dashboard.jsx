@@ -13,6 +13,7 @@ const cardBase =
   "bg-gray-900/70 rounded-2xl p-4 border border-gray-800 hover:border-gray-700 transition-colors h-[150px] flex flex-col justify-between";
 const cardTitle = "text-[13px] font-semibold text-gray-200/90 leading-none";
 const cardBig = "text-[clamp(20px,1.8vw,26px)] font-extrabold leading-tight tracking-tight tabular-nums whitespace-nowrap";
+const cardHuge = "text-[clamp(24px,2.4vw,36px)] font-extrabold leading-tight tracking-tight tabular-nums whitespace-nowrap";
 const subText = "text-[12px] text-gray-400 leading-snug";
 const chip = "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-gray-800 text-gray-300";
 
@@ -392,10 +393,14 @@ export default function Dashboard() {
       case "trending":  return <TrendingCard />;
       case "alerts":    return <AlertsCard />;
       case "profit":    return (
-        <div className={cardBase}>
+        <div className={`${cardBase} !justify-start`}>
           <div className={cardTitle}>Net Profit</div>
-          <div className={cardBig} style={{ color: ACCENT }}>{formatCurrency(totals.totalProfit)} coins</div>
-          {!include_tax_in_profit && <div className={subText}>Before tax: {formatCurrency(totals.gross)} coins</div>}
+          <div className={`${cardHuge} mt-1`} style={{ color: ACCENT }}>
+            {formatCurrency(totals.totalProfit)} coins
+          </div>
+          {!include_tax_in_profit && (
+            <div className={`${subText} mt-1`}>Before tax: {formatCurrency(totals.gross)} coins</div>
+          )}
         </div>
       );
       case "tax":       return (
