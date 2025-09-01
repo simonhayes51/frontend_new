@@ -309,7 +309,21 @@ export default function Watchlist() {
                   <Change change={it.change} pct={it.change_pct} />
                 </div>
 
-                <div className="col-span-2 text-right flex justify-end gap-2">
+                <div className="col-span-2 text-right flex justify-end gap-2 flex-wrap">
+                  {/* NEW: Add Trade button that passes player + version + card_id */}
+                  <Link
+                    to="/add-trade" // change if your route differs
+                    state={{
+                      player: it.player_name,
+                      version: it.version || "Base",
+                      card_id: it.card_id,
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-lime-500/90 hover:bg-lime-500 text-black font-semibold text-xs"
+                    title="Add a trade with this player prefilled"
+                  >
+                    + Add Trade
+                  </Link>
+
                   <button
                     onClick={() => handleRefreshRow(it.id)}
                     disabled={busyId === it.id}
