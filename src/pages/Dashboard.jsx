@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
 import { useSettings } from "../context/SettingsContext";
-import { LineChart, PencilLine, RotateCcw } from "lucide-react";
+import { LineChart, PencilLine, RotateCcw, CalendarClock } from "lucide-react";
 
 const ACCENT = "#91db32";
 
@@ -193,9 +193,108 @@ export default function Dashboard() {
   }
   if (error) return <div className="text-red-500 p-4">{String(error)}</div>;
 
+  // ---- Next Promo Card (inline component) ----
+  const NextPromoCard = () => {
+    const API = import.meta.env.VITE_API_URL || "";
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [countdown, setCountdown] = useState("");
+
+    const fmtUK = (iso) => {
+      try {
+        return new Intl.DateTimeFormat("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+          weekday: "short",
+          day: "2-digit",
+          month: "short",
+          timeZone: "Europe/London",
+        }).format(new Date(iso));
+      } catch {
+        return iso;
+      }
+    };
+
+    const tick = (iso) => {
+      const t = new Date(iso).getTime() - Date.now();
+      if (t <= 0) return "soon";
+      const h = Math.floor(t / 3600000);
+      const m = Math.floor((t % 3600000) / 60000);
+      const s = Math.floor((t % 60000) / 1000);
+      return `${h}h ${m}m ${s}s`;
+    };
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API}/api/events/next`, { credentials: "include" });
+        const js = await res.json();
+        setData(js);
+      } catch (e) {
+        setData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    useEffect(() => {
+      load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+      if (!data?.start_at) return;
+      setCountdown(tick(data.start_at));
+      const id = setInterval(() => setCountdown(tick(data.start_at)), 1000);
+      return () => clearInterval(id);
+    }, [data?.start_at]);
+
+    if (loading) {
+      return (
+        <div className={cardBase}>
+          <div className={cardTitle}>Next Promo</div>
+          <div className="h-6 w-24 bg-gray-800 rounded animate-pulse" />
+          <div className="h-4 w-40 bg-gray-800 rounded animate-pulse" />
+        </div>
+      );
+    }
+    if (!data) {
+      return (
+        <div className={cardBase}>
+          <div className={cardTitle}>Next Promo</div>
+          <div className={`${subText}`}>Couldn’t load event.</div>
+          <button
+            onClick={load}
+            className="text-xs mt-1 px-2 py-1 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className={cardBase}>
+        <div className="flex items-center justify-between">
+          <div className={cardTitle}>Next Promo</div>
+          <span className={chip}><CalendarClock size={10} /> {data.confidence ?? "heuristic"}</span>
+        </div>
+        <div className={cardBig} style={{ color: ACCENT }}>
+          {data.name || "Daily Content"}
+        </div>
+        <div className={subText}>
+          {countdown ? `Starts in ${countdown}` : "—"} • {fmtUK(data.start_at)} UK
+        </div>
+      </div>
+    );
+  };
+  // ---- end NextPromoCard ----
+
   // Widget renderer
   const renderWidget = (key) => {
     switch (key) {
+      case "promo":
+        return <NextPromoCard />;
+
       case "profit":
         return (
           <div className={cardBase}>
