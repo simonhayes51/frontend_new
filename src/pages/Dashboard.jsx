@@ -400,7 +400,6 @@ export default function Dashboard() {
           </div>
           <div className={subText}></div>
         </div>
-        </div>
       );
       case "tax":       return (
         <div className={cardBase}>
