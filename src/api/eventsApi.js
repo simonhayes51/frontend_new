@@ -1,0 +1,1 @@
+const API_BASE = import.meta.env.VITE_API_URL || ""; export async function fetchNextEvent(){ const r = await fetch(`${API_BASE}/api/events/next`); if(!r.ok) throw new Error(`Failed: ${r.status}`); return r.json(); }
