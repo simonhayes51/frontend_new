@@ -7,21 +7,39 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 const PLACEHOLDER = "/img/card-placeholder.png";
 const buildProxy = (url) => `${API_BASE}/img?url=${encodeURIComponent(url)}`;
 
+// ---- shared helpers (same endpoints used in PlayerSearch) ----
+async function searchPlayers(query) {
+  if (!query.trim()) return [];
+  try {
+    const r = await fetch(`${API_BASE}/api/search-players?q=${encodeURIComponent(query)}`, {
+      credentials: "include",
+    });
+    if (!r.ok) return [];
+    const data = await r.json();
+    return data.players || [];
+  } catch {
+    return [];
+  }
+}
+
 async function fetchPlayerDefinition(cardId) {
   try {
-    const r = await fetch(`${API_BASE}/api/fut-player-definition/${cardId}`, { credentials: "include" });
+    const r = await fetch(`${API_BASE}/api/fut-player-definition/${cardId}`, {
+      credentials: "include",
+    });
     if (!r.ok) return null;
     const data = await r.json();
     return data?.data || null;
-  } catch (e) {
-    console.error("def err", e);
+  } catch {
     return null;
   }
 }
 
 async function fetchPlayerPrice(cardId) {
   try {
-    const r = await fetch(`${API_BASE}/api/fut-player-price/${cardId}`, { credentials: "include" });
+    const r = await fetch(`${API_BASE}/api/fut-player-price/${cardId}`, {
+      credentials: "include",
+    });
     if (!r.ok) return null;
     const data = await r.json();
     return {
@@ -30,8 +48,7 @@ async function fetchPlayerPrice(cardId) {
       updatedAt: data?.data?.currentPrice?.priceUpdatedAt ?? null,
       auctions: data?.data?.completedAuctions ?? [],
     };
-  } catch (e) {
-    console.error("price err", e);
+  } catch {
     return null;
   }
 }
@@ -54,11 +71,92 @@ function number(v) {
 }
 
 function priceRangeFromAuctions(auctions) {
-  const values = (auctions || []).map(a => a?.soldPrice).filter(Boolean);
+  const values = (auctions || []).map((a) => a?.soldPrice).filter(Boolean);
   if (!values.length) return null;
   return { min: Math.min(...values), max: Math.max(...values) };
 }
 
+// ---- tiny autocomplete component (same UX as PlayerSearch) ----
+function PlayerSearchBox({ label, onPick }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      if (!query.trim()) {
+        setResults([]);
+        setOpen(false);
+        return;
+      }
+      setLoading(true);
+      const players = await searchPlayers(query);
+      setResults(players);
+      setLoading(false);
+      setOpen(true);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  return (
+    <div className="relative">
+      <div className="text-xs text-white/70 mb-1">{label}</div>
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onFocus={() => results.length && setOpen(true)}
+        placeholder="Type player name…"
+        className="w-full px-3 py-2 rounded-md bg-black/50 border border-white/15 text-white text-sm"
+      />
+      {open && results.length > 0 && (
+        <div className="absolute z-10 w-full mt-2 bg-[#0b1220]/90 backdrop-blur-md border border-white/20 rounded-lg shadow-lg max-h-96 overflow-y-auto">
+          {results.map((p) => (
+            <button
+              key={`${p.card_id}-${p.rating}`}
+              className="w-full px-3 py-2 text-left hover:bg-white/10 border-b border-white/10 last:border-b-0 focus:outline-none"
+              onClick={() => {
+                onPick(p); // send full player object back
+                setQuery("");
+                setOpen(false);
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <img
+                  src={p.image_url || PLACEHOLDER}
+                  alt={`${p.name} (${p.rating})`}
+                  loading="lazy"
+                  className="w-10 h-14 object-contain"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (!img.dataset.triedProxy && p.image_url) {
+                      img.dataset.triedProxy = "1";
+                      img.src = buildProxy(p.image_url);
+                    } else {
+                      img.src = PLACEHOLDER;
+                    }
+                  }}
+                  referrerPolicy="no-referrer"
+                />
+                <div className="font-medium text-white truncate">
+                  {p.name} ({p.rating})
+                  {p.version ? <span className="text-white/60"> · {p.version}</span> : null}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+      {open && !loading && query && results.length === 0 && (
+        <div className="absolute z-10 w-full mt-2 bg-[#0b1220]/90 border border-white/20 rounded-lg shadow-lg p-3 text-center text-white/80">
+          No players found for “{query}”
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- card visual ----
 function CardBlock({ cardId, platform }) {
   const [loading, setLoading] = useState(true);
   const [def, setDef] = useState(null);
@@ -76,7 +174,9 @@ function CardBlock({ cardId, platform }) {
       setPrice(p);
       setLoading(false);
     })();
-    return () => { live = false; };
+    return () => {
+      live = false;
+    };
   }, [cardId]);
 
   const meta = useMemo(() => {
@@ -129,7 +229,9 @@ function CardBlock({ cardId, platform }) {
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="text-xl font-semibold mb-1 truncate">{meta.fullName} <span className="text-white/60">{meta.rating}</span></div>
+          <div className="text-xl font-semibold mb-1 truncate">
+            {meta.fullName} <span className="text-white/60">{meta.rating}</span>
+          </div>
           <div className="text-sm text-white/70 mb-3">
             {meta.position} · {meta.club} · {meta.league} · {meta.nation}
           </div>
@@ -191,9 +293,16 @@ function CardBlock({ cardId, platform }) {
         {recentSales.length ? (
           <div className="grid grid-cols-2 gap-2">
             {recentSales.map((a, i) => (
-              <div key={i} className="flex items-center justify-between text-sm bg-white/10 border border-white/10 rounded px-2 py-1">
-                <span className="text-white/80">{a?.soldDate ? new Date(a.soldDate).toLocaleString() : "—"}</span>
-                <span className="font-medium text-yellow-300">{a?.soldPrice ? number(a.soldPrice) : "—"}</span>
+              <div
+                key={i}
+                className="flex items-center justify-between text-sm bg-white/10 border border-white/10 rounded px-2 py-1"
+              >
+                <span className="text-white/80">
+                  {a?.soldDate ? new Date(a.soldDate).toLocaleString() : "—"}
+                </span>
+                <span className="font-medium text-yellow-300">
+                  {a?.soldPrice ? number(a.soldPrice) : "—"}
+                </span>
               </div>
             ))}
           </div>
@@ -202,30 +311,41 @@ function CardBlock({ cardId, platform }) {
         )}
       </div>
 
-      {/* Chart (today / week) */}
+      {/* Chart (today) */}
       <div className="mt-4">
-        <PriceTrendChart playerId={Number(cardId)} platform={platform} initialTimeframe="today" height={220} />
+        <PriceTrendChart
+          playerId={Number(cardId)}
+          platform={platform}
+          initialTimeframe="today"
+          height={220}
+        />
       </div>
     </div>
   );
 }
 
+// ---- page ----
 export default function PlayerCompare() {
   const [sp, setSp] = useSearchParams();
   const navigate = useNavigate();
   const [platform, setPlatform] = useState("ps");
 
-  // Read up to two ids from the query string: /player-compare?ids=123,456
+  // read up to two ids from query string
   const idsParam = sp.get("ids") || "";
-  const ids = idsParam.split(",").map(s => s.trim()).filter(Boolean).slice(0, 2);
-  const idA = ids[0] || "";
-  const idB = ids[1] || "";
+  const ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 2);
 
-  const [inputA, setInputA] = useState(idA);
-  const [inputB, setInputB] = useState(idB);
+  // local UI state (ids + chosen players)
+  const [idA, setIdA] = useState(ids[0] || "");
+  const [idB, setIdB] = useState(ids[1] || "");
+  const [chosenA, setChosenA] = useState(null); // last picked player A (optional, for display)
+  const [chosenB, setChosenB] = useState(null); // last picked player B
 
+  // keep URL in sync when we press Compare
   const applyIds = () => {
-    const next = [inputA.trim(), inputB.trim()].filter(Boolean).slice(0, 2).join(",");
+    const next = [String(idA || "").trim(), String(idB || "").trim()]
+      .filter(Boolean)
+      .slice(0, 2)
+      .join(",");
     if (next) {
       sp.set("ids", next);
     } else {
@@ -233,6 +353,17 @@ export default function PlayerCompare() {
     }
     navigate({ pathname: "/player-compare", search: sp.toString() });
   };
+
+  // when URL changes externally (e.g., deep link), hydrate local state
+  useEffect(() => {
+    const list = (sp.get("ids") || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 2);
+    setIdA(list[0] || "");
+    setIdB(list[1] || "");
+  }, [sp]);
 
   return (
     <div className="min-h-screen relative text-white">
@@ -254,18 +385,45 @@ export default function PlayerCompare() {
             </div>
           </div>
 
-          {/* ID inputs */}
+          {/* Search by name + ID inputs */}
           <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <PlayerSearchBox
+                  label="Search Player A"
+                  onPick={(p) => {
+                    setChosenA(p);
+                    setIdA(String(p.card_id));
+                  }}
+                />
+                <div className="mt-2 text-xs text-white/60">
+                  {chosenA ? `Selected: ${chosenA.name} (${chosenA.rating})` : "—"}
+                </div>
+              </div>
+              <div>
+                <PlayerSearchBox
+                  label="Search Player B"
+                  onPick={(p) => {
+                    setChosenB(p);
+                    setIdB(String(p.card_id));
+                  }}
+                />
+                <div className="mt-2 text-xs text-white/60">
+                  {chosenB ? `Selected: ${chosenB.name} (${chosenB.rating})` : "—"}
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <input
-                value={inputA}
-                onChange={(e) => setInputA(e.target.value)}
+                value={idA}
+                onChange={(e) => setIdA(e.target.value)}
                 placeholder="First Card ID (e.g. 12345)"
                 className="px-3 py-2 rounded-md bg-black/50 border border-white/15 text-white text-sm"
               />
               <input
-                value={inputB}
-                onChange={(e) => setInputB(e.target.value)}
+                value={idB}
+                onChange={(e) => setIdB(e.target.value)}
                 placeholder="Second Card ID (optional)"
                 className="px-3 py-2 rounded-md bg-black/50 border border-white/15 text-white text-sm"
               />
@@ -276,18 +434,31 @@ export default function PlayerCompare() {
                 Compare
               </button>
             </div>
+
             <div className="text-xs text-white/60 mt-2">
-              Tip: you can deep-link like <code>/player-compare?ids=12345,67890</code>
+              Tip: deep-link like <code>/player-compare?ids=12345,67890</code>
             </div>
           </div>
 
-          {/* Cards */}
-          {ids.length === 0 ? (
-            <div className="text-white/80">Enter 1–2 card IDs above to compare.</div>
+          {/* Results */}
+          {!idA && !idB ? (
+            <div className="text-white/80">Pick 1–2 players above to compare.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <CardBlock cardId={ids[0]} platform={platform} />
-              {ids[1] ? <CardBlock cardId={ids[1]} platform={platform} /> : <div className="border border-dashed border-white/15 rounded-2xl p-4 text-white/60 flex items-center justify-center">Add a second ID to compare</div>}
+              {idA ? (
+                <CardBlock cardId={idA} platform={platform} />
+              ) : (
+                <div className="border border-dashed border-white/15 rounded-2xl p-4 text-white/60 flex items-center justify-center">
+                  Select Player A
+                </div>
+              )}
+              {idB ? (
+                <CardBlock cardId={idB} platform={platform} />
+              ) : (
+                <div className="border border-dashed border-white/15 rounded-2xl p-4 text-white/60 flex items-center justify-center">
+                  Select Player B
+                </div>
+              )}
             </div>
           )}
         </div>
