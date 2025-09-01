@@ -76,7 +76,7 @@ function priceRangeFromAuctions(auctions) {
   return { min: Math.min(...values), max: Math.max(...values) };
 }
 
-// ---- tiny autocomplete component (same UX as PlayerSearch) ----
+// ---- tiny autocomplete (re-using your search endpoint) ----
 function PlayerSearchBox({ label, onPick }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -116,7 +116,7 @@ function PlayerSearchBox({ label, onPick }) {
               key={`${p.card_id}-${p.rating}`}
               className="w-full px-3 py-2 text-left hover:bg-white/10 border-b border-white/10 last:border-b-0 focus:outline-none"
               onClick={() => {
-                onPick(p); // send full player object back
+                onPick(p);
                 setQuery("");
                 setOpen(false);
               }}
@@ -156,7 +156,7 @@ function PlayerSearchBox({ label, onPick }) {
   );
 }
 
-// ---- card visual ----
+// ---- card block ----
 function CardBlock({ cardId, platform }) {
   const [loading, setLoading] = useState(true);
   const [def, setDef] = useState(null);
@@ -337,8 +337,8 @@ export default function PlayerCompare() {
   // local UI state (ids + chosen players)
   const [idA, setIdA] = useState(ids[0] || "");
   const [idB, setIdB] = useState(ids[1] || "");
-  const [chosenA, setChosenA] = useState(null); // last picked player A (optional, for display)
-  const [chosenB, setChosenB] = useState(null); // last picked player B
+  const [chosenA, setChosenA] = useState(null);
+  const [chosenB, setChosenB] = useState(null);
 
   // keep URL in sync when we press Compare
   const applyIds = () => {
@@ -354,7 +354,7 @@ export default function PlayerCompare() {
     navigate({ pathname: "/player-compare", search: sp.toString() });
   };
 
-  // when URL changes externally (e.g., deep link), hydrate local state
+  // hydrate local state if URL changes externally
   useEffect(() => {
     const list = (sp.get("ids") || "")
       .split(",")
@@ -385,7 +385,7 @@ export default function PlayerCompare() {
             </div>
           </div>
 
-          {/* Search by name + ID inputs */}
+          {/* Search by name + hidden ID inputs */}
           <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
@@ -414,18 +414,21 @@ export default function PlayerCompare() {
               </div>
             </div>
 
+            {/* Keep inputs for logic/URL sync, but hide them */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <input
+                type="hidden"
                 value={idA}
                 onChange={(e) => setIdA(e.target.value)}
-                placeholder="First Card ID (e.g. 12345)"
-                className="px-3 py-2 rounded-md bg-black/50 border border-white/15 text-white text-sm"
+                placeholder="First Card ID"
+                className="hidden"
               />
               <input
+                type="hidden"
                 value={idB}
                 onChange={(e) => setIdB(e.target.value)}
-                placeholder="Second Card ID (optional)"
-                className="px-3 py-2 rounded-md bg-black/50 border border-white/15 text-white text-sm"
+                placeholder="Second Card ID"
+                className="hidden"
               />
               <button
                 onClick={applyIds}
