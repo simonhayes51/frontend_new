@@ -12,6 +12,10 @@ import Watchlist from "./pages/Watchlist";
 import SquadBuilder from "./pages/SquadBuilder";
 import PlayerSearch from "./pages/PlayerSearch";
 
+// 👇 Compare UI
+import { CompareProvider } from "./context/CompareContext";
+import CompareModal from "./components/compare/CompareModal";
+
 const Dashboard    = lazy(() => import("./pages/Dashboard"));
 const AddTrade     = lazy(() => import("./pages/AddTrade"));
 const Trades       = lazy(() => import("./pages/Trades"));
@@ -43,7 +47,14 @@ function App() {
                     <PrivateRoute>
                       <SettingsProvider>
                         <DashboardProvider>
-                          <Layout />
+                          {/* ⬇️ CompareProvider wraps the app section that needs compare state */}
+                          <CompareProvider defaultPlatform="ps">
+                            <>
+                              <Layout />
+                              {/* Mount once so it’s globally available */}
+                              <CompareModal />
+                            </>
+                          </CompareProvider>
                         </DashboardProvider>
                       </SettingsProvider>
                     </PrivateRoute>
