@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
 import { useSettings } from "../context/SettingsContext";
-import { LineChart, PencilLine, RotateCcw, CalendarClock } from "lucide-react";
+import { LineChart, PencilLine, RotateCcw, CalendarClock, TrendingUp, TrendingDown, Bell } from "lucide-react";
 
 const ACCENT = "#91db32";
 
@@ -289,11 +289,169 @@ export default function Dashboard() {
   };
   // ---- end NextPromoCard ----
 
+  // ---- Trending Card (risers/fallers) ----
+  const TrendingCard = () => {
+    const API = import.meta.env.VITE_API_URL || "";
+    const [type, setType] = useState("risers"); // "risers" | "fallers"
+    const [hours, setHours] = useState("24");   // "6" | "12" | "24"
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API}/api/trending?type=${type}&tf=${hours}`, { credentials: "include" });
+        const js = await res.json();
+        setItems(Array.isArray(js?.items) ? js.items.slice(0, 5) : []);
+      } catch {
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    useEffect(() => { load(); /* eslint-disable-next-line */ }, [type, hours]);
+
+    return (
+      <div className={cardBase}>
+        <div className="flex items-center justify-between">
+          <div className={cardTitle}>Trending</div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setType("risers")}
+              className={`text-[10px] px-2 py-0.5 rounded ${type==="risers" ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}
+              title="Top risers"
+            >
+              <span className="inline-flex items-center gap-1"><TrendingUp size={10}/>Risers</span>
+            </button>
+            <button
+              onClick={() => setType("fallers")}
+              className={`text-[10px] px-2 py-0.5 rounded ${type==="fallers" ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}
+              title="Top fallers"
+            >
+              <span className="inline-flex items-center gap-1"><TrendingDown size={10}/>Fallers</span>
+            </button>
+            <div className="w-px h-4 bg-gray-700 mx-1" />
+            {["6","12","24"].map(h => (
+              <button key={h}
+                onClick={() => setHours(h)}
+                className={`text-[10px] px-2 py-0.5 rounded ${hours===h ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}
+                title={`${h}h window`}
+              >
+                {h}h
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-1 space-y-1.5 overflow-hidden">
+          {loading ? (
+            <div className="space-y-1.5">
+              {[...Array(5)].map((_,i)=>(
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-gray-800 rounded" />
+                  <div className="h-3 w-36 bg-gray-800 rounded" />
+                  <div className="h-3 w-10 bg-gray-800 rounded ml-auto" />
+                </div>
+              ))}
+            </div>
+          ) : items.length === 0 ? (
+            <div className={`${subText}`}>No data.</div>
+          ) : (
+            items.map((it, idx) => {
+              const pct = Number(it.percent ?? 0);
+              const up = pct >= 0;
+              return (
+                <div key={`${it.pid}-${idx}`} className="flex items-center gap-2">
+                  {it.image ? (
+                    <img src={it.image} alt={it.name} className="w-6 h-6 rounded object-cover" />
+                  ) : (
+                    <div className="w-6 h-6 rounded bg-gray-800" />
+                  )}
+                  <div className="truncate">
+                    <div className="text-[12px] text-gray-200 truncate">
+                      {it.name ?? `Card ${it.pid}`} {it.rating ? <span className="text-gray-400">({it.rating})</span> : null}
+                    </div>
+                    <div className="text-[10px] text-gray-500 truncate">
+                      {it.version ?? it.league ?? ""}
+                    </div>
+                  </div>
+                  <div className={`ml-auto text-[12px] font-semibold ${up ? "text-green-400" : "text-red-400"}`}>
+                    {pct > 0 ? "+" : ""}{pct.toFixed(2)}%
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  };
+  // ---- end TrendingCard ----
+
+  // ---- Watchlist Alerts Card ----
+  const AlertsCard = () => {
+    const API = import.meta.env.VITE_API_URL || "";
+    const [counts, setCounts] = useState({ watch: 0, alerts: 0 });
+    const [loading, setLoading] = useState(true);
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [wRes, aRes] = await Promise.all([
+          fetch(`${API}/api/watchlist`, { credentials: "include" }),
+          fetch(`${API}/api/watchlist-alerts`, { credentials: "include" }),
+        ]);
+        const w = await wRes.json();
+        const a = await aRes.json();
+        setCounts({
+          watch: Array.isArray(w?.items) ? w.items.length : 0,
+          alerts: Array.isArray(a?.items) ? a.items.length : 0,
+        });
+      } catch {
+        setCounts({ watch: 0, alerts: 0 });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    useEffect(() => { load(); }, []);
+
+    return (
+      <div className={cardBase}>
+        <div className="flex items-center justify-between">
+          <div className={cardTitle}>Watchlist Alerts</div>
+          <span className={chip}><Bell size={10}/> Discord</span>
+        </div>
+        <div className="flex items-end gap-6">
+          <div>
+            <div className="text-[11px] text-gray-400">Watchlist items</div>
+            <div className={`${cardBig} text-gray-200`}>{loading ? "…" : counts.watch}</div>
+          </div>
+          <div>
+            <div className="text-[11px] text-gray-400">Active alerts</div>
+            <div className={`${cardBig} ${counts.alerts ? "text-green-400" : "text-gray-400"}`}>{loading ? "…" : counts.alerts}</div>
+          </div>
+        </div>
+        <div className={subText}>
+          Configure alert rules in <Link to="/settings" className="underline hover:text-gray-200">Settings</Link>. Alerts DM you when price moves by your thresholds.
+        </div>
+      </div>
+    );
+  };
+  // ---- end AlertsCard ----
+
   // Widget renderer
   const renderWidget = (key) => {
     switch (key) {
       case "promo":
         return <NextPromoCard />;
+
+      case "trending":
+        return <TrendingCard />;
+
+      case "alerts":
+        return <AlertsCard />;
 
       case "profit":
         return (
