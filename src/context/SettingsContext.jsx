@@ -12,7 +12,7 @@ const DEFAULT_GENERAL = {
   compactDecimals: 1,
 };
 
-const DEFAULT_WIDGET_ORDER = [
+export const ALL_WIDGET_KEYS = [
   "profit",
   "tax",
   "trades",
@@ -24,20 +24,19 @@ const DEFAULT_WIDGET_ORDER = [
   "latest_trade",
   "top_earner",
   "balance",
-
-  // new widgets (you can reorder later)
   "promo",
   "trending",
   "alerts",
 ];
-const DEFAULT_VISIBLE = [...DEFAULT_WIDGET_ORDER];
+
+const DEFAULT_WIDGET_ORDER = [...ALL_WIDGET_KEYS];
+const DEFAULT_VISIBLE = [...ALL_WIDGET_KEYS];
 const DEFAULT_RECENT_TRADES_LIMIT = 5;
 
-// Watchlist alert settings (client-side for now)
 const DEFAULT_ALERTS = {
   enabled: false,
-  thresholdPct: 5,   // alert when |Δ%| >= threshold
-  cooldownMin: 30,   // per card cool-down (UI only right now)
+  thresholdPct: 5,
+  cooldownMin: 30,
   delivery: "inapp", // "inapp" | "discord"
 };
 
@@ -46,12 +45,10 @@ export const SettingsProvider = ({ children }) => {
   const [portfolio, setPortfolio] = useState({ startingCoins: 0 });
   const [include_tax_in_profit, setIncludeTaxInProfit] = useState(true);
 
-  // overview/legacy
   const [visible_widgets, setVisibleWidgets] = useState(DEFAULT_VISIBLE);
   const [widget_order, setWidgetOrder] = useState(DEFAULT_WIDGET_ORDER);
   const [recent_trades_limit, setRecentTradesLimit] = useState(DEFAULT_RECENT_TRADES_LIMIT);
 
-  // alerts
   const [alerts, setAlerts] = useState(DEFAULT_ALERTS);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -72,8 +69,8 @@ export const SettingsProvider = ({ children }) => {
     const toFull = (x) => (Number(x) || 0).toLocaleString("en-GB");
     const cfg = { coinFormat: g.coinFormat, compactThreshold: g.compactThreshold, compactDecimals: g.compactDecimals };
     if (cfg.coinFormat === "short_m" && n >= cfg.compactThreshold) {
-      if (n >= 1_000_000) return (n/1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/,"")+"M";
-      if (n >= 1_000)     return (n/1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/,"")+"k";
+      if (n >= 1_000_000) return (n/1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
+      if (n >= 1_000)     return (n/1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
     }
     return toFull(n);
   }, [general]);
@@ -82,7 +79,7 @@ export const SettingsProvider = ({ children }) => {
   useEffect(() => {
     (async () => {
       try {
-        // hydrate from localStorage first (prevents flicker)
+        // local first
         try {
           const raw = localStorage.getItem("user_settings");
           if (raw) {
@@ -92,11 +89,11 @@ export const SettingsProvider = ({ children }) => {
             if (Number.isFinite(ls.recent_trades_limit)) setRecentTradesLimit(ls.recent_trades_limit);
             if (typeof ls.include_tax_in_profit === "boolean") setIncludeTaxInProfit(ls.include_tax_in_profit);
           }
-          const rawAlerts = localStorage.getItem("alerts_settings");
-          if (rawAlerts) setAlerts({ ...DEFAULT_ALERTS, ...JSON.parse(rawAlerts) });
+          const a = localStorage.getItem("alerts_settings");
+          if (a) setAlerts({ ...DEFAULT_ALERTS, ...JSON.parse(a) });
         } catch {}
 
-        // fetch server
+        // server
         const [sRes, pRes] = await Promise.all([fetch("/api/settings"), fetch("/api/profile")]);
         const s = await sRes.json();
         const p = await pRes.json();
@@ -109,23 +106,21 @@ export const SettingsProvider = ({ children }) => {
         setIncludeTaxInProfit(typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true);
         setPortfolio({ startingCoins: p?.startingBalance ?? 0 });
 
-        // merge server-visible with defaults so new widgets appear for existing users (but still removable)
-        const serverVisible = Array.isArray(s.visible_widgets) ? s.visible_widgets : [];
-        const mergedVisible = Array.from(new Set([...(serverVisible.length ? serverVisible : DEFAULT_VISIBLE), ...DEFAULT_VISIBLE]));
-        setVisibleWidgets(mergedVisible);
+        // merge visible with defaults (ensures new widgets appear once)
+        const serverVis = Array.isArray(s.visible_widgets) ? s.visible_widgets : [];
+        const mergedVis = Array.from(new Set([...serverVis, ...DEFAULT_VISIBLE])).filter((k) => ALL_WIDGET_KEYS.includes(k));
+        setVisibleWidgets(mergedVis);
 
-        if (!widget_order?.length) setWidgetOrder(DEFAULT_WIDGET_ORDER);
+        if (!Array.isArray(s.widget_order) || !s.widget_order?.length) setWidgetOrder(DEFAULT_WIDGET_ORDER);
 
         // persist compact legacy snapshot
         localStorage.setItem("user_settings", JSON.stringify({
-          visible_widgets: mergedVisible,
+          visible_widgets: mergedVis,
           widget_order: DEFAULT_WIDGET_ORDER,
           recent_trades_limit: DEFAULT_RECENT_TRADES_LIMIT,
           include_tax_in_profit: typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true,
         }));
-        if (!localStorage.getItem("alerts_settings")) {
-          localStorage.setItem("alerts_settings", JSON.stringify(DEFAULT_ALERTS));
-        }
+        if (!localStorage.getItem("alerts_settings")) localStorage.setItem("alerts_settings", JSON.stringify(DEFAULT_ALERTS));
       } catch (e) {
         console.error("Settings load failed:", e);
         setError(e);
@@ -133,14 +128,14 @@ export const SettingsProvider = ({ children }) => {
         setIsLoading(false);
       }
     })();
-  }, []); // eslint-disable-line
+  }, []);
 
   // ---------- Save partial updates ----------
   const saveSettings = async (partial) => {
     if (partial.general) setGeneral((g) => ({ ...g, ...partial.general }));
     if (partial.portfolio) setPortfolio((p) => ({ ...p, ...partial.portfolio }));
-    if (partial.visible_widgets) setVisibleWidgets(partial.visible_widgets);
-    if (partial.widget_order) setWidgetOrder(partial.widget_order);
+    if (partial.visible_widgets) setVisibleWidgets(partial.visible_widgets.filter((k) => ALL_WIDGET_KEYS.includes(k)));
+    if (partial.widget_order) setWidgetOrder(partial.widget_order.filter((k) => ALL_WIDGET_KEYS.includes(k)));
     if (partial.recent_trades_limit !== undefined) setRecentTradesLimit(partial.recent_trades_limit);
     if (typeof partial.include_tax_in_profit === "boolean") setIncludeTaxInProfit(partial.include_tax_in_profit);
     if (partial.alerts) {
@@ -151,7 +146,7 @@ export const SettingsProvider = ({ children }) => {
       });
     }
 
-    // persist legacy snapshot
+    // legacy snapshot
     const ls = JSON.parse(localStorage.getItem("user_settings") || "{}");
     localStorage.setItem("user_settings", JSON.stringify({
       ...ls,
@@ -161,7 +156,7 @@ export const SettingsProvider = ({ children }) => {
       ...(typeof partial.include_tax_in_profit === "boolean" ? { include_tax_in_profit: partial.include_tax_in_profit } : {}),
     }));
 
-    // server: portfolio + general + visible_widgets + include_tax_in_profit
+    // server: portfolio + general + visible + include_tax
     if (partial.portfolio?.startingCoins !== undefined) {
       try {
         await fetch("/api/portfolio/balance", {
@@ -194,6 +189,14 @@ export const SettingsProvider = ({ children }) => {
     }
   };
 
+  // helper for dashboard edit UI
+  const toggleWidget = (key, show) => {
+    if (!ALL_WIDGET_KEYS.includes(key)) return;
+    const set = new Set(visible_widgets);
+    if (show) set.add(key); else set.delete(key);
+    saveSettings({ visible_widgets: Array.from(set) });
+  };
+
   const settings = { general, portfolio, visible_widgets, widget_order, recent_trades_limit, alerts };
 
   return (
@@ -203,7 +206,8 @@ export const SettingsProvider = ({ children }) => {
       visible_widgets, widget_order, recent_trades_limit,
       alerts, include_tax_in_profit,
       isLoading, error,
-      saveSettings, formatCurrency, formatDate, formatCoins,
+      saveSettings, toggleWidget,
+      formatCurrency, formatDate, formatCoins,
       default_platform: "Console", default_quantity: 1,
     }}>
       {children}
