@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Search, TrendingUp, TrendingDown, Minus, Loader2, Target } from "lucide-react";
 import PriceTrendChart from "./PriceTrendChart.jsx";
-import CompareButton from "./compare/CompareButton.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const buildProxy = (url) => `${API_BASE}/img?url=${encodeURIComponent(url)}`;
@@ -462,7 +461,7 @@ const PlayerDetail = ({ player, onBack }) => {
             </div>
           </div>
 
-        <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0">
             <h1 className="mb-2 font-extrabold leading-tight tracking-tight break-words text-3xl sm:text-4xl md:text-5xl">
               {d.fullName}
             </h1>
@@ -662,8 +661,6 @@ const PlayerDetail = ({ player, onBack }) => {
             >
               {adding ? "Adding…" : "+ Add to Watchlist"}
             </button>
-            {/* Compare: select this player and open the compare modal */}
-            <CompareButton cardId={cardId} />
           </div>
         </div>
 
