@@ -602,7 +602,7 @@ export default function Watchlist() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Sell (optional)</label>
+                  <label className="block text-sm text-gray-300 mb-1">Sell</label>
                   <input
                     type="number"
                     inputMode="numeric"
@@ -639,7 +639,7 @@ export default function Watchlist() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Tag (optional)</label>
+                  <label className="block text-sm text-gray-300 mb-1">Tag (required)</label>
                   <input
                     className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
                     value={quickForm.tag}
