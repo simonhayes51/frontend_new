@@ -217,7 +217,7 @@ export default function Trending() {
       }
       if (!r.ok) {
         const text = await r.text().catch(() => "");
-        throw new Error(text || `HTTP ${r.status}`;
+        throw new Error(text || `HTTP ${r.status}`);
       }
 
       setAdded((prev) => ({ ...prev, [p.pid]: true }));
