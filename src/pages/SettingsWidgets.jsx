@@ -7,8 +7,10 @@ const ALL_WIDGETS = [
   { key: "balance", label: "Starting Balance" },
   { key: "trades", label: "Total Trades" },
 
-  // NEW: Next Promo toggle
+  // NEW widgets
   { key: "promo", label: "Next Promo" },
+  { key: "trending", label: "Trending (Risers/Fallers)" },
+  { key: "alerts", label: "Watchlist Alerts" },
 
   { key: "roi", label: "ROI" },
   { key: "winrate", label: "Win Rate" },
