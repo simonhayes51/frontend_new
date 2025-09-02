@@ -1,6 +1,23 @@
-import api from "../axios";
+// src/api/watchlist.js
+import { apiFetch } from "./http";
 
-export const getWatchlist = () => api.get("/api/watchlist").then(r => r.data);
-export const addWatch = (payload) => api.post("/api/watchlist", payload).then(r => r.data);
-export const deleteWatch = (id) => api.delete(`/api/watchlist/${id}`).then(r => r.data);
-export const refreshWatch = (id) => api.post(`/api/watchlist/${id}/refresh`).then(r => r.data);
+function normalizePlatform(p) {
+  const s = (p || "").toLowerCase();
+  if (s === "console" || s === "ps" || s === "playstation") return "ps";
+  if (s === "xbox" || s === "xb") return "xbox";
+  if (s === "pc" || s === "origin") return "pc";
+  return "ps";
+}
+
+export async function addWatch({ card_id, player_name, version, platform, notes }) {
+  return apiFetch(`/api/watchlist`, {
+    method: "POST",
+    body: JSON.stringify({
+      card_id,
+      player_name,
+      version,
+      platform: normalizePlatform(platform),
+      notes,
+    }),
+  });
+}
