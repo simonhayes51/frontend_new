@@ -3,13 +3,12 @@
 // Base URL: set VITE_API_URL in your frontend env, otherwise same-origin
 const API_BASE = import.meta?.env?.VITE_API_URL?.replace(/\/$/, "") || "";
 
-// Map UI platform -> backend services ("ps" | "xbox" | "pc")
-function mapPlatform(p) {
+// Map UI platform -> Trade Finder API ("console" | "pc")
+function mapFinderPlatform(p) {
   const s = String(p || "").toLowerCase();
-  if (["console", "playstation", "ps"].includes(s)) return "ps";
-  if (["xbox", "xb"].includes(s)) return "xbox";
   if (["pc", "origin"].includes(s)) return "pc";
-  return "ps";
+  // everything else (console, ps, xbox) collapses to "console"
+  return "console";
 }
 
 // Serialize params safely
@@ -86,7 +85,7 @@ export async function fetchTradeFinder(filters = {}) {
   } = filters;
 
   const query = {
-    platform: mapPlatform(platform),
+    platform: mapFinderPlatform(platform),
     timeframe,
     topn,
     exclude_extinct: exclude_extinct ? "1" : "0",
