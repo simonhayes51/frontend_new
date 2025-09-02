@@ -14,8 +14,11 @@ import {
 } from "lucide-react";
 import { useSettings } from "../context/SettingsContext";
 import SettingsTrading from "./SettingsTrading.jsx";
+import { apiFetch } from "../api/http";
 
 const ACCENT = "#91db32";
+const API_BASE = (import.meta?.env?.VITE_API_URL || "").replace(/\/$/, "");
+const apiUrl = (p) => `${API_BASE}${p}`;
 
 export default function Settings() {
   const { settings = {}, general, portfolio, saveSettings, formatCoins } = useSettings();
@@ -35,7 +38,6 @@ export default function Settings() {
 
   return (
     <div className="p-4 md:p-6 space-y-5">
-      {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Settings</h1>
@@ -43,7 +45,6 @@ export default function Settings() {
         <HelpBadge />
       </div>
 
-      {/* Tabs */}
       <div className="inline-flex rounded-xl border border-gray-800 overflow-hidden">
         {tabs.map((t) => (
           <button
@@ -59,13 +60,11 @@ export default function Settings() {
         ))}
       </div>
 
-      {/* Panels */}
       <div className="space-y-4">
         {tab === "general" && (
           <section className="bg-gray-900/70 border border-gray-800 rounded-2xl p-4 space-y-6">
             <h2 className="text-lg font-semibold">General</h2>
 
-            {/* Date/Time/Timezone */}
             <div className="grid md:grid-cols-3 gap-4">
               <Select
                 label="Date format"
@@ -95,7 +94,6 @@ export default function Settings() {
               />
             </div>
 
-            {/* Coin formatting */}
             <div className="grid md:grid-cols-3 gap-4">
               <Select
                 label="Coin display format"
@@ -135,7 +133,6 @@ export default function Settings() {
 
             <hr className="border-gray-800" />
 
-            {/* Starting balance + Import/Export/Reset */}
             <div className="grid md:grid-cols-2 gap-4">
               <LabeledInput
                 label="Starting balance"
@@ -152,18 +149,18 @@ export default function Settings() {
               <div className="flex items-end gap-2">
                 <button
                   className="px-3 py-2 rounded-lg border border-gray-800 bg-gray-900 text-gray-200 inline-flex items-center gap-2"
-                  onClick={() =>
-                    fetch("/api/export/trades?format=csv", { credentials: "include" })
-                      .then((r) => r.blob())
-                      .then((b) => {
-                        const url = URL.createObjectURL(b);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = "trades-export.csv";
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      })
-                  }
+                  onClick={async () => {
+                    const r = await fetch(apiUrl("/api/export/trades?format=csv"), {
+                      credentials: "include",
+                    });
+                    const b = await r.blob();
+                    const url = URL.createObjectURL(b);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "trades-export.csv";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
                 >
                   <Download size={16} /> Export CSV
                 </button>
@@ -174,26 +171,31 @@ export default function Settings() {
                     type="file"
                     accept=".csv,.json"
                     hidden
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const f = e.target.files?.[0];
                       if (!f) return;
                       const fd = new FormData();
                       fd.append("file", f);
-                      fetch("/api/import/trades", { method: "POST", body: fd, credentials: "include" })
-                        .then((r) => r.json())
-                        .then((j) => alert(`Import complete: ${j.imported_count} imported`))
-                        .catch(() => alert("Import failed"));
+                      const r = await fetch(apiUrl("/api/import/trades"), {
+                        method: "POST",
+                        body: fd,
+                        credentials: "include",
+                      });
+                      const j = await r.json();
+                      alert(`Import complete: ${j.imported_count ?? 0} imported`);
                     }}
                   />
                 </label>
 
                 <button
                   className="ml-auto px-3 py-2 rounded-lg text-white bg-red-600/80 hover:bg-red-600 inline-flex items-center gap-2"
-                  onClick={() => {
+                  onClick={async () => {
                     if (!confirm("Reset ALL data (trades + starting balance)? This cannot be undone.")) return;
-                    fetch("/api/data/delete-all?confirm=true", { method: "DELETE", credentials: "include" }).then(() =>
-                      location.reload()
-                    );
+                    await fetch(apiUrl("/api/data/delete-all?confirm=true"), {
+                      method: "DELETE",
+                      credentials: "include",
+                    });
+                    location.reload();
                   }}
                 >
                   <Trash2 size={16} /> Reset data
@@ -225,7 +227,6 @@ export default function Settings() {
   );
 }
 
-/** Helpers */
 function LabeledInput({ label, icon, ...props }) {
   return (
     <label className="block">
