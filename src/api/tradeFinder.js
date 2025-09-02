@@ -1,147 +1,55 @@
 // src/api/tradeFinder.js
+import { apiFetch } from "./http";
 
-// Base URL: set VITE_API_URL in your frontend env, otherwise same-origin
-const API_BASE = import.meta?.env?.VITE_API_URL?.replace(/\/$/, "") || "";
-
-// Map UI platform -> Trade Finder API ("console" | "pc")
-function mapFinderPlatform(p) {
-  const s = String(p || "").toLowerCase();
-  if (["pc", "origin"].includes(s)) return "pc";
-  // everything else (console, ps, xbox) collapses to "console"
-  return "console";
-}
-
-// Serialize params safely
-function qs(params = {}) {
-  const u = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => {
-    if (v === undefined || v === null || v === "") return;
-    u.set(k, String(v));
-  });
-  return u.toString();
-}
-
-// Small fetch helper with timeout + cookies
-async function xfetch(path, { method = "GET", body, timeoutMs = 15000 } = {}) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), timeoutMs);
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    credentials: "include", // send session cookie
-    headers: body
-      ? { "content-type": "application/json" }
-      : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    signal: controller.signal,
-  }).finally(() => clearTimeout(t));
-
-  if (!res.ok) {
-    // Try to surface backend error detail
-    let detail = `${res.status} ${res.statusText}`;
-    try {
-      const j = await res.json();
-      detail = (j?.detail || j?.error || detail);
-    } catch (_) {}
-    throw new Error(`Trade Finder API error: ${detail}`);
+/** Fetch deals from the backend and normalize to the UI shape the page expects. */
+export async function fetchTradeFinder(params = {}) {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === "") continue;
+    qs.append(k, String(v));
   }
-  // Some builds return an array directly, others wrap in {items:[]}
-  const data = await res.json();
-  return data;
-}
 
-/**
- * Fetch trade ideas from the backend.
- *
- * @param {Object} filters
- * @param {"console"|"ps"|"xbox"|"pc"} filters.platform
- * @param {number} filters.timeframe   // hours (6|12|24)
- * @param {number} filters.budget_min
- * @param {number} filters.budget_max
- * @param {number} filters.min_profit
- * @param {number} filters.min_margin_pct
- * @param {number} filters.rating_min
- * @param {number} filters.rating_max
- * @param {number} filters.topn
- * @param {boolean} filters.exclude_extinct
- * @param {boolean} filters.exclude_low_liquidity
- * @param {boolean} filters.exclude_anomalies
- * @returns {Promise<Array>} deals
- */
-export async function fetchTradeFinder(filters = {}) {
-  const {
-    platform = "console",
-    timeframe = 24,
-    budget_min,
-    budget_max,
-    min_profit,
-    min_margin_pct,
-    rating_min,
-    rating_max,
-    topn = 20,
-    exclude_extinct = true,
-    exclude_low_liquidity = true,
-    exclude_anomalies = true,
-  } = filters;
+  const res = await apiFetch(`/api/trade-finder?${qs.toString()}`);
+  const items = Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
 
-  const query = {
-    platform: mapFinderPlatform(platform),
-    timeframe,
-    topn,
-    exclude_extinct: exclude_extinct ? "1" : "0",
-    exclude_low_liquidity: exclude_low_liquidity ? "1" : "0",
-    exclude_anomalies: exclude_anomalies ? "1" : "0",
-  };
+  return items.map((it) => {
+    const now = it?.prices?.now ?? it?.current_price ?? it?.price ?? null;
+    const expSell = it?.expected_sell ?? (Number.isFinite(now) ? Math.round(now * 1.08) : null);
+    const afterTax = Number.isFinite(now) && Number.isFinite(expSell)
+      ? Math.max(0, Math.round(expSell * 0.95) - now)
+      : null;
 
-  if (Number.isFinite(budget_min)) query.budget_min = budget_min;
-  if (Number.isFinite(budget_max)) query.budget_max = budget_max;
-  if (Number.isFinite(min_profit)) query.min_profit = min_profit;
-  if (Number.isFinite(min_margin_pct)) query.min_margin_pct = min_margin_pct;
-  if (Number.isFinite(rating_min)) query.rating_min = rating_min;
-  if (Number.isFinite(rating_max)) query.rating_max = rating_max;
+    return {
+      player_id: it.pid ?? it.player_id ?? it.card_id,
+      card_id: it.pid ?? it.card_id ?? it.player_id,
+      name: it.name,
+      version: it.version,
+      rating: it.rating,
+      position: it.position,
+      league: it.league,
+      platform: it.platform,
+      timeframe_hours: params.timeframe ?? it.timeframe_hours ?? 24,
 
-  const q = qs(query);
-  const data = await xfetch(`/api/trade-finder?${q}`);
+      image_url: it.image ?? it.image_url ?? null,
 
-  // Normalize shape: support either array or {items:[...]}
-  const deals = Array.isArray(data) ? data : (data?.items ?? []);
-  return deals;
-}
+      current_price: Number.isFinite(now) ? now : null,
+      expected_sell: Number.isFinite(expSell) ? expSell : null,
+      est_profit_after_tax: Number.isFinite(afterTax) ? afterTax : 0,
+      margin_pct:
+        it.margin_pct ??
+        (Number.isFinite(now) && Number.isFinite(expSell) ? ((expSell - now) / now) * 100 : 0),
 
-/**
- * Get a human-friendly explanation for a specific deal.
- * Falls back to rules text if OPENAI isn't enabled server-side.
- *
- * @param {Object} deal – the exact deal object returned by fetchTradeFinder
- * @returns {Promise<{text: string}>}
- */
-export async function fetchDealInsight(deal) {
-  const data = await xfetch(`/api/trade-insight`, {
-    method: "POST",
-    body: { deal },
+      change_pct_window: it.change_pct_window ?? 0,
+      vol_score: it.vol_score ?? 0,
+      tags: Array.isArray(it.tags) ? it.tags : [],
+    };
   });
-  // server returns { insight: "..." } or { text: "..." }
-  const text = data?.insight || data?.text || "";
-  return { text };
 }
 
-/**
- * Convenience: default filter preset used on first load.
- * You can tweak these to match your "healthy list" defaults.
- */
-export function defaultTradeFinderFilters() {
-  return {
-    platform: "console",
-    timeframe: 24,
-    budget_min: 0,
-    budget_max: 150000,
-    min_profit: 1500,
-    min_margin_pct: 8,
-    rating_min: 75,
-    rating_max: 93,
-    topn: 20,
-    exclude_extinct: true,
-    exclude_low_liquidity: true,
-    exclude_anomalies: true,
-  };
+export async function fetchDealInsight(deal) {
+  // Will return rules-based text if LLM isn't configured server-side
+  return apiFetch(`/api/trade-insight`, {
+    method: "POST",
+    body: JSON.stringify({ deal }),
+  });
 }
