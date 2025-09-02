@@ -1,313 +1,231 @@
 // src/pages/Watchlist.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import { Plus, RefreshCcw, Trash2, Settings as Cog } from "lucide-react";
-import { apiFetch } from "../api/http";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { RefreshCcw, Trash2, AlertTriangle, Clock, MonitorSmartphone } from "lucide-react";
+import { useSettings } from "../context/SettingsContext";
 
 /**
- * Row/table layout matching the “good” screenshot:
- * - Tight rows
- * - Change column shows absolute + pct with red/green color
- * - Quick refresh & remove per row
- * - “Smart” (sort) selector preserved as a simple local UI
+ * This version:
+ * - Restores the "nice" card layout you had
+ * - Calls the new backend directly (so we don't depend on a missing getWatchlist export)
+ * - Shows name/rating/club/nation + prices + change% + updated time
+ * - Has Refresh (all) and refresh per card + Delete
  */
 
-const ACCENT = "#91db32";
-
-function fmtCoins(n) {
-  const v = Number(n) || 0;
-  return v.toLocaleString("en-GB") + "c";
-}
-function pct(a, b) {
-  if (typeof a !== "number" || typeof b !== "number" || !b) return 0;
-  return ((a - b) / b) * 100;
-}
+const platformLabel = (p) => (p || "").toUpperCase();
 
 export default function Watchlist() {
+  const { formatCoins, formatDate } = useSettings();
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({
-    card_id: "",
-    player_name: "",
-    version: "",
-    platform: "ps",
-  });
-  const [sortKey, setSortKey] = useState("smart"); // smart | up | down | name
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
+    setErr("");
     try {
-      const j = await apiFetch("/api/watchlist");
-      const rows = Array.isArray(j?.items) ? j.items : [];
-      // normalize expected fields
-      const norm = rows.map((w) => {
-        const started = Number(w.started_price || 0);
-        const cur =
-          typeof w.current_price === "number" ? w.current_price : w.last_price;
-        const now = typeof cur === "number" ? cur : null;
-        const chAbs =
-          now !== null && started > 0 ? now - started : (now ?? 0) - started;
-        const chPct =
-          now !== null && started > 0 ? pct(now, started) : null;
-        return {
-          id: w.id,
-          card_id: String(w.card_id),
-          player_name: w.player_name || w.name || `Card ${w.card_id}`,
-          version: w.version || w.card_version || "",
-          platform: String(w.platform || "ps").toUpperCase(),
-          price_start: started,
-          price_now: now,
-          change_abs: chAbs,
-          change_pct: chPct,
-          started_at: w.started_at || null,
-          last_checked: w.updated_at || w.last_checked || null,
-        };
-      });
-      setItems(norm);
+      const r = await fetch("/api/watchlist", { credentials: "include" });
+      const j = await r.json();
+      if (!j?.ok) throw new Error(j?.error || "Failed to load watchlist");
+      setItems(j.items || []);
     } catch (e) {
-      console.error("watchlist load failed:", e?.message || e);
-      setItems([]);
+      setErr(String(e.message || e));
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
-  async function addQuick() {
-    if (!form.card_id || !form.player_name) return;
-    setAdding(true);
+  const onDelete = async (id) => {
+    if (!confirm("Remove this from your watchlist?")) return;
     try {
-      await apiFetch("/api/watchlist", {
-        method: "POST",
-        body: JSON.stringify({
-          card_id: Number(form.card_id),
-          player_name: form.player_name,
-          version: form.version || null,
-          platform: form.platform.toLowerCase(),
-          notes: "",
-        }),
-      });
-      setForm({ ...form, card_id: "", player_name: "", version: "" });
-      await load();
-    } catch (e) {
-      alert("Failed to add watch item");
-    } finally {
-      setAdding(false);
-    }
-  }
-
-  async function refreshRow(id) {
-    try {
-      await apiFetch(`/api/watchlist/${id}/refresh`, { method: "POST" });
-      await load();
-    } catch {
-      /* ignore */
-    }
-  }
-
-  async function removeRow(id) {
-    if (!confirm("Remove this watch item?")) return;
-    try {
-      await apiFetch(`/api/watchlist/${id}`, { method: "DELETE" });
+      await fetch(`/api/watchlist/${id}`, { method: "DELETE", credentials: "include" });
       setItems((xs) => xs.filter((x) => x.id !== id));
-    } catch {
-      /* ignore */
+    } catch (e) {
+      alert("Could not delete.");
     }
-  }
+  };
 
-  const sorted = useMemo(() => {
-    const xs = [...items];
-    if (sortKey === "up") {
-      xs.sort((a, b) => (b.change_pct ?? -1e9) - (a.change_pct ?? -1e9));
-    } else if (sortKey === "down") {
-      xs.sort((a, b) => (a.change_pct ?? 1e9) - (b.change_pct ?? 1e9));
-    } else if (sortKey === "name") {
-      xs.sort((a, b) => a.player_name.localeCompare(b.player_name));
-    } else {
-      // smart: larger magnitude first
-      xs.sort(
-        (a, b) =>
-          Math.abs(b.change_pct ?? 0) - Math.abs(a.change_pct ?? 0) ||
-          (b.price_now ?? 0) - (a.price_now ?? 0)
-      );
+  const onRefresh = async (id) => {
+    try {
+      const r = await fetch(`/api/watchlist/${id}/refresh`, { method: "POST", credentials: "include" });
+      const j = await r.json();
+      if (!j?.ok) throw new Error("Refresh failed");
+      const updated = j.item;
+      setItems((xs) => xs.map((x) => (x.id === id ? updated : x)));
+    } catch (e) {
+      alert("Could not refresh item.");
     }
-    return xs;
-  }, [items, sortKey]);
+  };
+
+  const headerStats = useMemo(() => {
+    if (!items?.length) return null;
+    const n = items.length;
+    const gains = items.filter((i) => (i.change_pct ?? 0) > 0);
+    const losers = items.filter((i) => (i.change_pct ?? 0) < 0);
+    return {
+      count: n,
+      up: gains.length,
+      down: losers.length,
+    };
+  }, [items]);
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold text-white">Player Watchlist</h1>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <select
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value)}
-              className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-gray-200"
-              title="Sort"
-            >
-              <option value="smart">Smart</option>
-              <option value="up">Top risers</option>
-              <option value="down">Top fallers</option>
-              <option value="name">Name A–Z</option>
-            </select>
+    <div className="p-4 sm:p-6 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-100">Watchlist</h1>
+          <div className="text-xs text-gray-400 mt-1">
+            {headerStats ? (
+              <>
+                Tracking <b>{headerStats.count}</b> cards • <span className="text-lime-400">{headerStats.up} up</span>{" "}
+                • <span className="text-rose-400">{headerStats.down} down</span>
+              </>
+            ) : (
+              "Track cards across platforms and get quick change signals."
+            )}
           </div>
+        </div>
+        <div className="flex items-center gap-2">
           <button
             onClick={load}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-800 bg-gray-900 text-gray-200 hover:bg-gray-800"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-sm"
           >
-            <RefreshCcw size={16} /> Refresh
-          </button>
-          <div className="hidden md:flex items-center gap-2 text-gray-400 text-sm px-3 py-2 rounded-xl border border-gray-800 bg-gray-900/50">
-            <Cog size={16} />
-            Track starting price vs current price.
-          </div>
-        </div>
-      </div>
-
-      {/* Add row */}
-      <div className="mb-4 grid md:grid-cols-4 gap-2">
-        <input
-          placeholder="Card ID"
-          className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-gray-100"
-          value={form.card_id}
-          onChange={(e) => setForm((f) => ({ ...f, card_id: e.target.value }))}
-        />
-        <input
-          placeholder="Name"
-          className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-gray-100"
-          value={form.player_name}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, player_name: e.target.value }))
-          }
-        />
-        <input
-          placeholder="Version (optional)"
-          className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-gray-100"
-          value={form.version}
-          onChange={(e) => setForm((f) => ({ ...f, version: e.target.value }))}
-        />
-        <div className="flex gap-2">
-          <select
-            className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-gray-100"
-            value={form.platform}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, platform: e.target.value }))
-            }
-          >
-            <option value="ps">PS</option>
-            <option value="xbox">XBOX</option>
-            <option value="pc">PC</option>
-          </select>
-          <button
-            onClick={addQuick}
-            disabled={adding}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-green-600 bg-green-600/10 text-green-400 hover:bg-green-600/20"
-          >
-            <Plus size={16} />
-            Quick Add
+            <RefreshCcw size={16} /> Refresh all
           </button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-2xl border border-gray-800 bg-gray-950/50">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-900/70 text-gray-400 text-xs">
-              <th className="px-3 py-2 text-left">PLAYER</th>
-              <th className="px-3 py-2 text-right">STARTED</th>
-              <th className="px-3 py-2 text-right">CURRENT</th>
-              <th className="px-3 py-2 text-right">CHANGE</th>
-              <th className="px-3 py-2 text-center">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td className="px-3 py-6 text-center text-gray-400" colSpan={5}>
-                  Loading…
-                </td>
-              </tr>
-            )}
-            {!loading && sorted.length === 0 && (
-              <tr>
-                <td className="px-3 py-6 text-center text-gray-400" colSpan={5}>
-                  No items yet. Add a card above to start tracking.
-                </td>
-              </tr>
-            )}
-            {sorted.map((w) => (
-              <tr
-                key={w.id}
-                className="border-t border-gray-800 hover:bg-gray-900/40"
-              >
-                <td className="px-3 py-3">
-                  <div className="text-white font-semibold">
-                    {w.player_name}
+      {err && (
+        <div className="flex items-center gap-2 text-amber-400 text-sm">
+          <AlertTriangle size={16} /> {err}
+        </div>
+      )}
+
+      {loading && <div className="text-gray-400">Loading…</div>}
+
+      {!loading && items.length === 0 && (
+        <div className="text-gray-400">No watched players yet. Add from Trade Finder or player pages.</div>
+      )}
+
+      {/* Grid */}
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        {items.map((it) => {
+          const img =
+            it.image ||
+            it.image_url ||
+            `https://game-assets.fut.gg/cdn-cgi/image/quality=100,format=auto,width=500/2025/player-item-card/25-${it.card_id}.webp`;
+
+          const priceNow = it.current_price ?? null;
+          const start = it.started_price ?? null;
+          const diff = it.change ?? (priceNow != null && start != null ? priceNow - start : null);
+          const diffPct =
+            it.change_pct ??
+            (priceNow != null && start ? Math.round(((priceNow - start) / start) * 10000) / 100 : null);
+
+          return (
+            <div
+              key={it.id}
+              className="rounded-2xl bg-zinc-900/70 border border-zinc-800 p-4 flex gap-4 items-center shadow-sm"
+            >
+              <img src={img} alt={it.player_name || it.name} className="w-16 h-24 object-cover rounded-lg" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 justify-between">
+                  <div className="truncate">
+                    <div className="text-base text-gray-100 font-semibold truncate">
+                      {it.player_name || it.name}{" "}
+                      {it.rating ? <span className="text-gray-400">({it.rating})</span> : null}
+                    </div>
+                    <div className="text-xs text-gray-400 truncate">
+                      {it.version ? `${it.version} • ` : ""}
+                      {it.club ? `${it.club} • ` : ""}
+                      {it.nation || it.league || ""}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-400">
-                    ID {w.card_id} • {w.version || "—"} • {w.platform}
-                  </div>
-                </td>
-                <td className="px-3 py-3 text-right">
-                  {w.price_start ? fmtCoins(w.price_start) : "—"}
-                </td>
-                <td className="px-3 py-3 text-right">
-                  {typeof w.price_now === "number" ? fmtCoins(w.price_now) : "—"}
-                </td>
-                <td className="px-3 py-3 text-right">
-                  {typeof w.price_now === "number" && w.price_start ? (
-                    <span
-                      className={
-                        (w.change_pct ?? 0) >= 0
-                          ? "text-lime-400"
-                          : "text-red-400"
-                      }
-                    >
-                      {w.change_abs >= 0 ? "↑ " : "↓ "}
-                      {fmtCoins(Math.abs(w.change_abs))} (
-                      {(w.change_pct ?? 0).toFixed(2)}%)
+                  <span className="text-[10px] px-2 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-gray-300">
+                    {platformLabel(it.platform)}
+                  </span>
+                </div>
+
+                {/* Stat tiles */}
+                <div className="mt-2 grid grid-cols-4 gap-2 text-sm">
+                  <Tile label="Start" value={start != null ? `${formatCoins(start)}c` : "—"} />
+                  <Tile label="Current" value={priceNow != null ? `${formatCoins(priceNow)}c` : "—"} />
+                  <Tile
+                    label="Change"
+                    value={
+                      diff != null ? (
+                        <span className={diff >= 0 ? "text-lime-400" : "text-rose-400"}>
+                          {diff >= 0 ? "+" : ""}
+                          {formatCoins(diff)}c
+                        </span>
+                      ) : (
+                        "—"
+                      )
+                    }
+                  />
+                  <Tile
+                    label="Δ %"
+                    value={
+                      diffPct != null ? (
+                        <span className={diffPct >= 0 ? "text-lime-400" : "text-rose-400"}>
+                          {diffPct >= 0 ? "+" : ""}
+                          {diffPct.toFixed(2)}%
+                        </span>
+                      ) : (
+                        "—"
+                      )
+                    }
+                  />
+                </div>
+
+                {/* Footer line */}
+                <div className="mt-2 text-[11px] text-gray-400 flex items-center gap-3">
+                  <span className="inline-flex items-center gap-1">
+                    <Clock size={12} />
+                    {it.updated_at ? `Updated ${formatDate(it.updated_at)}` : "Freshness unknown"}
+                  </span>
+                  {it.is_extinct ? (
+                    <span className="inline-flex items-center gap-1 text-amber-400">
+                      <MonitorSmartphone size={12} /> Extinct
                     </span>
-                  ) : (
-                    <span className="text-gray-400">—</span>
-                  )}
-                </td>
-                <td className="px-3 py-3">
-                  <div className="flex items-center gap-2 justify-center">
-                    <button
-                      onClick={() => refreshRow(w.id)}
-                      className="px-2 py-1 rounded-lg bg-gray-900 border border-gray-800 text-gray-200 hover:bg-gray-800 text-xs inline-flex items-center gap-1"
-                      title="Refresh"
-                    >
-                      <RefreshCcw size={14} />
-                      Refresh
-                    </button>
-                    <button
-                      onClick={() => removeRow(w.id)}
-                      className="px-2 py-1 rounded-lg bg-red-600/90 hover:bg-red-600 text-white text-xs inline-flex items-center gap-1"
-                      title="Remove"
-                    >
-                      <Trash2 size={14} />
-                      Remove
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  ) : null}
+                </div>
+              </div>
 
-      <style>{`
-        :root { --accent: ${ACCENT}; }
-      `}</style>
+              {/* Actions */}
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => onRefresh(it.id)}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-sm"
+                  title="Refresh"
+                >
+                  <RefreshCcw size={16} />
+                </button>
+                <button
+                  onClick={() => onDelete(it.id)}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-rose-600/40 bg-rose-600/10 hover:bg-rose-600/20 text-sm text-rose-300"
+                  title="Remove"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Tile({ label, value }) {
+  return (
+    <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
+      <div className="text-[11px] text-gray-400">{label}</div>
+      <div className="text-gray-100 font-medium truncate">{value}</div>
     </div>
   );
 }
