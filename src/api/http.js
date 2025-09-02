@@ -35,7 +35,7 @@ export async function apiFetch(path, opts = {}) {
   return res.json();
 }
 
-// PROD safety: warn if code uses bare relative fetches that will hit the SPA
+// PROD safety: flag accidental relative fetches (which would hit the SPA)
 if (import.meta.env.PROD) {
   const orig = window.fetch.bind(window);
   window.fetch = (input, init) => {
