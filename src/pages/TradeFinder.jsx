@@ -5,7 +5,7 @@ import {
   fetchTradeFinder as fetchDeals,
   fetchDealInsight as explainDeal
 } from "../api/tradeFinder";
-import { addToWatchlist } from "../api/watchlist"; // assumes you already have this
+import { addWatch as addToWatchlist } from "../api/watchlist"; // ✅ alias
 
 const cls = (...xs) => xs.filter(Boolean).join(" ");
 
