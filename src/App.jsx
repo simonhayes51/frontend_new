@@ -11,6 +11,7 @@ import Landing from "./pages/Landing";
 import Watchlist from "./pages/Watchlist";
 import SquadBuilder from "./pages/SquadBuilder";
 import PlayerSearch from "./pages/PlayerSearch";
+import TradeFinder from "./pages/TradeFinder";
 
 const Dashboard    = lazy(() => import("./pages/Dashboard"));
 const AddTrade     = lazy(() => import("./pages/AddTrade"));
@@ -62,6 +63,7 @@ function App() {
                   <Route path="watchlist" element={<Watchlist />} />
                   <Route path="squad" element={<SquadBuilder />} />
                   <Route path="trending" element={<Trending />} /> {/* 👈 NEW */}
+                  <Route path="trade-finder" element={<TradeFinder />} />
                 </Route>
 
                 {/* 404 */}
