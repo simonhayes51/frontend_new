@@ -2,6 +2,15 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { apiFetch } from "../api/http";
 
+/**
+ * This version:
+ * - Restores localStorage ↔ server merge (so widget layout stays)
+ * - Exposes include_tax_in_profit consistently
+ * - Keeps helpers: calcTax, calcProfit, formatCoins/Currency/Date
+ * - Persists portfolio starting balance to /api/portfolio/balance
+ * - Persists settings to /api/settings
+ */
+
 const SettingsContext = createContext(null);
 
 // ===== Defaults =====
@@ -15,8 +24,20 @@ const DEFAULT_GENERAL = {
 };
 
 export const ALL_WIDGET_KEYS = [
-  "profit","tax","trades","profit_trend","winrate","avg_profit","best_trade",
-  "volume","latest_trade","top_earner","balance","promo","trending","alerts",
+  "profit",
+  "tax",
+  "trades",
+  "profit_trend",
+  "winrate",
+  "avg_profit",
+  "best_trade",
+  "volume",
+  "latest_trade",
+  "top_earner",
+  "balance",
+  "promo",
+  "trending",
+  "alerts",
 ];
 
 const DEFAULT_WIDGET_ORDER = [...ALL_WIDGET_KEYS];
@@ -27,9 +48,10 @@ const DEFAULT_ALERTS = {
   enabled: false,
   thresholdPct: 5,
   cooldownMin: 30,
-  delivery: "inapp",
+  delivery: "inapp", // "inapp" | "discord"
 };
 
+// Single source of truth for EA tax (5%)
 const EA_TAX_RATE = 0.05;
 
 export const SettingsProvider = ({ children }) => {
@@ -40,6 +62,7 @@ export const SettingsProvider = ({ children }) => {
   const [visible_widgets, setVisibleWidgets] = useState(DEFAULT_VISIBLE);
   const [widget_order, setWidgetOrder] = useState(DEFAULT_WIDGET_ORDER);
   const [recent_trades_limit, setRecentTradesLimit] = useState(DEFAULT_RECENT_TRADES_LIMIT);
+
   const [alerts, setAlerts] = useState(DEFAULT_ALERTS);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -47,38 +70,70 @@ export const SettingsProvider = ({ children }) => {
 
   // ---------- Formatters ----------
   const formatCurrency = useCallback((n) => (Number(n) || 0).toLocaleString("en-GB"), []);
-  const formatDate = useCallback((d) => {
-    const dt = d instanceof Date ? d : new Date(d);
-    return new Intl.DateTimeFormat("en-GB", {
-      year: "numeric", month: "short", day: "2-digit",
-      hour: "2-digit", minute: "2-digit",
-      hour12: (general.timeFormat ?? "24h") === "12h",
-      timeZone: general.timezone || "Europe/London",
-    }).format(dt);
-  }, [general]);
-  const formatCoins = useCallback((n, g = general) => {
-    const toFull = (x) => (Number(x) || 0).toLocaleString("en-GB");
-    const cfg = { coinFormat: g.coinFormat, compactThreshold: g.compactThreshold, compactDecimals: g.compactDecimals };
-    const num = Number(n) || 0;
-    if (cfg.coinFormat === "short_m" && num >= cfg.compactThreshold) {
-      if (num >= 1_000_000) return (num / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
-      if (num >= 1_000) return (num / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
-    }
-    return toFull(num);
-  }, [general]);
+  const formatDate = useCallback(
+    (d) => {
+      const dt = d instanceof Date ? d : new Date(d);
+      return new Intl.DateTimeFormat("en-GB", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: (general.timeFormat ?? "24h") === "12h",
+        timeZone: general.timezone || "Europe/London",
+      }).format(dt);
+    },
+    [general]
+  );
 
-  // ---------- Tax / Profit ----------
-  const calcTax = useCallback((sellPrice) => Math.floor((Number(sellPrice)||0) * EA_TAX_RATE), []);
-  const calcProfit = useCallback((buy, sell, includeTax) => {
-    const b = Number(buy) || 0, s = Number(sell) || 0, fee = calcTax(s);
-    return includeTax ? (s - fee - b) : (s - b);
-  }, [calcTax]);
+  const formatCoins = useCallback(
+    (n, g = general) => {
+      const toFull = (x) => (Number(x) || 0).toLocaleString("en-GB");
+      const cfg = {
+        coinFormat: g.coinFormat,
+        compactThreshold: g.compactThreshold,
+        compactDecimals: g.compactDecimals,
+      };
+      const num = Number(n) || 0;
+
+      if (cfg.coinFormat === "short_m" && num >= cfg.compactThreshold) {
+        if (num >= 1_000_000) return (num / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
+        if (num >= 1_000) return (num / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
+      }
+      if (cfg.coinFormat === "european_kk" && num >= 1000) {
+        const kk = (num / 1000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "");
+        return kk + "kk";
+      }
+      if (cfg.coinFormat === "dot_thousands") return (num || 0).toLocaleString("de-DE");
+      if (cfg.coinFormat === "space_thousands") return (num || 0).toLocaleString("fr-FR");
+      // full_commas + fallback
+      return toFull(num);
+    },
+    [general]
+  );
+
+  // ---------- Tax & Profit helpers ----------
+  const calcTax = React.useCallback((sellPrice) => {
+    const s = Number(sellPrice) || 0;
+    return Math.floor(s * EA_TAX_RATE);
+  }, []);
+
+  const calcProfit = React.useCallback(
+    (buy, sell, includeTax) => {
+      const b = Number(buy) || 0;
+      const s = Number(sell) || 0;
+      const fee = calcTax(s);
+      return includeTax ? s - fee - b : s - b;
+    },
+    [calcTax]
+  );
 
   // ---------- Load settings ----------
   useEffect(() => {
     (async () => {
+      setIsLoading(true);
       try {
-        // local snapshot
+        // 1) Restore local first (so UI doesn't flicker)
         try {
           const raw = localStorage.getItem("user_settings");
           if (raw) {
@@ -92,37 +147,40 @@ export const SettingsProvider = ({ children }) => {
           if (a) setAlerts({ ...DEFAULT_ALERTS, ...JSON.parse(a) });
         } catch {}
 
-        // server (MUST use apiFetch so cookies + API origin are correct)
-        const [s, p] = await Promise.all([
-          apiFetch("/api/settings"),
-          apiFetch("/api/profile"),
-        ]);
+        // 2) Load from server
+        const [s, p] = await Promise.all([apiFetch("/api/settings"), apiFetch("/api/profile")]);
 
+        // general mapping
         setGeneral((g) => ({
           ...g,
           timezone: s.timezone || g.timezone,
           dateFormat:
-            s.date_format === "US" ? "MM/DD/YYYY" :
-            s.date_format === "ISO" ? "YYYY-MM-DD" :
-            g.dateFormat,
+            s.date_format === "US" ? "MM/DD/YYYY" : s.date_format === "ISO" ? "YYYY-MM-DD" : g.dateFormat,
         }));
+
         setIncludeTaxInProfit(typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true);
         setPortfolio({ startingCoins: p?.startingBalance ?? 0 });
 
+        // merge server visible with defaults (ensures new widgets appear once)
         const serverVis = Array.isArray(s.visible_widgets) ? s.visible_widgets : [];
-        const mergedVis = Array.from(new Set([...serverVis, ...DEFAULT_VISIBLE]))
-          .filter((k) => ALL_WIDGET_KEYS.includes(k));
+        const mergedVis = Array.from(new Set([...serverVis, ...DEFAULT_VISIBLE])).filter((k) =>
+          ALL_WIDGET_KEYS.includes(k)
+        );
         setVisibleWidgets(mergedVis);
 
-        if (!Array.isArray(s.widget_order) || !s.widget_order?.length)
-          setWidgetOrder(DEFAULT_WIDGET_ORDER);
+        // Keep default order unless server had a list (we’re not storing order server-side here)
+        setWidgetOrder(DEFAULT_WIDGET_ORDER);
 
-        localStorage.setItem("user_settings", JSON.stringify({
-          visible_widgets: mergedVis,
-          widget_order: DEFAULT_WIDGET_ORDER,
-          recent_trades_limit: DEFAULT_RECENT_TRADES_LIMIT,
-          include_tax_in_profit: typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true,
-        }));
+        // Persist a compact snapshot to localStorage
+        localStorage.setItem(
+          "user_settings",
+          JSON.stringify({
+            visible_widgets: mergedVis,
+            widget_order: DEFAULT_WIDGET_ORDER,
+            recent_trades_limit: DEFAULT_RECENT_TRADES_LIMIT,
+            include_tax_in_profit: typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true,
+          })
+        );
         if (!localStorage.getItem("alerts_settings")) {
           localStorage.setItem("alerts_settings", JSON.stringify(DEFAULT_ALERTS));
         }
@@ -135,11 +193,13 @@ export const SettingsProvider = ({ children }) => {
     })();
   }, []);
 
-  // ---------- Save (all API writes now go through apiFetch) ----------
+  // ---------- Save partial updates ----------
   const saveSettings = async (partial) => {
+    // Local reactive updates
     if (partial.general) setGeneral((g) => ({ ...g, ...partial.general }));
     if (partial.portfolio) setPortfolio((p) => ({ ...p, ...partial.portfolio }));
-    if (partial.visible_widgets) setVisibleWidgets(partial.visible_widgets.filter((k) => ALL_WIDGET_KEYS.includes(k)));
+    if (partial.visible_widgets)
+      setVisibleWidgets(partial.visible_widgets.filter((k) => ALL_WIDGET_KEYS.includes(k)));
     if (partial.widget_order) setWidgetOrder(partial.widget_order.filter((k) => ALL_WIDGET_KEYS.includes(k)));
     if (partial.recent_trades_limit !== undefined) setRecentTradesLimit(partial.recent_trades_limit);
     if (typeof partial.include_tax_in_profit === "boolean") setIncludeTaxInProfit(partial.include_tax_in_profit);
@@ -151,54 +211,70 @@ export const SettingsProvider = ({ children }) => {
       });
     }
 
-    // snapshot for dashboard layout
+    // LocalStorage snapshot (legacy)
     const ls = JSON.parse(localStorage.getItem("user_settings") || "{}");
-    localStorage.setItem("user_settings", JSON.stringify({
-      ...ls,
-      ...(partial.visible_widgets ? { visible_widgets: partial.visible_widgets } : {}),
-      ...(partial.widget_order ? { widget_order: partial.widget_order } : {}),
-      ...(partial.recent_trades_limit !== undefined ? { recent_trades_limit: partial.recent_trades_limit } : {}),
-      ...(typeof partial.include_tax_in_profit === "boolean" ? { include_tax_in_profit: partial.include_tax_in_profit } : {}),
-    }));
+    localStorage.setItem(
+      "user_settings",
+      JSON.stringify({
+        ...ls,
+        ...(partial.visible_widgets ? { visible_widgets: partial.visible_widgets } : {}),
+        ...(partial.widget_order ? { widget_order: partial.widget_order } : {}),
+        ...(partial.recent_trades_limit !== undefined ? { recent_trades_limit: partial.recent_trades_limit } : {}),
+        ...(typeof partial.include_tax_in_profit === "boolean"
+          ? { include_tax_in_profit: partial.include_tax_in_profit }
+          : {}),
+      })
+    );
 
-    try {
-      // portfolio balance
-      if (partial.portfolio?.startingCoins !== undefined) {
-        await apiFetch("/api/portfolio/balance", {
+    // Server: portfolio
+    if (partial.portfolio?.startingCoins !== undefined) {
+      try {
+        await fetch("/api/portfolio/balance", {
           method: "POST",
-          json: { starting_balance: partial.portfolio.startingCoins },
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ starting_balance: partial.portfolio.startingCoins }),
+          credentials: "include",
         });
+      } catch (e) {
+        setError(e);
       }
+    }
 
-      // server settings
-      if (partial.general || partial.visible_widgets || typeof partial.include_tax_in_profit === "boolean") {
-        const g = { ...general, ...(partial.general || {}) };
-        const mapped = {
-          timezone: g.timezone,
-          date_format:
-            g.dateFormat === "MM/DD/YYYY" ? "US" :
-            g.dateFormat === "YYYY-MM-DD" ? "ISO" : "EU",
-          default_platform: "Console",
-          custom_tags: [],
-          currency_format: "coins",
-          theme: "dark",
-          include_tax_in_profit:
-            typeof partial.include_tax_in_profit === "boolean" ? partial.include_tax_in_profit : include_tax_in_profit,
-          default_chart_range: "30d",
-          visible_widgets: partial.visible_widgets || visible_widgets,
-        };
-        await apiFetch("/api/settings", { method: "POST", json: mapped });
+    // Server: general + visible + include_tax
+    if (partial.general || partial.visible_widgets || typeof partial.include_tax_in_profit === "boolean") {
+      const g = { ...general, ...(partial.general || {}) };
+      const mapped = {
+        timezone: g.timezone,
+        date_format: g.dateFormat === "MM/DD/YYYY" ? "US" : g.dateFormat === "YYYY-MM-DD" ? "ISO" : "EU",
+        default_platform: "Console",
+        custom_tags: [],
+        currency_format: "coins",
+        theme: "dark",
+        include_tax_in_profit:
+          typeof partial.include_tax_in_profit === "boolean"
+            ? partial.include_tax_in_profit
+            : include_tax_in_profit,
+        default_chart_range: "30d",
+        visible_widgets: partial.visible_widgets || visible_widgets,
+      };
+      try {
+        await fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(mapped),
+          credentials: "include",
+        });
+      } catch (e) {
+        setError(e);
       }
-    } catch (e) {
-      setError(e);
-      console.error("Save settings failed:", e);
     }
   };
 
   const toggleWidget = (key, show) => {
     if (!ALL_WIDGET_KEYS.includes(key)) return;
     const set = new Set(visible_widgets);
-    if (show) set.add(key); else set.delete(key);
+    if (show) set.add(key);
+    else set.delete(key);
     saveSettings({ visible_widgets: Array.from(set) });
   };
 
@@ -208,15 +284,26 @@ export const SettingsProvider = ({ children }) => {
     <SettingsContext.Provider
       value={{
         settings,
-        general, portfolio,
-        visible_widgets, widget_order, recent_trades_limit,
-        alerts, include_tax_in_profit,
+        general,
+        portfolio,
+        visible_widgets,
+        widget_order,
+        recent_trades_limit,
+        alerts,
+        include_tax_in_profit,
         includeTaxInProfit: include_tax_in_profit,
+
         taxRate: EA_TAX_RATE,
-        calcTax, calcProfit,
-        isLoading, error,
-        saveSettings, toggleWidget,
-        formatCurrency, formatDate, formatCoins,
+        calcTax,
+        calcProfit,
+
+        isLoading,
+        error,
+        saveSettings,
+        toggleWidget,
+        formatCurrency,
+        formatDate,
+        formatCoins,
         default_platform: "Console",
         default_quantity: 1,
       }}
