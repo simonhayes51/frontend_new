@@ -1,28 +1,53 @@
 // src/api/http.js
-const API_BASE = (import.meta?.env?.VITE_API_URL || "").replace(/\/$/, "");
+export function apiBase() {
+  return import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || "";
+}
 
-export async function apiFetch(path, { method = "GET", body, headers, ...rest } = {}) {
-  const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+export async function apiFetch(path, opts = {}) {
+  const base = apiBase();
+  const url = path.startsWith("http") ? path : `${base}${path}`;
+
   const res = await fetch(url, {
-    method,
     credentials: "include",
-    headers: body
-      ? { "content-type": "application/json", ...(headers || {}) }
-      : headers,
-    body: body ? JSON.stringify(body) : undefined,
-    ...rest,
+    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+    ...opts,
   });
-  // surface backend JSON details when possible
+
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+  const isJson = ct.includes("application/json");
+
   if (!res.ok) {
-    try {
-      const j = await res.json();
-      throw new Error(j?.detail || j?.error || `${res.status} ${res.statusText}`);
-    } catch {
-      throw new Error(`${res.status} ${res.statusText}`);
+    if (isJson) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.detail || err?.message || `HTTP ${res.status}`);
     }
+    const txt = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status} (non-JSON): ${txt.slice(0, 120)}`);
   }
-  // some endpoints stream files; guard for that if needed
-  const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) return res.json();
-  return res; // caller can .blob()/.text() etc.
+
+  if (!isJson) {
+    const text = await res.text();
+    throw new Error(
+      `Expected JSON but got "${ct}". First bytes: ${text.slice(0, 120)}`
+    );
+  }
+
+  return res.json();
+}
+
+// PROD safety: warn if code uses bare relative fetches that will hit the SPA
+if (import.meta.env.PROD) {
+  const orig = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url = typeof input === "string" ? input : input?.url;
+    if (typeof url === "string") {
+      const isAbsolute = /^https?:\/\//i.test(url);
+      const isApi = url.startsWith("/api/");
+      const isAsset = /\.(png|jpg|jpeg|gif|svg|webp|css|js|map|ico|json)(\?|$)/i.test(url);
+      if (!isAbsolute && !isApi && !isAsset) {
+        console.warn("[fetch] Suspicious relative URL:", url);
+      }
+    }
+    return orig(input, init);
+  };
 }
