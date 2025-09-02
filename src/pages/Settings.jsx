@@ -1,3 +1,4 @@
+// src/pages/Settings.jsx
 import React, { useMemo, useState } from "react";
 import {
   CheckCircle2,
@@ -12,6 +13,7 @@ import {
   Globe,
 } from "lucide-react";
 import { useSettings } from "../context/SettingsContext";
+import { apiFetch } from "../api/http";
 import SettingsTrading from "./SettingsTrading.jsx"; // keep extension for case-sensitive builds
 
 const ACCENT = "#91db32";
@@ -27,7 +29,7 @@ export default function Settings() {
       { key: "trading", label: "Trading", icon: <Zap size={16} /> },
       { key: "integrations", label: "Integrations", icon: <Shield size={16} /> },
     ],
-    []
+    [],
   );
 
   // prefer 'general' and 'portfolio' directly, but keep 'settings.*' to not break your current JSX
@@ -114,9 +116,7 @@ export default function Settings() {
               <Select
                 label="Compact threshold"
                 value={String(g?.compactThreshold ?? 100000)}
-                onChange={(e) =>
-                  saveSettings({ general: { ...(g || {}), compactThreshold: Number(e.target.value) } })
-                }
+                onChange={(e) => saveSettings({ general: { ...(g || {}), compactThreshold: Number(e.target.value) } })}
                 options={[
                   ["1000", "≥ 1,000"],
                   ["10000", "≥ 10,000"],
@@ -126,9 +126,7 @@ export default function Settings() {
               <Select
                 label="Decimals when compact"
                 value={String(g?.compactDecimals ?? 1)}
-                onChange={(e) =>
-                  saveSettings({ general: { ...(g || {}), compactDecimals: Number(e.target.value) } })
-                }
+                onChange={(e) => saveSettings({ general: { ...(g || {}), compactDecimals: Number(e.target.value) } })}
                 options={[
                   ["0", "0"],
                   ["1", "1"],
@@ -158,18 +156,20 @@ export default function Settings() {
               <div className="flex items-end gap-2">
                 <button
                   className="px-3 py-2 rounded-lg border border-gray-800 bg-gray-900 text-gray-200 inline-flex items-center gap-2"
-                  onClick={() =>
-                    fetch("/api/export/trades?format=csv")
-                      .then((r) => r.blob())
-                      .then((b) => {
-                        const url = URL.createObjectURL(b);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = "trades-export.csv";
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      })
-                  }
+                  onClick={async () => {
+                    try {
+                      const resp = await apiFetch("/api/export/trades?format=csv");
+                      const blob = await resp.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = "trades-export.csv";
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch (e) {
+                      alert(`Export failed: ${e.message || e}`);
+                    }
+                  }}
                 >
                   <Download size={16} /> Export CSV
                 </button>
@@ -180,24 +180,33 @@ export default function Settings() {
                     type="file"
                     accept=".csv,.json"
                     hidden
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const f = e.target.files?.[0];
                       if (!f) return;
                       const fd = new FormData();
                       fd.append("file", f);
-                      fetch("/api/import/trades", { method: "POST", body: fd })
-                        .then((r) => r.json())
-                        .then((j) => alert(`Import complete: ${j.imported_count} imported`))
-                        .catch(() => alert("Import failed"));
+                      try {
+                        const res = await apiFetch("/api/import/trades", { method: "POST", body: fd });
+                        alert(`Import complete: ${res.imported_count ?? 0} imported`);
+                      } catch (err) {
+                        alert(`Import failed: ${err.message || err}`);
+                      } finally {
+                        e.target.value = "";
+                      }
                     }}
                   />
                 </label>
 
                 <button
                   className="ml-auto px-3 py-2 rounded-lg text-white bg-red-600/80 hover:bg-red-600 inline-flex items-center gap-2"
-                  onClick={() => {
+                  onClick={async () => {
                     if (!confirm("Reset ALL data (trades + starting balance)? This cannot be undone.")) return;
-                    fetch("/api/data/delete-all?confirm=true", { method: "DELETE" }).then(() => location.reload());
+                    try {
+                      await apiFetch("/api/data/delete-all?confirm=true", { method: "DELETE" });
+                      location.reload();
+                    } catch (e) {
+                      alert(`Reset failed: ${e.message || e}`);
+                    }
                   }}
                 >
                   <Trash2 size={16} /> Reset data
@@ -221,9 +230,7 @@ export default function Settings() {
         {tab === "integrations" && (
           <section className="bg-gray-900/70 border border-gray-800 rounded-2xl p-4">
             <h2 className="text-lg font-semibold mb-4">Integrations</h2>
-            <p className="text-gray-400 text-sm">
-              Connect Discord and the Chrome extension (configure later).
-            </p>
+            <p className="text-gray-400 text-sm">Connect Discord and the Chrome extension (configure later).</p>
           </section>
         )}
       </div>
@@ -248,10 +255,7 @@ function Select({ label, options, ...props }) {
   return (
     <label className="block">
       <div className="text-xs text-gray-400 mb-1">{label}</div>
-      <select
-        className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-gray-100"
-        {...props}
-      >
+      <select className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-gray-100" {...props}>
         {options.map(([v, t]) => (
           <option key={v} value={v}>
             {t}
