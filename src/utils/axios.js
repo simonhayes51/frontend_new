@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "https://backend-production-1f1a.up.railway.app",
+  baseURL: import.meta.env.VITE_API_URL || "https://api.futhub.co.uk",
   withCredentials: true,
   timeout: 10000,
 });
