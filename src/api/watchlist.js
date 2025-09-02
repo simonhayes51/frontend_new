@@ -2,7 +2,7 @@ import { apiFetch } from "./http";
 
 export const getWatchlist = async () => {
   const r = await apiFetch("/api/watchlist");
-  return r.items || [];
+  return Array.isArray(r?.items) ? r.items : [];
 };
 
 export const addWatch = (payload) =>
