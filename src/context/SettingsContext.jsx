@@ -1,5 +1,6 @@
 // src/context/SettingsContext.jsx
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { apiFetch } from "../api/http";
 
 const SettingsContext = createContext(null);
 
@@ -60,28 +61,34 @@ export const SettingsProvider = ({ children }) => {
 
   // ---------- Formatters ----------
   const formatCurrency = useCallback((n) => (Number(n) || 0).toLocaleString("en-GB"), []);
-  const formatDate = useCallback((d) => {
-    const dt = d instanceof Date ? d : new Date(d);
-    return new Intl.DateTimeFormat("en-GB", {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: (general.timeFormat ?? "24h") === "12h",
-      timeZone: general.timezone || "Europe/London",
-    }).format(dt);
-  }, [general]);
-  const formatCoins = useCallback((n, g = general) => {
-    const toFull = (x) => (Number(x) || 0).toLocaleString("en-GB");
-    const cfg = { coinFormat: g.coinFormat, compactThreshold: g.compactThreshold, compactDecimals: g.compactDecimals };
-    const num = Number(n) || 0;
-    if (cfg.coinFormat === "short_m" && num >= cfg.compactThreshold) {
-      if (num >= 1_000_000) return (num / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
-      if (num >= 1_000) return (num / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
-    }
-    return toFull(num);
-  }, [general]);
+  const formatDate = useCallback(
+    (d) => {
+      const dt = d instanceof Date ? d : new Date(d);
+      return new Intl.DateTimeFormat("en-GB", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: (general.timeFormat ?? "24h") === "12h",
+        timeZone: general.timezone || "Europe/London",
+      }).format(dt);
+    },
+    [general],
+  );
+  const formatCoins = useCallback(
+    (n, g = general) => {
+      const toFull = (x) => (Number(x) || 0).toLocaleString("en-GB");
+      const cfg = { coinFormat: g.coinFormat, compactThreshold: g.compactThreshold, compactDecimals: g.compactDecimals };
+      const num = Number(n) || 0;
+      if (cfg.coinFormat === "short_m" && num >= cfg.compactThreshold) {
+        if (num >= 1_000_000) return (num / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
+        if (num >= 1_000) return (num / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
+      }
+      return toFull(num);
+    },
+    [general],
+  );
 
   // ---------- Tax & Profit helpers ----------
   const calcTax = React.useCallback((sellPrice) => {
@@ -90,12 +97,15 @@ export const SettingsProvider = ({ children }) => {
     return Math.floor(s * EA_TAX_RATE);
   }, []);
 
-  const calcProfit = React.useCallback((buy, sell, includeTax) => {
-    const b = Number(buy) || 0;
-    const s = Number(sell) || 0;
-    const fee = calcTax(s);
-    return includeTax ? (s - fee - b) : (s - b);
-  }, [calcTax]);
+  const calcProfit = React.useCallback(
+    (buy, sell, includeTax) => {
+      const b = Number(buy) || 0;
+      const s = Number(sell) || 0;
+      const fee = calcTax(s);
+      return includeTax ? s - fee - b : s - b;
+    },
+    [calcTax],
+  );
 
   // ---------- Load settings ----------
   useEffect(() => {
@@ -116,17 +126,12 @@ export const SettingsProvider = ({ children }) => {
         } catch {}
 
         // server
-        const [sRes, pRes] = await Promise.all([fetch("/api/settings"), fetch("/api/profile")]);
-        const s = await sRes.json();
-        const p = await pRes.json();
+        const [s, p] = await Promise.all([apiFetch("/api/settings"), apiFetch("/api/profile")]);
 
         setGeneral((g) => ({
           ...g,
           timezone: s.timezone || g.timezone,
-          dateFormat:
-            s.date_format === "US" ? "MM/DD/YYYY" :
-            s.date_format === "ISO" ? "YYYY-MM-DD" :
-            g.dateFormat,
+          dateFormat: s.date_format === "US" ? "MM/DD/YYYY" : s.date_format === "ISO" ? "YYYY-MM-DD" : g.dateFormat,
         }));
         setIncludeTaxInProfit(typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true);
         setPortfolio({ startingCoins: p?.startingBalance ?? 0 });
@@ -146,7 +151,7 @@ export const SettingsProvider = ({ children }) => {
             widget_order: DEFAULT_WIDGET_ORDER,
             recent_trades_limit: DEFAULT_RECENT_TRADES_LIMIT,
             include_tax_in_profit: typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true,
-          })
+          }),
         );
         if (!localStorage.getItem("alerts_settings")) {
           localStorage.setItem("alerts_settings", JSON.stringify(DEFAULT_ALERTS));
@@ -186,46 +191,35 @@ export const SettingsProvider = ({ children }) => {
         ...(partial.widget_order ? { widget_order: partial.widget_order } : {}),
         ...(partial.recent_trades_limit !== undefined ? { recent_trades_limit: partial.recent_trades_limit } : {}),
         ...(typeof partial.include_tax_in_profit === "boolean" ? { include_tax_in_profit: partial.include_tax_in_profit } : {}),
-      })
+      }),
     );
 
     // server: portfolio + general + visible + include_tax
-    if (partial.portfolio?.startingCoins !== undefined) {
-      try {
-        await fetch("/api/portfolio/balance", {
+    try {
+      if (partial.portfolio?.startingCoins !== undefined) {
+        await apiFetch("/api/portfolio/balance", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ starting_balance: partial.portfolio.startingCoins }),
+          body: { starting_balance: partial.portfolio.startingCoins },
         });
-      } catch (e) {
-        setError(e);
       }
-    }
-    if (partial.general || partial.visible_widgets || typeof partial.include_tax_in_profit === "boolean") {
-      const g = { ...general, ...(partial.general || {}) };
-      const mapped = {
-        timezone: g.timezone,
-        date_format: g.dateFormat === "MM/DD/YYYY" ? "US" : g.dateFormat === "YYYY-MM-DD" ? "ISO" : "EU",
-        default_platform: "Console",
-        custom_tags: [],
-        currency_format: "coins",
-        theme: "dark",
-        include_tax_in_profit:
-          typeof partial.include_tax_in_profit === "boolean"
-            ? partial.include_tax_in_profit
-            : include_tax_in_profit,
-        default_chart_range: "30d",
-        visible_widgets: partial.visible_widgets || visible_widgets,
-      };
-      try {
-        await fetch("/api/settings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(mapped),
-        });
-      } catch (e) {
-        setError(e);
+      if (partial.general || partial.visible_widgets || typeof partial.include_tax_in_profit === "boolean") {
+        const g = { ...general, ...(partial.general || {}) };
+        const mapped = {
+          timezone: g.timezone,
+          date_format: g.dateFormat === "MM/DD/YYYY" ? "US" : g.dateFormat === "YYYY-MM-DD" ? "ISO" : "EU",
+          default_platform: "Console",
+          custom_tags: [],
+          currency_format: "coins",
+          theme: "dark",
+          include_tax_in_profit:
+            typeof partial.include_tax_in_profit === "boolean" ? partial.include_tax_in_profit : include_tax_in_profit,
+          default_chart_range: "30d",
+          visible_widgets: partial.visible_widgets || visible_widgets,
+        };
+        await apiFetch("/api/settings", { method: "POST", body: mapped });
       }
+    } catch (e) {
+      setError(e);
     }
   };
 
@@ -244,17 +238,25 @@ export const SettingsProvider = ({ children }) => {
     <SettingsContext.Provider
       value={{
         settings,
-        general, portfolio,
-        visible_widgets, widget_order, recent_trades_limit,
-        alerts, include_tax_in_profit,
-        includeTaxInProfit: include_tax_in_profit, // camelCase alias for consumers
+        general,
+        portfolio,
+        visible_widgets,
+        widget_order,
+        recent_trades_limit,
+        alerts,
+        include_tax_in_profit,
+        includeTaxInProfit: include_tax_in_profit, // alias
         taxRate: EA_TAX_RATE,
         calcTax,
         calcProfit,
 
-        isLoading, error,
-        saveSettings, toggleWidget,
-        formatCurrency, formatDate, formatCoins,
+        isLoading,
+        error,
+        saveSettings,
+        toggleWidget,
+        formatCurrency,
+        formatDate,
+        formatCoins,
         default_platform: "Console",
         default_quantity: 1,
       }}
