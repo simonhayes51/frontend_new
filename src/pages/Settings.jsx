@@ -1,25 +1,15 @@
-// src/pages/Settings.jsx
 import React, { useMemo, useState } from "react";
 import {
-  CheckCircle2,
-  Info,
-  Settings as SettingsIcon,
-  Shield,
-  Zap,
-  Upload,
-  Download,
-  Coins,
-  Trash2,
-  Globe,
+  CheckCircle2, Info, Settings as SettingsIcon, Shield, Zap,
+  Upload, Download, Coins, Trash2, Globe,
 } from "lucide-react";
 import { useSettings } from "../context/SettingsContext";
-import { apiFetch } from "../api/http";
-import SettingsTrading from "./SettingsTrading.jsx"; // keep extension for case-sensitive builds
+import SettingsTrading from "./SettingsTrading.jsx";
+import { apiFetch, apiFetchBlob, apiUrl } from "../api/http";
 
 const ACCENT = "#91db32";
 
 export default function Settings() {
-  // pull from our updated context
   const { settings = {}, general, portfolio, saveSettings, formatCoins } = useSettings();
   const [tab, setTab] = useState("general");
 
@@ -29,16 +19,14 @@ export default function Settings() {
       { key: "trading", label: "Trading", icon: <Zap size={16} /> },
       { key: "integrations", label: "Integrations", icon: <Shield size={16} /> },
     ],
-    [],
+    []
   );
 
-  // prefer 'general' and 'portfolio' directly, but keep 'settings.*' to not break your current JSX
   const g = settings.general ?? general ?? {};
   const pf = settings.portfolio ?? portfolio ?? {};
 
   return (
     <div className="p-4 md:p-6 space-y-5">
-      {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Settings</h1>
@@ -47,7 +35,6 @@ export default function Settings() {
         <HelpBadge />
       </div>
 
-      {/* Tabs */}
       <div className="inline-flex rounded-xl border border-gray-800 overflow-hidden">
         {tabs.map((t) => (
           <button
@@ -57,19 +44,16 @@ export default function Settings() {
               tab === t.key ? "bg-gray-900 text-white" : "bg-gray-900/40 text-gray-300"
             }`}
           >
-            {t.icon}
-            {t.label}
+            {t.icon}{t.label}
           </button>
         ))}
       </div>
 
-      {/* Panels */}
       <div className="space-y-4">
         {tab === "general" && (
           <section className="bg-gray-900/70 border border-gray-800 rounded-2xl p-4 space-y-6">
             <h2 className="text-lg font-semibold">General</h2>
 
-            {/* Date/Time/Timezone */}
             <div className="grid md:grid-cols-3 gap-4">
               <Select
                 label="Date format"
@@ -85,10 +69,7 @@ export default function Settings() {
                 label="Time format"
                 value={g?.timeFormat ?? "24h"}
                 onChange={(e) => saveSettings({ general: { ...(g || {}), timeFormat: e.target.value } })}
-                options={[
-                  ["24h", "24-hour"],
-                  ["12h", "12-hour"],
-                ]}
+                options={[["24h","24-hour"],["12h","12-hour"]]}
               />
               <LabeledInput
                 label="Timezone (IANA)"
@@ -99,39 +80,27 @@ export default function Settings() {
               />
             </div>
 
-            {/* Coin formatting */}
             <div className="grid md:grid-cols-3 gap-4">
               <Select
                 label="Coin display format"
                 value={g?.coinFormat ?? "short_m"}
                 onChange={(e) => saveSettings({ general: { ...(g || {}), coinFormat: e.target.value } })}
                 options={[
-                  ["short_m", "1.2M"],
-                  ["european_kk", "1.2kk"],
-                  ["full_commas", "1,200,000"],
-                  ["dot_thousands", "1.200.000"],
-                  ["space_thousands", "1 200 000"],
+                  ["short_m","1.2M"],["european_kk","1.2kk"],["full_commas","1,200,000"],
+                  ["dot_thousands","1.200.000"],["space_thousands","1 200 000"],
                 ]}
               />
               <Select
                 label="Compact threshold"
                 value={String(g?.compactThreshold ?? 100000)}
                 onChange={(e) => saveSettings({ general: { ...(g || {}), compactThreshold: Number(e.target.value) } })}
-                options={[
-                  ["1000", "≥ 1,000"],
-                  ["10000", "≥ 10,000"],
-                  ["100000", "≥ 100,000"],
-                ]}
+                options={[["1000","≥ 1,000"],["10000","≥ 10,000"],["100000","≥ 100,000"]]}
               />
               <Select
                 label="Decimals when compact"
                 value={String(g?.compactDecimals ?? 1)}
                 onChange={(e) => saveSettings({ general: { ...(g || {}), compactDecimals: Number(e.target.value) } })}
-                options={[
-                  ["0", "0"],
-                  ["1", "1"],
-                  ["2", "2"],
-                ]}
+                options={[["0","0"],["1","1"],["2","2"]]}
               />
             </div>
 
@@ -139,7 +108,6 @@ export default function Settings() {
 
             <hr className="border-gray-800" />
 
-            {/* Starting balance + Import/Export/Reset */}
             <div className="grid md:grid-cols-2 gap-4">
               <LabeledInput
                 label="Starting balance"
@@ -147,9 +115,7 @@ export default function Settings() {
                 icon={<Coins size={14} />}
                 value={pf?.startingCoins ?? 0}
                 onChange={(e) =>
-                  saveSettings({
-                    portfolio: { ...(pf || {}), startingCoins: Number(e.target.value || 0) },
-                  })
+                  saveSettings({ portfolio: { ...(pf || {}), startingCoins: Number(e.target.value || 0) } })
                 }
               />
 
@@ -157,25 +123,18 @@ export default function Settings() {
                 <button
                   className="px-3 py-2 rounded-lg border border-gray-800 bg-gray-900 text-gray-200 inline-flex items-center gap-2"
                   onClick={async () => {
-                    try {
-                      const resp = await apiFetch("/api/export/trades?format=csv");
-                      const blob = await resp.blob();
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = "trades-export.csv";
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    } catch (e) {
-                      alert(`Export failed: ${e.message || e}`);
-                    }
+                    const blob = await apiFetchBlob("/api/export/trades?format=csv");
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url; a.download = "trades-export.csv"; a.click();
+                    URL.revokeObjectURL(url);
                   }}
                 >
-                  <Download size={16} /> Export CSV
+                  <Download size={16}/> Export CSV
                 </button>
 
                 <label className="px-3 py-2 rounded-lg border border-gray-800 bg-gray-900 text-gray-200 inline-flex items-center gap-2 cursor-pointer">
-                  <Upload size={16} /> Import CSV
+                  <Upload size={16}/> Import CSV
                   <input
                     type="file"
                     accept=".csv,.json"
@@ -186,12 +145,13 @@ export default function Settings() {
                       const fd = new FormData();
                       fd.append("file", f);
                       try {
-                        const res = await apiFetch("/api/import/trades", { method: "POST", body: fd });
-                        alert(`Import complete: ${res.imported_count ?? 0} imported`);
-                      } catch (err) {
-                        alert(`Import failed: ${err.message || err}`);
-                      } finally {
-                        e.target.value = "";
+                        const res = await fetch(apiUrl("/api/import/trades"), {
+                          method: "POST", body: fd, credentials: "include",
+                        });
+                        const j = await res.json();
+                        alert(`Import complete: ${j.imported_count} imported`);
+                      } catch {
+                        alert("Import failed");
                       }
                     }}
                   />
@@ -201,15 +161,11 @@ export default function Settings() {
                   className="ml-auto px-3 py-2 rounded-lg text-white bg-red-600/80 hover:bg-red-600 inline-flex items-center gap-2"
                   onClick={async () => {
                     if (!confirm("Reset ALL data (trades + starting balance)? This cannot be undone.")) return;
-                    try {
-                      await apiFetch("/api/data/delete-all?confirm=true", { method: "DELETE" });
-                      location.reload();
-                    } catch (e) {
-                      alert(`Reset failed: ${e.message || e}`);
-                    }
+                    await apiFetch("/api/data/delete-all?confirm=true", { method: "DELETE" });
+                    location.reload();
                   }}
                 >
-                  <Trash2 size={16} /> Reset data
+                  <Trash2 size={16}/> Reset data
                 </button>
               </div>
             </div>
@@ -238,7 +194,6 @@ export default function Settings() {
   );
 }
 
-/** Helpers */
 function LabeledInput({ label, icon, ...props }) {
   return (
     <label className="block">
@@ -250,22 +205,16 @@ function LabeledInput({ label, icon, ...props }) {
     </label>
   );
 }
-
 function Select({ label, options, ...props }) {
   return (
     <label className="block">
       <div className="text-xs text-gray-400 mb-1">{label}</div>
       <select className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-gray-100" {...props}>
-        {options.map(([v, t]) => (
-          <option key={v} value={v}>
-            {t}
-          </option>
-        ))}
+        {options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
       </select>
     </label>
   );
 }
-
 function CoinPreview({ value, formatCoins, general }) {
   const demo = formatCoins(value, general);
   return (
@@ -275,15 +224,10 @@ function CoinPreview({ value, formatCoins, general }) {
     </div>
   );
 }
-
 function HelpBadge() {
   return (
-    <div
-      className="hidden sm:flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl border border-gray-800 bg-gray-900/50 text-gray-300"
-      title="Help & tips"
-    >
-      <Info size={14} />
-      <span>Need help? Top-right tips in Settings.</span>
+    <div className="hidden sm:flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl border border-gray-800 bg-gray-900/50 text-gray-300" title="Help & tips">
+      <Info size={14} /><span>Need help? Top-right tips in Settings.</span>
     </div>
   );
 }
