@@ -1,204 +1,55 @@
-// src/pages/TradeFinder.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import { RefreshCcw, Info, PlusCircle, AlertTriangle } from "lucide-react";
-import {
-  fetchTradeFinder as fetchDeals,
-  fetchDealInsight as explainDeal
-} from "../api/tradeFinder";
-import { addWatch as addToWatchlist } from "../api/watchlist"; // ✅ alias
+// src/api/tradeFinder.js
+import { apiFetch } from "./http";
 
-const cls = (...xs) => xs.filter(Boolean).join(" ");
-
-const NumberInput = ({label, value, onChange, min, step=100, suffix}) => (
-  <label className="flex flex-col gap-1 text-sm">
-    <span className="text-gray-300">{label}</span>
-    <input type="number" min={min} step={step} value={value}
-      onChange={(e)=>onChange(Number(e.target.value))}
-      className="bg-zinc-900/60 border border-zinc-800 rounded-xl px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-lime-500" />
-  </label>
-);
-
-const Chip = ({children}) => (
-  <span className="px-2 py-0.5 rounded-full text-xs bg-zinc-800 border border-zinc-700">{children}</span>
-);
-
-function DealCard({deal, onExplain, onQuickAdd}) {
-  return (
-    <div className="rounded-2xl bg-zinc-900/70 border border-zinc-800 p-4 flex gap-4 items-center shadow-sm">
-      <img src={deal.image_url || "/img/card-placeholder.png"} alt="card" className="w-14 h-20 object-cover rounded-lg" />
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <div className="text-lg text-gray-100 font-semibold">{deal.name} <span className="text-gray-400">{deal.rating}</span></div>
-          <div className="text-xs text-gray-400">{deal.position} • {deal.league}</div>
-        </div>
-        <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-          <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
-            <div className="text-gray-400">Current</div>
-            <div className="text-gray-100 font-medium">{deal.current_price.toLocaleString()}c</div>
-          </div>
-          <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
-            <div className="text-gray-400">Target Sell</div>
-            <div className="text-gray-100 font-medium">{deal.expected_sell.toLocaleString()}c</div>
-          </div>
-          <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
-            <div className="text-gray-400">Profit (net)</div>
-            <div className="text-lime-400 font-semibold">{deal.est_profit_after_tax.toLocaleString()}c</div>
-          </div>
-          <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
-            <div className="text-gray-400">Margin</div>
-            <div className="text-gray-100 font-medium">{deal.margin_pct.toFixed(2)}%</div>
-          </div>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {deal.tags?.map(t => <Chip key={t}>{t}</Chip>)}
-          <Chip>Vol {deal.vol_score.toFixed(3)}</Chip>
-          <Chip>{deal.timeframe_hours}h {deal.change_pct_window >= 0 ? "▲" : "▼"} {deal.change_pct_window.toFixed(1)}%</Chip>
-          {typeof deal.seasonal_shift === "number" && Math.abs(deal.seasonal_shift) >= 0.5 && (
-            <Chip>Seasonal {deal.seasonal_shift > 0 ? "+" : ""}{deal.seasonal_shift}%</Chip>
-          )}
-        </div>
-      </div>
-      <div className="flex flex-col gap-2">
-        <button onClick={onExplain} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-sm">
-          <Info size={16}/> Why this deal?
-        </button>
-        <button onClick={onQuickAdd} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-lime-600 bg-lime-600/10 hover:bg-lime-600/20 text-sm text-lime-400">
-          <PlusCircle size={16}/> Quick Add
-        </button>
-      </div>
-    </div>
-  );
-}
-
-export default function TradeFinder() {
-  const [platform, setPlatform] = useState("console");
-  const [timeframe, setTimeframe] = useState(24);
-  const [budgetMax, setBudgetMax] = useState(150000);
-  const [minProfit, setMinProfit] = useState(1500);
-  const [minMargin, setMinMargin] = useState(8);
-  const [ratingMin, setRatingMin] = useState(75);
-  const [ratingMax, setRatingMax] = useState(93);
-  const [leagues, setLeagues] = useState("");
-  const [nations, setNations] = useState("");
-  const [positions, setPositions] = useState("");
-
-  const [loading, setLoading] = useState(false);
-  const [deals, setDeals] = useState([]);
-  const [error, setError] = useState("");
-  const [modal, setModal] = useState(null); // {title, body}
-
-  const params = useMemo(()=>({
-    platform,
-    timeframe,
-    budget_max: budgetMax,
-    min_profit: minProfit,
-    min_margin_pct: minMargin,
-    rating_min: ratingMin,
-    rating_max: ratingMax,
-    leagues,
-    nations,
-    positions,
-  }), [platform, timeframe, budgetMax, minProfit, minMargin, ratingMin, ratingMax, leagues, nations, positions]);
-
-  async function load() {
-    setLoading(true); setError("");
-    try {
-      const data = await fetchDeals(params);
-      setDeals(data);
-    } catch(e) {
-      console.error(e); setError(String(e.message||e));
-    } finally { setLoading(false); }
+/** Fetch deals from the backend and normalize to the UI shape the page expects. */
+export async function fetchTradeFinder(params = {}) {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === "") continue;
+    qs.append(k, String(v));
   }
 
-  useEffect(()=>{ load(); /* eslint-disable-next-line */ }, [JSON.stringify(params)]);
+  const res = await apiFetch(`/api/trade-finder?${qs.toString()}`);
+  const items = Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
 
-  const onExplain = async (deal) => {
-    try {
-      const r = await explainDeal(deal);
-      setModal({title: `Why ${deal.name}?`, body: r.explanation});
-    } catch(e) {
-      setModal({title: `Why ${deal.name}?`, body: "Could not fetch explanation."});
-    }
-  };
+  return items.map((it) => {
+    const now = it?.prices?.now ?? it?.current_price ?? it?.price ?? null;
+    const expSell = it?.expected_sell ?? (Number.isFinite(now) ? Math.round(now * 1.08) : null);
+    const afterTax = Number.isFinite(now) && Number.isFinite(expSell)
+      ? Math.max(0, Math.round(expSell * 0.95) - now)
+      : null;
 
-  const onQuickAdd = async (deal) => {
-    try {
-      await addToWatchlist({ player_name: deal.name, card_id: deal.card_id, version: deal.version, platform: platform.toUpperCase(), notes: `TradeFinder target: buy ~${deal.current_price}c, sell ~${deal.expected_sell}c` });
-      setModal({title: "Added to Watchlist", body: `${deal.name} added. Keep an eye on undercuts around ${deal.current_price.toLocaleString()}c.`});
-    } catch(e) {
-      setModal({title: "Watchlist", body: "Could not add to watchlist."});
-    }
-  };
+    return {
+      player_id: it.pid ?? it.player_id ?? it.card_id,
+      card_id: it.pid ?? it.card_id ?? it.player_id,
+      name: it.name,
+      version: it.version,
+      rating: it.rating,
+      position: it.position,
+      league: it.league,
+      platform: it.platform,
+      timeframe_hours: params.timeframe ?? it.timeframe_hours ?? 24,
 
-  return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-100">Trade Finder</h1>
-        <button onClick={load} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-sm">
-          <RefreshCcw size={16}/> Refresh
-        </button>
-      </div>
+      image_url: it.image ?? it.image_url ?? null,
 
-      <div className="grid lg:grid-cols-6 md:grid-cols-3 grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">Platform</span>
-          <select value={platform} onChange={(e)=>setPlatform(e.target.value)} className="bg-zinc-900/60 border border-zinc-800 rounded-xl px-3 py-2 text-gray-100">
-            <option value="console">Console</option>
-            <option value="pc">PC</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">Timeframe</span>
-          <select value={timeframe} onChange={(e)=>setTimeframe(Number(e.target.value))} className="bg-zinc-900/60 border border-zinc-800 rounded-xl px-3 py-2 text-gray-100">
-            <option value={4}>4h</option>
-            <option value={24}>24h</option>
-          </select>
-        </label>
-        <NumberInput label="Budget Max" value={budgetMax} onChange={setBudgetMax} min={0} />
-        <NumberInput label="Min Profit (net)" value={minProfit} onChange={setMinProfit} min={0} />
-        <NumberInput label="Min Margin %" value={minMargin} onChange={setMinMargin} min={0} step={0.5} />
-        <div className="flex gap-3">
-          <NumberInput label="Rating Min" value={ratingMin} onChange={setRatingMin} min={40} step={1} />
-          <NumberInput label="Rating Max" value={ratingMax} onChange={setRatingMax} min={40} step={1} />
-        </div>
-        <label className="flex flex-col gap-1 text-sm lg:col-span-2">
-          <span className="text-gray-300">Leagues (comma separated)</span>
-          <input value={leagues} onChange={(e)=>setLeagues(e.target.value)} className="bg-zinc-900/60 border border-zinc-800 rounded-xl px-3 py-2 text-gray-100" placeholder="Premier League, LaLiga"/>
-        </label>
-        <label className="flex flex-col gap-1 text-sm lg:col-span-2">
-          <span className="text-gray-300">Nations</span>
-          <input value={nations} onChange={(e)=>setNations(e.target.value)} className="bg-zinc-900/60 border border-zinc-800 rounded-xl px-3 py-2 text-gray-100" placeholder="England, Brazil"/>
-        </label>
-        <label className="flex flex-col gap-1 text-sm lg:col-span-2">
-          <span className="text-gray-300">Positions</span>
-          <input value={positions} onChange={(e)=>setPositions(e.target.value)} className="bg-zinc-900/60 border border-zinc-800 rounded-xl px-3 py-2 text-gray-100" placeholder="ST, CAM, CB"/>
-        </label>
-      </div>
+      current_price: Number.isFinite(now) ? now : null,
+      expected_sell: Number.isFinite(expSell) ? expSell : null,
+      est_profit_after_tax: Number.isFinite(afterTax) ? afterTax : 0,
+      margin_pct:
+        it.margin_pct ??
+        (Number.isFinite(now) && Number.isFinite(expSell) ? ((expSell - now) / now) * 100 : 0),
 
-      {error && (
-        <div className="flex items-center gap-2 text-amber-400 text-sm"><AlertTriangle size={16}/> {error}</div>
-      )}
+      change_pct_window: it.change_pct_window ?? 0,
+      vol_score: it.vol_score ?? 0,
+      tags: Array.isArray(it.tags) ? it.tags : [],
+    };
+  });
+}
 
-      <div className="mt-2 grid gap-3">
-        {loading && <div className="text-gray-400">Loading deals…</div>}
-        {!loading && deals.length === 0 && <div className="text-gray-400">No deals match your filters right now. Try widening the filters.</div>}
-        {deals.map((d) => (
-          <DealCard key={`${d.player_id}-${d.platform}-${d.timeframe_hours}`} deal={d}
-            onExplain={()=>onExplain(d)} onQuickAdd={()=>onQuickAdd(d)} />
-        ))}
-      </div>
-
-      {modal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={()=>setModal(null)}>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 max-w-lg w-full" onClick={(e)=>e.stopPropagation()}>
-            <div className="text-lg text-gray-100 font-semibold mb-2">{modal.title}</div>
-            <div className="text-gray-200 whitespace-pre-wrap">{modal.body}</div>
-            <div className="mt-4 flex justify-end">
-              <button onClick={()=>setModal(null)} className="px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-sm">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+export async function fetchDealInsight(deal) {
+  // Will return rules-based text if LLM isn't configured server-side
+  return apiFetch(`/api/trade-insight`, {
+    method: "POST",
+    body: JSON.stringify({ deal }),
+  });
 }
