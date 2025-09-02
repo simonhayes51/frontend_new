@@ -1,5 +1,5 @@
-// tiny, consistent fetch wrapper (includes cookies + base URL)
-const BASE = import.meta.env.VITE_API_URL || "";
+// unified fetch helper with base URL + cookies
+const BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
 
 export async function apiFetch(path, opts = {}) {
   const url = path.startsWith("http") ? path : `${BASE}${path}`;
@@ -11,18 +11,16 @@ export async function apiFetch(path, opts = {}) {
       ...(opts.headers || {}),
     },
   });
-
   const ct = res.headers.get("content-type") || "";
-  const isJSON = ct.includes("application/json");
-
   if (!res.ok) {
-    const body = isJSON ? await res.json().catch(() => ({})) : await res.text();
-    const msg =
+    let body = ct.includes("application/json")
+      ? await res.json().catch(() => ({}))
+      : await res.text();
+    throw new Error(
       typeof body === "string"
         ? body
-        : body?.detail || body?.message || `${res.status} ${res.statusText}`;
-    throw new Error(msg);
+        : body?.detail || `${res.status} ${res.statusText}`
+    );
   }
-
-  return isJSON ? res.json() : res.text();
+  return ct.includes("application/json") ? res.json() : res.text();
 }
