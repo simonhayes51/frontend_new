@@ -5,7 +5,7 @@ import {
   fetchTradeFinder as fetchDeals,
   fetchDealInsight as explainDeal,
 } from "../api/tradeFinder";
-import { addWatch as addToWatchlist } from "../api/watchlist"; // uses apiFetch
+import { addWatch as addToWatchlist } from "../api/watchlist"; // ✅
 
 const cls = (...xs) => xs.filter(Boolean).join(" ");
 
@@ -40,42 +40,41 @@ function DealCard({ deal, onExplain, onQuickAdd }) {
       <div className="flex-1">
         <div className="flex items-center gap-2">
           <div className="text-lg text-gray-100 font-semibold">
-            {deal.name} <span className="text-gray-400">{deal.rating}</span>
+            {deal.name}{" "}
+            <span className="text-gray-400">{deal.rating ?? ""}</span>
           </div>
           <div className="text-xs text-gray-400">
-            {deal.position} • {deal.league}
+            {deal.position || ""} • {deal.league || ""}
           </div>
         </div>
         <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
           <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
             <div className="text-gray-400">Current</div>
             <div className="text-gray-100 font-medium">
-              {Number(deal.current_price || 0).toLocaleString()}c
+              {Number(deal.current_price ?? 0).toLocaleString()}c
             </div>
           </div>
           <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
             <div className="text-gray-400">Target Sell</div>
             <div className="text-gray-100 font-medium">
-              {Number(deal.expected_sell || 0).toLocaleString()}c
+              {Number(deal.expected_sell ?? 0).toLocaleString()}c
             </div>
           </div>
           <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
             <div className="text-gray-400">Profit (net)</div>
             <div className="text-lime-400 font-semibold">
-              {Number(deal.est_profit_after_tax || 0).toLocaleString()}c
+              {Number(deal.est_profit_after_tax ?? 0).toLocaleString()}c
             </div>
           </div>
           <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
             <div className="text-gray-400">Margin</div>
             <div className="text-gray-100 font-medium">
-              {Number(deal.margin_pct || 0).toFixed(2)}%
+              {Number(deal.margin_pct ?? 0).toFixed(2)}%
             </div>
           </div>
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
-          {deal.tags?.map((t) => (
-            <Chip key={t}>{t}</Chip>
-          ))}
+          {deal.tags?.map((t) => <Chip key={t}>{t}</Chip>)}
           {typeof deal.vol_score === "number" && (
             <Chip>Vol {deal.vol_score.toFixed(3)}</Chip>
           )}
@@ -86,13 +85,6 @@ function DealCard({ deal, onExplain, onQuickAdd }) {
               {deal.change_pct_window.toFixed(1)}%
             </Chip>
           )}
-          {typeof deal.seasonal_shift === "number" &&
-            Math.abs(deal.seasonal_shift) >= 0.5 && (
-              <Chip>
-                Seasonal {deal.seasonal_shift > 0 ? "+" : ""}
-                {deal.seasonal_shift}%
-              </Chip>
-            )}
         </div>
       </div>
       <div className="flex flex-col gap-2">
@@ -114,21 +106,18 @@ function DealCard({ deal, onExplain, onQuickAdd }) {
 }
 
 export default function TradeFinder() {
-  const [platform, setPlatform] = useState("console"); // console|pc
+  const [platform, setPlatform] = useState("console");
   const [timeframe, setTimeframe] = useState(24);
   const [budgetMax, setBudgetMax] = useState(150000);
   const [minProfit, setMinProfit] = useState(1500);
   const [minMargin, setMinMargin] = useState(8);
   const [ratingMin, setRatingMin] = useState(75);
   const [ratingMax, setRatingMax] = useState(93);
-  const [leagues, setLeagues] = useState("");
-  const [nations, setNations] = useState("");
-  const [positions, setPositions] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [deals, setDeals] = useState([]);
   const [error, setError] = useState("");
-  const [modal, setModal] = useState(null); // {title, body}
+  const [modal, setModal] = useState(null);
 
   const params = useMemo(
     () => ({
@@ -139,22 +128,8 @@ export default function TradeFinder() {
       min_margin_pct: minMargin,
       rating_min: ratingMin,
       rating_max: ratingMax,
-      leagues,
-      nations,
-      positions,
     }),
-    [
-      platform,
-      timeframe,
-      budgetMax,
-      minProfit,
-      minMargin,
-      ratingMin,
-      ratingMax,
-      leagues,
-      nations,
-      positions,
-    ]
+    [platform, timeframe, budgetMax, minProfit, minMargin, ratingMin, ratingMax]
   );
 
   async function load() {
@@ -162,10 +137,8 @@ export default function TradeFinder() {
     setError("");
     try {
       const data = await fetchDeals(params);
-      // ensure array
       setDeals(Array.isArray(data) ? data : data?.items || []);
     } catch (e) {
-      console.error(e);
       setError(String(e.message || e));
     } finally {
       setLoading(false);
@@ -180,9 +153,8 @@ export default function TradeFinder() {
   const onExplain = async (deal) => {
     try {
       const r = await explainDeal(deal);
-      const body = r.explanation || r.insight || "No explanation available.";
-      setModal({ title: `Why ${deal.name}?`, body });
-    } catch (e) {
+      setModal({ title: `Why ${deal.name}?`, body: r.explanation });
+    } catch {
       setModal({
         title: `Why ${deal.name}?`,
         body: "Could not fetch explanation.",
@@ -191,27 +163,22 @@ export default function TradeFinder() {
   };
 
   const onQuickAdd = async (deal) => {
-    // backend expects ps|xbox|pc -> map "console" => "ps"
-    const platForWatch = platform === "pc" ? "pc" : "ps";
     try {
+      const platForWatch = platform === "pc" ? "pc" : "ps"; // treat console as PS for now
       await addToWatchlist({
         player_name: deal.name,
-        card_id: deal.card_id || deal.pid || deal.player_id,
+        card_id: deal.card_id || deal.pid,
         version: deal.version,
         platform: platForWatch,
-        notes: `TradeFinder target: buy ~${Number(
-          deal.current_price || 0
-        ).toLocaleString()}c, sell ~${Number(
-          deal.expected_sell || 0
-        ).toLocaleString()}c`,
+        notes: `TradeFinder target: buy ~${deal.current_price}c, sell ~${deal.expected_sell}c`,
       });
       setModal({
         title: "Added to Watchlist",
-        body: `${deal.name} added. Keep an eye on undercuts around ${Number(
+        body: `${deal.name} added. Watching at ~${Number(
           deal.current_price || 0
         ).toLocaleString()}c.`,
       });
-    } catch (e) {
+    } catch {
       setModal({ title: "Watchlist", body: "Could not add to watchlist." });
     }
   };
@@ -251,68 +218,13 @@ export default function TradeFinder() {
             <option value={24}>24h</option>
           </select>
         </label>
-        <NumberInput
-          label="Budget Max"
-          value={budgetMax}
-          onChange={setBudgetMax}
-          min={0}
-        />
-        <NumberInput
-          label="Min Profit (net)"
-          value={minProfit}
-          onChange={setMinProfit}
-          min={0}
-        />
-        <NumberInput
-          label="Min Margin %"
-          value={minMargin}
-          onChange={setMinMargin}
-          min={0}
-          step={0.5}
-        />
+        <NumberInput label="Budget Max" value={budgetMax} onChange={setBudgetMax} min={0} />
+        <NumberInput label="Min Profit (net)" value={minProfit} onChange={setMinProfit} min={0} />
+        <NumberInput label="Min Margin %" value={minMargin} onChange={setMinMargin} min={0} step={0.5} />
         <div className="flex gap-3">
-          <NumberInput
-            label="Rating Min"
-            value={ratingMin}
-            onChange={setRatingMin}
-            min={40}
-            step={1}
-          />
-          <NumberInput
-            label="Rating Max"
-            value={ratingMax}
-            onChange={setRatingMax}
-            min={40}
-            step={1}
-          />
+          <NumberInput label="Rating Min" value={ratingMin} onChange={setRatingMin} min={40} step={1} />
+          <NumberInput label="Rating Max" value={ratingMax} onChange={setRatingMax} min={40} step={1} />
         </div>
-        <label className="flex flex-col gap-1 text-sm lg:col-span-2">
-          <span className="text-gray-300">Leagues (comma separated)</span>
-          <input
-            value={leagues}
-            onChange={(e) => setLeagues(e.target.value)}
-            className="bg-zinc-900/60 border border-zinc-800 rounded-xl px-3 py-2 text-gray-100"
-            placeholder="Premier League, LaLiga"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm lg:col-span-2">
-          <span className="text-gray-300">Nations</span>
-          <input
-            value={nations}
-            onChange={(e) => setNations(e.target.value)}
-            className="bg-zinc-900/60 border border-zinc-800 rounded-xl px-3 py-2 text-gray-100"
-            placeholder="England, Brazil"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm lg:col-span-2">
-          <span className="text-gray-300">Positions</span>
-          <input
-            value={positions}
-            onChange={(e) => setPositions(e.target.value)}
-            className="bg-zinc-900/60 border border-zinc-800 rounded-xl px-3 py-2 text-gray-100"
-            placeholder="ST, CAM, CB"
-          />
-        </label>
       </div>
 
       {error && (
@@ -330,7 +242,7 @@ export default function TradeFinder() {
         )}
         {deals.map((d) => (
           <DealCard
-            key={`${d.player_id || d.pid || d.card_id || d.name}-${d.platform || ""}-${d.timeframe_hours || ""}`}
+            key={`${d.card_id || d.pid}-${d.platform}-${timeframe}`}
             deal={d}
             onExplain={() => onExplain(d)}
             onQuickAdd={() => onQuickAdd(d)}
