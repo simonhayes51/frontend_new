@@ -2,15 +2,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { apiFetch } from "../api/http";
 
-/**
- * This version:
- * - Restores localStorage ↔ server merge (so widget layout stays)
- * - Exposes include_tax_in_profit consistently
- * - Keeps helpers: calcTax, calcProfit, formatCoins/Currency/Date
- * - Persists portfolio starting balance to /api/portfolio/balance
- * - Persists settings to /api/settings
- */
-
 const SettingsContext = createContext(null);
 
 // ===== Defaults =====
@@ -48,10 +39,9 @@ const DEFAULT_ALERTS = {
   enabled: false,
   thresholdPct: 5,
   cooldownMin: 30,
-  delivery: "inapp", // "inapp" | "discord"
+  delivery: "inapp",
 };
 
-// Single source of truth for EA tax (5%)
 const EA_TAX_RATE = 0.05;
 
 export const SettingsProvider = ({ children }) => {
@@ -106,18 +96,13 @@ export const SettingsProvider = ({ children }) => {
       }
       if (cfg.coinFormat === "dot_thousands") return (num || 0).toLocaleString("de-DE");
       if (cfg.coinFormat === "space_thousands") return (num || 0).toLocaleString("fr-FR");
-      // full_commas + fallback
       return toFull(num);
     },
     [general]
   );
 
   // ---------- Tax & Profit helpers ----------
-  const calcTax = React.useCallback((sellPrice) => {
-    const s = Number(sellPrice) || 0;
-    return Math.floor(s * EA_TAX_RATE);
-  }, []);
-
+  const calcTax = React.useCallback((sellPrice) => Math.floor((Number(sellPrice) || 0) * EA_TAX_RATE), []);
   const calcProfit = React.useCallback(
     (buy, sell, includeTax) => {
       const b = Number(buy) || 0;
@@ -133,7 +118,7 @@ export const SettingsProvider = ({ children }) => {
     (async () => {
       setIsLoading(true);
       try {
-        // 1) Restore local first (so UI doesn't flicker)
+        // Local first
         try {
           const raw = localStorage.getItem("user_settings");
           if (raw) {
@@ -147,31 +132,24 @@ export const SettingsProvider = ({ children }) => {
           if (a) setAlerts({ ...DEFAULT_ALERTS, ...JSON.parse(a) });
         } catch {}
 
-        // 2) Load from server
+        // Server
         const [s, p] = await Promise.all([apiFetch("/api/settings"), apiFetch("/api/profile")]);
 
-        // general mapping
         setGeneral((g) => ({
           ...g,
           timezone: s.timezone || g.timezone,
-          dateFormat:
-            s.date_format === "US" ? "MM/DD/YYYY" : s.date_format === "ISO" ? "YYYY-MM-DD" : g.dateFormat,
+          dateFormat: s.date_format === "US" ? "MM/DD/YYYY" : s.date_format === "ISO" ? "YYYY-MM-DD" : g.dateFormat,
         }));
-
         setIncludeTaxInProfit(typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true);
         setPortfolio({ startingCoins: p?.startingBalance ?? 0 });
 
-        // merge server visible with defaults (ensures new widgets appear once)
         const serverVis = Array.isArray(s.visible_widgets) ? s.visible_widgets : [];
         const mergedVis = Array.from(new Set([...serverVis, ...DEFAULT_VISIBLE])).filter((k) =>
           ALL_WIDGET_KEYS.includes(k)
         );
         setVisibleWidgets(mergedVis);
-
-        // Keep default order unless server had a list (we’re not storing order server-side here)
         setWidgetOrder(DEFAULT_WIDGET_ORDER);
 
-        // Persist a compact snapshot to localStorage
         localStorage.setItem(
           "user_settings",
           JSON.stringify({
@@ -186,7 +164,7 @@ export const SettingsProvider = ({ children }) => {
         }
       } catch (e) {
         console.error("Settings load failed:", e);
-        setError(e);
+        setError(e?.message || "Settings load failed");
       } finally {
         setIsLoading(false);
       }
@@ -195,7 +173,6 @@ export const SettingsProvider = ({ children }) => {
 
   // ---------- Save partial updates ----------
   const saveSettings = async (partial) => {
-    // Local reactive updates
     if (partial.general) setGeneral((g) => ({ ...g, ...partial.general }));
     if (partial.portfolio) setPortfolio((p) => ({ ...p, ...partial.portfolio }));
     if (partial.visible_widgets)
@@ -211,7 +188,6 @@ export const SettingsProvider = ({ children }) => {
       });
     }
 
-    // LocalStorage snapshot (legacy)
     const ls = JSON.parse(localStorage.getItem("user_settings") || "{}");
     localStorage.setItem(
       "user_settings",
@@ -226,47 +202,34 @@ export const SettingsProvider = ({ children }) => {
       })
     );
 
-    // Server: portfolio
-    if (partial.portfolio?.startingCoins !== undefined) {
-      try {
-        await fetch("/api/portfolio/balance", {
+    try {
+      if (partial.portfolio?.startingCoins !== undefined) {
+        await apiFetch("/api/portfolio/balance", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ starting_balance: partial.portfolio.startingCoins }),
-          credentials: "include",
+          body: { starting_balance: partial.portfolio.startingCoins },
         });
-      } catch (e) {
-        setError(e);
       }
-    }
 
-    // Server: general + visible + include_tax
-    if (partial.general || partial.visible_widgets || typeof partial.include_tax_in_profit === "boolean") {
-      const g = { ...general, ...(partial.general || {}) };
-      const mapped = {
-        timezone: g.timezone,
-        date_format: g.dateFormat === "MM/DD/YYYY" ? "US" : g.dateFormat === "YYYY-MM-DD" ? "ISO" : "EU",
-        default_platform: "Console",
-        custom_tags: [],
-        currency_format: "coins",
-        theme: "dark",
-        include_tax_in_profit:
-          typeof partial.include_tax_in_profit === "boolean"
-            ? partial.include_tax_in_profit
-            : include_tax_in_profit,
-        default_chart_range: "30d",
-        visible_widgets: partial.visible_widgets || visible_widgets,
-      };
-      try {
-        await fetch("/api/settings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(mapped),
-          credentials: "include",
-        });
-      } catch (e) {
-        setError(e);
+      if (partial.general || partial.visible_widgets || typeof partial.include_tax_in_profit === "boolean") {
+        const g = { ...general, ...(partial.general || {}) };
+        const payload = {
+          timezone: g.timezone,
+          date_format: g.dateFormat === "MM/DD/YYYY" ? "US" : g.dateFormat === "YYYY-MM-DD" ? "ISO" : "EU",
+          default_platform: "Console",
+          custom_tags: [],
+          currency_format: "coins",
+          theme: "dark",
+          include_tax_in_profit:
+            typeof partial.include_tax_in_profit === "boolean"
+              ? partial.include_tax_in_profit
+              : include_tax_in_profit,
+          default_chart_range: "30d",
+          visible_widgets: partial.visible_widgets || visible_widgets,
+        };
+        await apiFetch("/api/settings", { method: "POST", body: payload });
       }
+    } catch (e) {
+      setError(e?.message || "Failed to save settings");
     }
   };
 
@@ -292,11 +255,9 @@ export const SettingsProvider = ({ children }) => {
         alerts,
         include_tax_in_profit,
         includeTaxInProfit: include_tax_in_profit,
-
         taxRate: EA_TAX_RATE,
         calcTax,
         calcProfit,
-
         isLoading,
         error,
         saveSettings,
