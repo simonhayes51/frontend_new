@@ -2,14 +2,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { RefreshCcw, Trash2, AlertTriangle, Clock, MonitorSmartphone } from "lucide-react";
 import { useSettings } from "../context/SettingsContext";
-
-/**
- * This version:
- * - Restores the "nice" card layout you had
- * - Calls the new backend directly (so we don't depend on a missing getWatchlist export)
- * - Shows name/rating/club/nation + prices + change% + updated time
- * - Has Refresh (all) and refresh per card + Delete
- */
+import { apiFetch } from "../api/http";
 
 const platformLabel = (p) => (p || "").toUpperCase();
 
@@ -23,12 +16,10 @@ export default function Watchlist() {
     setLoading(true);
     setErr("");
     try {
-      const r = await fetch("/api/watchlist", { credentials: "include" });
-      const j = await r.json();
-      if (!j?.ok) throw new Error(j?.error || "Failed to load watchlist");
+      const j = await apiFetch("/api/watchlist");
       setItems(j.items || []);
     } catch (e) {
-      setErr(String(e.message || e));
+      setErr(e?.message || "Failed to load watchlist");
     } finally {
       setLoading(false);
     }
@@ -41,22 +32,19 @@ export default function Watchlist() {
   const onDelete = async (id) => {
     if (!confirm("Remove this from your watchlist?")) return;
     try {
-      await fetch(`/api/watchlist/${id}`, { method: "DELETE", credentials: "include" });
+      await apiFetch(`/api/watchlist/${id}`, { method: "DELETE" });
       setItems((xs) => xs.filter((x) => x.id !== id));
     } catch (e) {
-      alert("Could not delete.");
+      alert(e?.message || "Could not delete.");
     }
   };
 
   const onRefresh = async (id) => {
     try {
-      const r = await fetch(`/api/watchlist/${id}/refresh`, { method: "POST", credentials: "include" });
-      const j = await r.json();
-      if (!j?.ok) throw new Error("Refresh failed");
-      const updated = j.item;
-      setItems((xs) => xs.map((x) => (x.id === id ? updated : x)));
+      const j = await apiFetch(`/api/watchlist/${id}/refresh`, { method: "POST" });
+      setItems((xs) => xs.map((x) => (x.id === id ? j.item : x)));
     } catch (e) {
-      alert("Could not refresh item.");
+      alert(e?.message || "Could not refresh item.");
     }
   };
 
@@ -65,24 +53,19 @@ export default function Watchlist() {
     const n = items.length;
     const gains = items.filter((i) => (i.change_pct ?? 0) > 0);
     const losers = items.filter((i) => (i.change_pct ?? 0) < 0);
-    return {
-      count: n,
-      up: gains.length,
-      down: losers.length,
-    };
+    return { count: n, up: gains.length, down: losers.length };
   }, [items]);
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-100">Watchlist</h1>
           <div className="text-xs text-gray-400 mt-1">
             {headerStats ? (
               <>
-                Tracking <b>{headerStats.count}</b> cards • <span className="text-lime-400">{headerStats.up} up</span>{" "}
-                • <span className="text-rose-400">{headerStats.down} down</span>
+                Tracking <b>{headerStats.count}</b> cards • <span className="text-lime-400">{headerStats.up} up</span> •{" "}
+                <span className="text-rose-400">{headerStats.down} down</span>
               </>
             ) : (
               "Track cards across platforms and get quick change signals."
@@ -106,12 +89,10 @@ export default function Watchlist() {
       )}
 
       {loading && <div className="text-gray-400">Loading…</div>}
-
       {!loading && items.length === 0 && (
         <div className="text-gray-400">No watched players yet. Add from Trade Finder or player pages.</div>
       )}
 
-      {/* Grid */}
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {items.map((it) => {
           const img =
@@ -136,8 +117,7 @@ export default function Watchlist() {
                 <div className="flex items-center gap-2 justify-between">
                   <div className="truncate">
                     <div className="text-base text-gray-100 font-semibold truncate">
-                      {it.player_name || it.name}{" "}
-                      {it.rating ? <span className="text-gray-400">({it.rating})</span> : null}
+                      {it.player_name || it.name} {it.rating ? <span className="text-gray-400">({it.rating})</span> : null}
                     </div>
                     <div className="text-xs text-gray-400 truncate">
                       {it.version ? `${it.version} • ` : ""}
@@ -150,7 +130,6 @@ export default function Watchlist() {
                   </span>
                 </div>
 
-                {/* Stat tiles */}
                 <div className="mt-2 grid grid-cols-4 gap-2 text-sm">
                   <Tile label="Start" value={start != null ? `${formatCoins(start)}c` : "—"} />
                   <Tile label="Current" value={priceNow != null ? `${formatCoins(priceNow)}c` : "—"} />
@@ -182,7 +161,6 @@ export default function Watchlist() {
                   />
                 </div>
 
-                {/* Footer line */}
                 <div className="mt-2 text-[11px] text-gray-400 flex items-center gap-3">
                   <span className="inline-flex items-center gap-1">
                     <Clock size={12} />
@@ -196,7 +174,6 @@ export default function Watchlist() {
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex flex-col gap-2">
                 <button
                   onClick={() => onRefresh(it.id)}
