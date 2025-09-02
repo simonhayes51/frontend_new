@@ -3,7 +3,7 @@ import axios from "axios";
 
 const instance = axios.create({
   // IMPORTANT: no trailing /api here
-  baseURL: import.meta.env.VITE_API_URL || "https://api.futhub.co.uk",
+  baseURL: import.meta.env.VITE_API_URL?.replace(/\/$/, ""),
   withCredentials: true, // send/receive session cookies
   timeout: 10000,
 });
