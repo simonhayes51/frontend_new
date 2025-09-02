@@ -1,8 +1,13 @@
 // src/pages/TradeFinder.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { RefreshCcw, Info, PlusCircle, AlertTriangle } from "lucide-react";
-import { fetchTradeFinder as fetchDeals, fetchDealInsight as explainDeal } from "../api/tradeFinder";
-import { addWatch as addToWatchlist } from "../api/watchlist";
+import {
+  fetchTradeFinder as fetchDeals,
+  fetchDealInsight as explainDeal,
+} from "../api/tradeFinder";
+import { addWatch as addToWatchlist } from "../api/watchlist"; // uses apiFetch
+
+const cls = (...xs) => xs.filter(Boolean).join(" ");
 
 const NumberInput = ({ label, value, onChange, min, step = 100 }) => (
   <label className="flex flex-col gap-1 text-sm">
@@ -19,44 +24,51 @@ const NumberInput = ({ label, value, onChange, min, step = 100 }) => (
 );
 
 const Chip = ({ children }) => (
-  <span className="px-2 py-0.5 rounded-full text-xs bg-zinc-800 border border-zinc-700">{children}</span>
+  <span className="px-2 py-0.5 rounded-full text-xs bg-zinc-800 border border-zinc-700">
+    {children}
+  </span>
 );
 
 function DealCard({ deal, onExplain, onQuickAdd }) {
-  const img = deal.image_url || deal.image || "/img/card-placeholder.png";
   return (
     <div className="rounded-2xl bg-zinc-900/70 border border-zinc-800 p-4 flex gap-4 items-center shadow-sm">
-      <img src={img} alt="card" className="w-14 h-20 object-cover rounded-lg" />
+      <img
+        src={deal.image_url || deal.image || "/img/card-placeholder.png"}
+        alt="card"
+        className="w-14 h-20 object-cover rounded-lg"
+      />
       <div className="flex-1">
         <div className="flex items-center gap-2">
           <div className="text-lg text-gray-100 font-semibold">
             {deal.name} <span className="text-gray-400">{deal.rating}</span>
           </div>
-          <div className="text-xs text-gray-400">{[deal.position, deal.league].filter(Boolean).join(" • ")}</div>
+          <div className="text-xs text-gray-400">
+            {deal.position} • {deal.league}
+          </div>
         </div>
         <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
           <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
             <div className="text-gray-400">Current</div>
             <div className="text-gray-100 font-medium">
-              {Number.isFinite(deal.current_price) ? deal.current_price.toLocaleString() : "—"}c
+              {Number(deal.current_price || 0).toLocaleString()}c
             </div>
           </div>
           <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
             <div className="text-gray-400">Target Sell</div>
             <div className="text-gray-100 font-medium">
-              {Number.isFinite(deal.expected_sell) ? deal.expected_sell.toLocaleString() : "—"}c
+              {Number(deal.expected_sell || 0).toLocaleString()}c
             </div>
           </div>
           <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
             <div className="text-gray-400">Profit (net)</div>
             <div className="text-lime-400 font-semibold">
-              {Number.isFinite(deal.est_profit_after_tax) ? deal.est_profit_after_tax.toLocaleString() : "—"}c
+              {Number(deal.est_profit_after_tax || 0).toLocaleString()}c
             </div>
           </div>
           <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
             <div className="text-gray-400">Margin</div>
             <div className="text-gray-100 font-medium">
-              {Number.isFinite(deal.margin_pct) ? deal.margin_pct.toFixed(2) : "0.00"}%
+              {Number(deal.margin_pct || 0).toFixed(2)}%
             </div>
           </div>
         </div>
@@ -64,17 +76,23 @@ function DealCard({ deal, onExplain, onQuickAdd }) {
           {deal.tags?.map((t) => (
             <Chip key={t}>{t}</Chip>
           ))}
-          <Chip>Vol {Number(deal.vol_score || 0).toFixed(3)}</Chip>
-          <Chip>
-            {deal.timeframe_hours || 24}h {Number(deal.change_pct_window || 0) >= 0 ? "▲" : "▼"}{" "}
-            {Number(deal.change_pct_window || 0).toFixed(1)}%
-          </Chip>
-          {typeof deal.seasonal_shift === "number" && Math.abs(deal.seasonal_shift) >= 0.5 && (
+          {typeof deal.vol_score === "number" && (
+            <Chip>Vol {deal.vol_score.toFixed(3)}</Chip>
+          )}
+          {typeof deal.change_pct_window === "number" && (
             <Chip>
-              Seasonal {deal.seasonal_shift > 0 ? "+" : ""}
-              {deal.seasonal_shift}%
+              {deal.timeframe_hours}h{" "}
+              {deal.change_pct_window >= 0 ? "▲" : "▼"}{" "}
+              {deal.change_pct_window.toFixed(1)}%
             </Chip>
           )}
+          {typeof deal.seasonal_shift === "number" &&
+            Math.abs(deal.seasonal_shift) >= 0.5 && (
+              <Chip>
+                Seasonal {deal.seasonal_shift > 0 ? "+" : ""}
+                {deal.seasonal_shift}%
+              </Chip>
+            )}
         </div>
       </div>
       <div className="flex flex-col gap-2">
@@ -96,7 +114,7 @@ function DealCard({ deal, onExplain, onQuickAdd }) {
 }
 
 export default function TradeFinder() {
-  const [platform, setPlatform] = useState("console");
+  const [platform, setPlatform] = useState("console"); // console|pc
   const [timeframe, setTimeframe] = useState(24);
   const [budgetMax, setBudgetMax] = useState(150000);
   const [minProfit, setMinProfit] = useState(1500);
@@ -110,7 +128,7 @@ export default function TradeFinder() {
   const [loading, setLoading] = useState(false);
   const [deals, setDeals] = useState([]);
   const [error, setError] = useState("");
-  const [modal, setModal] = useState(null);
+  const [modal, setModal] = useState(null); // {title, body}
 
   const params = useMemo(
     () => ({
@@ -125,7 +143,18 @@ export default function TradeFinder() {
       nations,
       positions,
     }),
-    [platform, timeframe, budgetMax, minProfit, minMargin, ratingMin, ratingMax, leagues, nations, positions]
+    [
+      platform,
+      timeframe,
+      budgetMax,
+      minProfit,
+      minMargin,
+      ratingMin,
+      ratingMax,
+      leagues,
+      nations,
+      positions,
+    ]
   );
 
   async function load() {
@@ -133,7 +162,8 @@ export default function TradeFinder() {
     setError("");
     try {
       const data = await fetchDeals(params);
-      setDeals(data);
+      // ensure array
+      setDeals(Array.isArray(data) ? data : data?.items || []);
     } catch (e) {
       console.error(e);
       setError(String(e.message || e));
@@ -150,27 +180,38 @@ export default function TradeFinder() {
   const onExplain = async (deal) => {
     try {
       const r = await explainDeal(deal);
-      setModal({ title: `Why ${deal.name}?`, body: r.explanation || r.insight || "No explanation provided." });
-    } catch {
-      setModal({ title: `Why ${deal.name}?`, body: "Could not fetch explanation." });
+      const body = r.explanation || r.insight || "No explanation available.";
+      setModal({ title: `Why ${deal.name}?`, body });
+    } catch (e) {
+      setModal({
+        title: `Why ${deal.name}?`,
+        body: "Could not fetch explanation.",
+      });
     }
   };
 
   const onQuickAdd = async (deal) => {
+    // backend expects ps|xbox|pc -> map "console" => "ps"
+    const platForWatch = platform === "pc" ? "pc" : "ps";
     try {
-      const pl = platform === "console" ? "ps" : platform; // backend expects ps|xbox|pc
       await addToWatchlist({
         player_name: deal.name,
-        card_id: deal.card_id || deal.player_id,
+        card_id: deal.card_id || deal.pid || deal.player_id,
         version: deal.version,
-        platform: pl,
-        notes: `TradeFinder target: buy ~${(deal.current_price ?? 0).toLocaleString()}c, sell ~${(deal.expected_sell ?? 0).toLocaleString()}c`,
+        platform: platForWatch,
+        notes: `TradeFinder target: buy ~${Number(
+          deal.current_price || 0
+        ).toLocaleString()}c, sell ~${Number(
+          deal.expected_sell || 0
+        ).toLocaleString()}c`,
       });
       setModal({
         title: "Added to Watchlist",
-        body: `${deal.name} added. Watch undercuts around ${(deal.current_price ?? 0).toLocaleString()}c.`,
+        body: `${deal.name} added. Keep an eye on undercuts around ${Number(
+          deal.current_price || 0
+        ).toLocaleString()}c.`,
       });
-    } catch {
+    } catch (e) {
       setModal({ title: "Watchlist", body: "Could not add to watchlist." });
     }
   };
@@ -210,12 +251,40 @@ export default function TradeFinder() {
             <option value={24}>24h</option>
           </select>
         </label>
-        <NumberInput label="Budget Max" value={budgetMax} onChange={setBudgetMax} min={0} />
-        <NumberInput label="Min Profit (net)" value={minProfit} onChange={setMinProfit} min={0} />
-        <NumberInput label="Min Margin %" value={minMargin} onChange={setMinMargin} min={0} step={0.5} />
+        <NumberInput
+          label="Budget Max"
+          value={budgetMax}
+          onChange={setBudgetMax}
+          min={0}
+        />
+        <NumberInput
+          label="Min Profit (net)"
+          value={minProfit}
+          onChange={setMinProfit}
+          min={0}
+        />
+        <NumberInput
+          label="Min Margin %"
+          value={minMargin}
+          onChange={setMinMargin}
+          min={0}
+          step={0.5}
+        />
         <div className="flex gap-3">
-          <NumberInput label="Rating Min" value={ratingMin} onChange={setRatingMin} min={40} step={1} />
-          <NumberInput label="Rating Max" value={ratingMax} onChange={setRatingMax} min={40} step={1} />
+          <NumberInput
+            label="Rating Min"
+            value={ratingMin}
+            onChange={setRatingMin}
+            min={40}
+            step={1}
+          />
+          <NumberInput
+            label="Rating Max"
+            value={ratingMax}
+            onChange={setRatingMax}
+            min={40}
+            step={1}
+          />
         </div>
         <label className="flex flex-col gap-1 text-sm lg:col-span-2">
           <span className="text-gray-300">Leagues (comma separated)</span>
@@ -248,18 +317,20 @@ export default function TradeFinder() {
 
       {error && (
         <div className="flex items-center gap-2 text-amber-400 text-sm">
-          <AlertTriangle size={16} /> {error}
+          <AlertTriangle size={16} /> {String(error)}
         </div>
       )}
 
       <div className="mt-2 grid gap-3">
         {loading && <div className="text-gray-400">Loading deals…</div>}
         {!loading && deals.length === 0 && (
-          <div className="text-gray-400">No deals match your filters right now. Try widening the filters.</div>
+          <div className="text-gray-400">
+            No deals match your filters right now. Try widening the filters.
+          </div>
         )}
         {deals.map((d) => (
           <DealCard
-            key={`${d.card_id || d.player_id}-${d.platform}-${d.timeframe_hours}`}
+            key={`${d.player_id || d.pid || d.card_id || d.name}-${d.platform || ""}-${d.timeframe_hours || ""}`}
             deal={d}
             onExplain={() => onExplain(d)}
             onQuickAdd={() => onQuickAdd(d)}
@@ -268,12 +339,17 @@ export default function TradeFinder() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => setModal(null)}>
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"
+          onClick={() => setModal(null)}
+        >
           <div
             className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 max-w-lg w-full"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-lg text-gray-100 font-semibold mb-2">{modal.title}</div>
+            <div className="text-lg text-gray-100 font-semibold mb-2">
+              {modal.title}
+            </div>
             <div className="text-gray-200 whitespace-pre-wrap">{modal.body}</div>
             <div className="mt-4 flex justify-end">
               <button
