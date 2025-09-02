@@ -1,7 +1,10 @@
 // src/pages/TradeFinder.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { RefreshCcw, Info, PlusCircle, AlertTriangle } from "lucide-react";
-import { fetchDeals, explainDeal } from "../api/tradeFinder";
+import {
+  fetchTradeFinder as fetchDeals,
+  fetchDealInsight as explainDeal
+} from "../api/tradeFinder";
 import { addToWatchlist } from "../api/watchlist"; // assumes you already have this
 
 const cls = (...xs) => xs.filter(Boolean).join(" ");
