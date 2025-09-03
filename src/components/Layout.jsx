@@ -33,6 +33,7 @@ const Layout = ({ children }) => {
             className="min-h-screen bg-gray-950 transition-all duration-200"
             style={{ marginLeft: "var(--sidebar-width, 16rem)" }}
           >
+            <Outlet /> {/* ✅ Add this */}
             {children}
           </main>
         </>
