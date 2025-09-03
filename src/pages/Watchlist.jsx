@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { getWatchlist, addWatch, deleteWatch, refreshWatch } from "../api/watchlist";
 import { Link } from "react-router-dom";
-import api from "../axios";
+import { apiFetch } from "../api/http";
 
 // Tiny inline icons to keep deps minimal
 const Icon = {
