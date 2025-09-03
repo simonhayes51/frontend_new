@@ -22,17 +22,19 @@ function scrubCSV(s) {
 
 async function getOnce(url, params) {
   const { data } = await api.get(url, { params });
-  return data;
+  // server can return either an array or {items, meta}
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.items)) return data.items;
+  return [];
 }
 
 export async function fetchTradeFinder(params) {
-  // 1) Normalize the query the API expects
   const q = {
     ...params,
     platform: normalizePlatform(params?.platform),
     timeframe: Number(params?.timeframe) || 24,
     budget_max: Number(params?.budget_max) || undefined,
-    min_profit: Number(params?.min_profit) || undefined,
+    min_profit: params?.min_profit !== undefined ? Number(params.min_profit) : undefined,
     min_margin_pct: params?.min_margin_pct !== undefined ? Number(params.min_margin_pct) : undefined,
     rating_min: Number(params?.rating_min) || undefined,
     rating_max: Number(params?.rating_max) || undefined,
@@ -41,34 +43,29 @@ export async function fetchTradeFinder(params) {
     positions: scrubCSV(params?.positions),
   };
 
-  // 2) Try the primary endpoint
-  let data;
+  let items;
   try {
-    data = await getOnce("/api/trade-finder", q);
+    items = await getOnce("/api/trade-finder", q);
   } catch (e) {
-    // allow a legacy underscore path as a fallback in case the server is older
     if (e?.response?.status === 404) {
-      data = await getOnce("/api/trade_finder", q).catch(() => []);
+      items = await getOnce("/api/trade_finder", q).catch(() => []);
     } else {
       throw e;
     }
   }
 
-  // 3) If nothing came back, retry once with relaxed profit/margin (but SAME layout)
-  if (!Array.isArray(data) || data.length === 0) {
+  // If empty, retry once without profit/margin constraints
+  if (!items.length) {
     const relaxed = { ...q };
     delete relaxed.min_profit;
     delete relaxed.min_margin_pct;
     try {
       const second = await getOnce("/api/trade-finder", relaxed);
-      if (Array.isArray(second)) return second;
-    } catch {
-      /* swallow */
-    }
-    return Array.isArray(data) ? data : [];
+      if (second.length) return second;
+    } catch { /* ignore */ }
   }
 
-  return data;
+  return items;
 }
 
 export async function fetchDealInsight(deal) {
@@ -76,15 +73,14 @@ export async function fetchDealInsight(deal) {
     const { data } = await api.post("/api/trade-finder/why", deal);
     return data;
   } catch {
-    // graceful fallback so the modal isn't useless
     return {
       explanation:
         `Candidate fits your filters.\n` +
         (deal?.change_pct_window !== undefined
-          ? `24h change: ${deal.change_pct_window.toFixed?.(1)}%.\n`
+          ? `Window change: ${Number(deal.change_pct_window).toFixed?.(1)}%.\n`
           : "") +
         (deal?.vol_score !== undefined ? `Volume score: ${deal.vol_score}.\n` : "") +
-        (deal?.margin_pct !== undefined ? `Projected margin: ${deal.margin_pct?.toFixed?.(2)}%.\n` : ""),
+        (deal?.margin_pct !== undefined ? `Projected margin: ${Number(deal.margin_pct).toFixed?.(2)}%.\n` : ""),
     };
   }
 }
