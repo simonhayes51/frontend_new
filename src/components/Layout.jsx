@@ -22,6 +22,7 @@ const Layout = ({ children }) => {
         <>
           <MobileHeader />
           <main className="min-h-screen bg-gray-950">
+            <Outlet /> {/* ✅ Add this */}
             {children}
           </main>
         </>
