@@ -1,10 +1,16 @@
 // src/api/axios.js
 import axios from "axios";
 
+const FALLBACK_API = "https://api.futhub.co.uk";
+
+const base =
+  (import.meta.env?.VITE_API_URL && import.meta.env.VITE_API_URL.replace(/\/$/, "")) ||
+  FALLBACK_API;
+
 const instance = axios.create({
-  // IMPORTANT: no trailing /api here
-  baseURL: import.meta.env.VITE_API_URL?.replace(/\/$/, ""),
-  withCredentials: true, // send/receive session cookies
+  // IMPORTANT: keep base without trailing slash; requests pass "/api/..."
+  baseURL: base,
+  withCredentials: true,
   timeout: 10000,
 });
 
@@ -13,27 +19,22 @@ instance.interceptors.request.use(
   (config) => {
     config.headers["Content-Type"] = config.headers["Content-Type"] || "application/json";
 
-    // Ensure we never end up with double slashes (//api/...)
-    if (config.url) {
-      config.url = config.url.replace(/([^:]\/)\/+/g, "$1");
-    }
+    // Ensure we never end up with double slashes
+    if (config.url) config.url = config.url.replace(/([^:]\/)\/+/g, "$1");
 
     if (import.meta.env.DEV) {
-      console.log(`→ ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+      console.log(`[axios] → ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
     }
     return config;
   },
-  (error) => {
-    console.error("Request error:", error);
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor
 instance.interceptors.response.use(
   (response) => {
     if (import.meta.env.DEV) {
-      console.log("←", response.status, response.config.url);
+      console.log("[axios] ←", response.status, response.config.url);
     }
     return response;
   },
@@ -43,20 +44,12 @@ instance.interceptors.response.use(
 
     switch (status) {
       case 401:
-        console.log("Authentication required, redirecting to login...");
         if (typeof window !== "undefined") window.location.href = "/login";
         break;
-      case 403:
-        console.error("Access forbidden:", message);
-        break;
-      case 404:
-        console.error("Resource not found:", error.config?.url);
-        break;
-      case 500:
-        console.error("Server error:", message);
-        break;
-      default:
-        console.error("Request failed:", message);
+      case 403: console.error("Access forbidden:", message); break;
+      case 404: console.error("Resource not found:", error.config?.url); break;
+      case 500: console.error("Server error:", message); break;
+      default:  console.error("Request failed:", message);
     }
 
     const enhancedError = { ...error, userMessage: getUserFriendlyMessage(status, message) };
