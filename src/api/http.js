@@ -1,49 +1,56 @@
-// Tiny HTTP helper that always talks to the API origin and sends cookies.
-const API_BASE =
-  import.meta.env.VITE_API_URL ||
-  import.meta.env.VITE_API_BASE_URL ||
-  window.__API_BASE__ ||
-  "http://localhost:8000";
+// src/api/http.js
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, ""); // e.g. https://api.futhub.co.uk
 
-export function apiUrl(path = "/") {
-  if (/^https?:\/\//i.test(path)) return path;
+function buildUrl(path, query) {
   const p = path.startsWith("/") ? path : `/${path}`;
-  return `${API_BASE.replace(/\/$/, "")}${p}`;
+  const url = new URL(API_BASE ? API_BASE + p : p, API_BASE || window.location.origin);
+  if (query) {
+    for (const [k, v] of Object.entries(query)) {
+      if (v !== undefined && v !== null && v !== "") url.searchParams.append(k, v);
+    }
+  }
+  return url.toString();
 }
 
+/**
+ * apiFetch("/api/xyz", { method, body, query, headers })
+ * - Always uses VITE_API_URL
+ * - Sends credentials for session endpoints
+ * - Parses JSON when possible, throws helpful errors
+ */
 export async function apiFetch(path, opts = {}) {
-  const url = apiUrl(path);
-  const init = {
-    method: "GET",
-    headers: { "Accept": "application/json", ...(opts.headers || {}) },
-    credentials: "include",
-    ...opts,
-  };
+  const {
+    method = "GET",
+    body,
+    query,
+    headers = {},
+    credentials = "include",
+  } = opts;
 
-  // convenience: if caller passes { json: {...} } build body & content-type
-  if (opts.json !== undefined) {
-    init.method = init.method || "POST";
-    init.headers = { ...init.headers, "Content-Type": "application/json" };
-    init.body = JSON.stringify(opts.json);
+  const url = buildUrl(path, query);
+  const init = { method, headers: { ...headers }, credentials };
+
+  if (body !== undefined) {
+    if (body instanceof FormData) {
+      init.body = body;
+    } else {
+      init.headers["Content-Type"] = init.headers["Content-Type"] || "application/json";
+      init.body = typeof body === "string" ? body : JSON.stringify(body);
+    }
   }
 
   const res = await fetch(url, init);
-  const ctype = res.headers.get("content-type") || "";
-  if (!res.ok) {
-    const msg = ctype.includes("application/json")
-      ? (await res.json()).detail || (await res.json()).error || res.statusText
-      : await res.text();
-    throw new Error(msg || `HTTP ${res.status}`);
-  }
-  if (ctype.includes("application/json")) return res.json();
-  return res.text();
-}
 
-export async function apiFetchBlob(path, opts = {}) {
-  const res = await fetch(apiUrl(path), {
-    credentials: "include",
-    ...opts,
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.blob();
+  // Try to parse JSON for both success and error cases
+  const ct = res.headers.get("content-type") || "";
+  const isJson = ct.includes("application/json");
+  const data = isJson ? await res.json().catch(() => null) : await res.text();
+
+  if (!res.ok) {
+    const msg =
+      (data && (data.detail || data.error || data.message)) ||
+      `${res.status} ${res.statusText}`;
+    throw new Error(msg);
+  }
+  return isJson ? data : data;
 }
