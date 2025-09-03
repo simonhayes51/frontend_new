@@ -1,7 +1,9 @@
+// src/pages/Watchlist.jsx
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { getWatchlist, addWatch, deleteWatch, refreshWatch } from "../api/watchlist";
 import { Link } from "react-router-dom";
-import { apiFetch } from "../api/http";
+import api from "../axios";
+import { apiFetch } from "../api/http"; // ✅ use the same fetch wrapper as the rest of the app
 
 // Tiny inline icons to keep deps minimal
 const Icon = {
@@ -73,7 +75,9 @@ export default function Watchlist() {
     setLoading(true);
     try {
       const data = await getWatchlist();
-      setItems(data.items || []);
+      // ✅ accept either {items: [...]} or a plain array
+      const list = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+      setItems(list);
     } finally {
       setLoading(false);
     }
@@ -115,7 +119,7 @@ export default function Watchlist() {
     return list;
   }, [items, sort]);
 
-  // autocomplete fetch - FIXED: removed /api/ prefix
+  // autocomplete fetch — use apiFetch so it shares credentials/base URL
   const fetchSuggestions = useCallback(async (q) => {
     if (!q || q.length < 1) {
       setSuggestions([]);
@@ -126,12 +130,13 @@ export default function Watchlist() {
       if (abortRef.current) abortRef.current.abort();
       abortRef.current = new AbortController();
 
-      const res = await api.get("/api/search-players", {
-        params: { q },
+      // ✅ switch to apiFetch to avoid HTML responses / credential mismatches
+      const res = await apiFetch("/api/search-players", {
+        query: { q },
         signal: abortRef.current.signal,
       });
 
-      setSuggestions(Array.isArray(res.data?.players) ? res.data.players : []);
+      setSuggestions(Array.isArray(res?.players) ? res.players : []);
       setSugOpen(true);
     } catch (e) {
       console.error("Search error:", e);
@@ -170,7 +175,7 @@ export default function Watchlist() {
         player_name: form.player_name.trim(),
         card_id: Number(form.card_id),
         version: form.version || null,
-        platform: form.platform,
+        platform: form.platform, // already 'ps' | 'xbox'
         notes: form.notes || null,
       });
       setShowAdd(false);
