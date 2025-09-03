@@ -1,57 +1,70 @@
 // src/api/tradeFinder.js
 import { apiFetch } from "./http";
 
-const coerceNumber = (v) => {
-  if (v === undefined || v === null || v === "") return undefined;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : undefined;
-};
+// ---- helpers ---------------------------------------------------------------
+const toNum = (v) => (v === "" || v == null ? undefined : Number(v));
+const cleanCSV = (s) =>
+  String(s || "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .join(","); // keep as CSV for server
 
-const clean = (obj) =>
-  Object.fromEntries(
-    Object.entries(obj).filter(([, v]) => v !== undefined && v !== null && v !== "")
-  );
+// ---- API -------------------------------------------------------------------
+/**
+ * Fetch Trade Finder candidates.
+ * @param {Object} filters
+ * @returns {Promise<Array>} deals array
+ */
+export async function fetchTradeFinder(filters = {}) {
+  // Server accepts these exact query keys
+  const query = {
+    platform: (filters.platform || "console").toLowerCase(), // console|pc
+    timeframe: toNum(filters.timeframe) ?? 24,               // 6..24
+    topn: toNum(filters.topn) ?? 20,                         // 1..50
+    budget_min: toNum(filters.budget_min),
+    budget_max: toNum(filters.budget_max),
+    min_profit: toNum(filters.min_profit),
+    min_margin_pct: toNum(filters.min_margin_pct),
+    rating_min: toNum(filters.rating_min),
+    rating_max: toNum(filters.rating_max),
+
+    // optional, passthrough to server (if implemented there)
+    leagues: cleanCSV(filters.leagues),
+    nations: cleanCSV(filters.nations),
+    positions: cleanCSV(filters.positions),
+
+    // defaults for server toggles
+    exclude_extinct: filters.exclude_extinct ?? 1,
+    exclude_low_liquidity: filters.exclude_low_liquidity ?? 1,
+    exclude_anomalies: filters.exclude_anomalies ?? 1,
+    debug: filters.debug ? 1 : 0,
+  };
+
+  const res = await apiFetch("/api/trade-finder", { query });
+  // backend may return { items: [...] } or an array directly
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.items)) return res.items;
+  return [];
+}
 
 /**
- * Fetch trade-finder candidates.
- * Expects backend /api/trade-finder to accept:
- *  platform: "console" | "pc"
- *  timeframe: 4 | 24 (hours)
- *  budget_max, min_profit, min_margin_pct, rating_min, rating_max
- *  leagues, nations, positions (comma-separated strings)
+ * Ask the server to explain a specific deal.
+ * @param {Object} deal - the deal object the list returned
+ * @returns {Promise<{insight: string}>}
  */
-export async function fetchTradeFinder(filters) {
-  const params = clean({
-    platform: (filters.platform || "console").toLowerCase(),
-    timeframe: coerceNumber(filters.timeframe) ?? 24,
-    budget_max: coerceNumber(filters.budget_max),
-    min_profit: coerceNumber(filters.min_profit),
-    min_margin_pct: coerceNumber(filters.min_margin_pct),
-    rating_min: coerceNumber(filters.rating_min),
-    rating_max: coerceNumber(filters.rating_max),
-    leagues: (filters.leagues || "").trim(),
-    nations: (filters.nations || "").trim(),
-    positions: (filters.positions || "").trim(),
-  });
-
-  // apiFetch supports a `query` option (it appends URLSearchParams)
-  const res = await apiFetch("/api/trade-finder", { query: params });
-  return Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
-}
-
 export async function fetchDealInsight(deal) {
-  // Guard against bad payloads
-  const payload = clean({
-    card_id: deal.card_id ?? deal.pid ?? deal.player_id,
-    platform: deal.platform || filters?.platform || "console",
-    current_price: coerceNumber(deal.current_price ?? deal.prices?.now),
-    timeframe_hours: deal.timeframe_hours ?? 24,
-  });
-
   try {
-    const res = await apiFetch("/api/trade-finder/why", { method: "POST", body: payload });
-    return res;
-  } catch {
-    return { explanation: "Candidate fits your filters." };
+    return await apiFetch("/api/trade-insight", {
+      method: "POST",
+      body: { deal },
+    });
+  } catch (e) {
+    return { insight: "Candidate fits your filters." };
   }
 }
+
+export default {
+  fetchTradeFinder,
+  fetchDealInsight,
+};
