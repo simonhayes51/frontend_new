@@ -1,208 +1,465 @@
-// src/pages/Watchlist.jsx
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { RefreshCcw, Trash2, AlertTriangle, Clock, MonitorSmartphone } from "lucide-react";
-import { useSettings } from "../context/SettingsContext";
-import { apiFetch } from "../api/http";
+import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { getWatchlist, addWatch, deleteWatch, refreshWatch } from "../api/watchlist";
+import { Link } from "react-router-dom";
+import api from "../axios";
 
-const platformLabel = (p) => (p || "").toUpperCase();
+// Tiny inline icons to keep deps minimal
+const Icon = {
+  Plus: (props) => (
+    <svg className={`w-4 h-4 ${props.className||""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+    </svg>
+  ),
+  Refresh: (props) => (
+    <svg className={`w-4 h-4 ${props.className||""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v6h6M20 20v-6h-6" />
+      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M20 8a8 8 0 10-1.78 5.091" />
+    </svg>
+  ),
+  Trash: (props) => (
+    <svg className={`w-4 h-4 ${props.className||""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-7 0l1-3h6l1 3" />
+    </svg>
+  ),
+  Sort: (props) => (
+    <svg className={`w-4 h-4 ${props.className||""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 7h13M3 12h9M3 17h5" />
+    </svg>
+  ),
+};
+
+function Price({ value }) {
+  if (value === null || value === undefined) return <span className="text-gray-400">N/A</span>;
+  return <span className="font-semibold">{Number(value).toLocaleString()}</span>;
+}
+
+function Change({ change, pct }) {
+  if (change === null || change === undefined || pct === null || pct === undefined)
+    return <span className="text-gray-400">—</span>;
+  const up = change > 0;
+  return (
+    <span className={up ? "text-emerald-400 font-semibold" : change < 0 ? "text-red-400 font-semibold" : "text-gray-300"}>
+      {up ? "↑" : change < 0 ? "↓" : "•"} {Number(change).toLocaleString()} ({pct}%)
+    </span>
+  );
+}
+
+const SORTS = {
+  SMART: "smart",
+  CHANGE_DESC: "change_desc",
+  PRICE_ASC: "price_asc",
+  PRICE_DESC: "price_desc",
+  ADDED_NEWEST: "added_newest",
+  NAME_ASC: "name_asc",
+};
 
 export default function Watchlist() {
-  const { formatCoins, formatDate } = useSettings();
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ player_name: "", card_id: "", version: "", platform: "ps", notes: "" });
+  const [busyAdd, setBusyAdd] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+  const [sort, setSort] = useState(SORTS.SMART);
 
-  const load = useCallback(async () => {
+  // autocomplete state
+  const [suggestions, setSuggestions] = useState([]);
+  const [sugLoading, setSugLoading] = useState(false);
+  const [sugOpen, setSugOpen] = useState(false);
+  const abortRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const load = async () => {
     setLoading(true);
-    setErr("");
     try {
-      const j = await apiFetch("/api/watchlist");
-      setItems(j.items || []);
-    } catch (e) {
-      setErr(e?.message || "Failed to load watchlist");
+      const data = await getWatchlist();
+      setItems(data.items || []);
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  // sort
+  const sorted = useMemo(() => {
+    const list = [...items];
+    switch (sort) {
+      case SORTS.CHANGE_DESC:
+        list.sort((a, b) => (b.change_pct ?? -Infinity) - (a.change_pct ?? -Infinity));
+        break;
+      case SORTS.PRICE_ASC:
+        list.sort((a, b) => (a.current_price ?? Infinity) - (b.current_price ?? Infinity));
+        break;
+      case SORTS.PRICE_DESC:
+        list.sort((a, b) => (b.current_price ?? -Infinity) - (a.current_price ?? -Infinity));
+        break;
+      case SORTS.ADDED_NEWEST:
+        list.sort((a, b) => new Date(b.started_at) - new Date(a.started_at));
+        break;
+      case SORTS.NAME_ASC:
+        list.sort((a, b) => (a.player_name || "").localeCompare(b.player_name || ""));
+        break;
+      case SORTS.SMART:
+      default:
+        list.sort((a, b) => {
+          if (a.is_extinct !== b.is_extinct) return a.is_extinct ? 1 : -1;
+          const ap = a.change_pct ?? -Infinity, bp = b.change_pct ?? -Infinity;
+          if (bp !== ap) return bp - ap;
+          const aa = Math.abs(a.change ?? -Infinity), ba = Math.abs(b.change ?? -Infinity);
+          if (ba !== aa) return ba - aa;
+          return new Date(b.started_at) - new Date(a.started_at);
+        });
+        break;
+    }
+    return list;
+  }, [items, sort]);
+
+  // autocomplete fetch - FIXED: removed /api/ prefix
+  const fetchSuggestions = useCallback(async (q) => {
+    if (!q || q.length < 1) {
+      setSuggestions([]);
+      return;
+    }
+    try {
+      setSugLoading(true);
+      if (abortRef.current) abortRef.current.abort();
+      abortRef.current = new AbortController();
+
+      const res = await api.get("/api/search-players", {
+        params: { q },
+        signal: abortRef.current.signal,
+      });
+
+      setSuggestions(Array.isArray(res.data?.players) ? res.data.players : []);
+      setSugOpen(true);
+    } catch (e) {
+      console.error("Search error:", e);
+      if (e.name !== "AbortError") {
+        setSuggestions([]);
+        setSugOpen(true);
+      }
+    } finally {
+      setSugLoading(false);
+    }
   }, []);
 
+  // debounce input
   useEffect(() => {
-    load();
-  }, [load]);
+    const q = form.player_name.trim();
+    const t = setTimeout(() => fetchSuggestions(q), 250);
+    return () => clearTimeout(t);
+  }, [form.player_name, fetchSuggestions]);
 
-  const onDelete = async (id) => {
-    if (!confirm("Remove this from your watchlist?")) return;
+  const applySuggestion = (p) => {
+    setForm((f) => ({
+      ...f,
+      player_name: p.name,
+      card_id: String(p.card_id || ""),
+      version: p.version || f.version,
+    }));
+    setSugOpen(false);
+  };
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    if (!form.player_name || !form.card_id) return;
+    setBusyAdd(true);
     try {
-      await apiFetch(`/api/watchlist/${id}`, { method: "DELETE" });
-      setItems((xs) => xs.filter((x) => x.id !== id));
-    } catch (e) {
-      alert(e?.message || "Could not delete.");
+      await addWatch({
+        player_name: form.player_name.trim(),
+        card_id: Number(form.card_id),
+        version: form.version || null,
+        platform: form.platform,
+        notes: form.notes || null,
+      });
+      setShowAdd(false);
+      setForm({ player_name: "", card_id: "", version: "", platform: form.platform, notes: "" });
+      await load();
+    } finally {
+      setBusyAdd(false);
     }
   };
 
-  const onRefresh = async (id) => {
+  const handleDelete = async (id) => {
+    setBusyId(id);
     try {
-      const j = await apiFetch(`/api/watchlist/${id}/refresh`, { method: "POST" });
-      setItems((xs) => xs.map((x) => (x.id === id ? j.item : x)));
-    } catch (e) {
-      alert(e?.message || "Could not refresh item.");
+      await deleteWatch(id);
+      await load();
+    } finally {
+      setBusyId(null);
     }
   };
 
-  const headerStats = useMemo(() => {
-    if (!items?.length) return null;
-    const n = items.length;
-    const gains = items.filter((i) => (i.change_pct ?? 0) > 0);
-    const losers = items.filter((i) => (i.change_pct ?? 0) < 0);
-    return { count: n, up: gains.length, down: losers.length };
-  }, [items]);
+  const handleRefreshRow = async (id) => {
+    setBusyId(id);
+    try {
+      await refreshWatch(id);
+      await load();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // close suggestions on click outside
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (!inputRef.current) return;
+      if (!inputRef.current.parentElement?.contains(e.target)) setSugOpen(false);
+    };
+    document.addEventListener("click", onDoc);
+    return () => document.removeEventListener("click", onDoc);
+  }, []);
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="p-6 md:p-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-100">Watchlist</h1>
-          <div className="text-xs text-gray-400 mt-1">
-            {headerStats ? (
-              <>
-                Tracking <b>{headerStats.count}</b> cards • <span className="text-lime-400">{headerStats.up} up</span> •{" "}
-                <span className="text-rose-400">{headerStats.down} down</span>
-              </>
-            ) : (
-              "Track cards across platforms and get quick change signals."
-            )}
-          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white">Player Watchlist</h1>
+          <p className="text-gray-400 text-sm">
+            Track starting price vs current price.{" "}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sort picker */}
+          <div className="flex items-center gap-1 bg-gray-900/70 border border-[#2A2F36] rounded-md px-2 py-1 text-gray-300">
+            <Icon.Sort />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="bg-transparent text-sm outline-none"
+              title="Sort"
+            >
+              <option value={SORTS.SMART}>Smart</option>
+              <option value={SORTS.CHANGE_DESC}>% Change ↓</option>
+              <option value={SORTS.PRICE_DESC}>Current Price ↓</option>
+              <option value={SORTS.PRICE_ASC}>Current Price ↑</option>
+              <option value={SORTS.ADDED_NEWEST}>Recently Added</option>
+              <option value={SORTS.NAME_ASC}>Name A–Z</option>
+            </select>
+          </div>
+
+          {/* Refresh all */}
           <button
             onClick={load}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-sm"
+            className="px-3 py-2 rounded-md bg-gray-800 hover:bg-gray-700 text-white flex items-center gap-2"
+            title="Refresh all"
           >
-            <RefreshCcw size={16} /> Refresh all
+            <Icon.Refresh className={loading ? "animate-spin" : ""} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+
+          {/* Add */}
+          <button
+            onClick={() => setShowAdd(true)}
+            className="px-3 py-2 rounded-md bg-lime-500/90 hover:bg-lime-500 text-black font-semibold flex items-center gap-2"
+          >
+            <Icon.Plus />
+            Add
           </button>
         </div>
       </div>
 
-      {err && (
-        <div className="flex items-center gap-2 text-amber-400 text-sm">
-          <AlertTriangle size={16} /> {err}
+      {/* Table */}
+      <div className="bg-[#111318]/70 rounded-xl border border-[#2A2F36] overflow-hidden">
+        <div className="grid grid-cols-12 px-4 py-3 text-xs uppercase tracking-wider text-gray-400 bg-black/30">
+          <div className="col-span-4">Player</div>
+          <div className="col-span-2">Started</div>
+          <div className="col-span-2">Current</div>
+          <div className="col-span-2">Change</div>
+          <div className="col-span-2 text-right">Actions</div>
+        </div>
+
+        {loading ? (
+          <div className="p-6 text-gray-400">Loading…</div>
+        ) : sorted.length === 0 ? (
+          <div className="p-6 text-gray-400">
+            No players yet. Click <span className="text-white">Add</span> to start a watch.
+          </div>
+        ) : (
+          <ul className="divide-y divide-[#1c1f26]">
+            {sorted.map((it) => (
+              <li key={it.id} className="grid grid-cols-12 px-4 py-3 items-center text-sm">
+                <div className="col-span-4">
+                  <div className="text-white font-semibold">{it.player_name}</div>
+                  <div className="text-xs text-gray-400">
+                    ID {it.card_id} • {it.version || "Base"} • {it.platform?.toUpperCase()}
+                  </div>
+                </div>
+
+                <div className="col-span-2 text-gray-200">
+                  <Price value={it.started_price} />
+                  <div className="text-[10px] text-gray-500">Added {new Date(it.started_at).toLocaleString()}</div>
+                </div>
+
+                <div className="col-span-2 text-gray-200">
+                  {it.is_extinct ? (
+                    <span className="text-yellow-400 font-semibold">Extinct</span>
+                  ) : (
+                    <Price value={it.current_price} />
+                  )}
+                  {it.updated_at && (
+                    <div className="text-[10px] text-gray-500">Updated {new Date(it.updated_at).toLocaleString()}</div>
+                  )}
+                </div>
+
+                <div className="col-span-2">
+                  <Change change={it.change} pct={it.change_pct} />
+                </div>
+
+                <div className="col-span-2 text-right flex justify-end gap-2">
+                  <button
+                    onClick={() => handleRefreshRow(it.id)}
+                    disabled={busyId === it.id}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-700 hover:bg-gray-600 text-white text-xs"
+                    title="Refresh price"
+                  >
+                    <Icon.Refresh className={busyId === it.id ? "animate-spin" : ""} />
+                    Refresh
+                  </button>
+                  <button
+                    onClick={() => handleDelete(it.id)}
+                    disabled={busyId === it.id}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-red-600/80 hover:bg-red-600 text-white text-xs"
+                  >
+                    <Icon.Trash />
+                    Remove
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Add Modal */}
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="w-full max-w-md bg-[#111318] border border-[#2A2F36] rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white">Add to Watchlist</h2>
+              <button
+                onClick={() => setShowAdd(false)}
+                className="text-gray-400 hover:text-white p-1 rounded-md hover:bg-gray-800/60"
+                aria-label="Close"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAdd} className="space-y-4">
+              <div className="relative">
+                <label className="block text-sm text-gray-300 mb-1">Player</label>
+                <input
+                  ref={inputRef}
+                  className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                  value={form.player_name}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, player_name: e.target.value }));
+                    setSugOpen(true);
+                  }}
+                  placeholder="e.g., Cristiano Ronaldo"
+                  required
+                  autoComplete="off"
+                />
+
+                {/* suggestions dropdown */}
+                {sugOpen && (
+                  <div className="absolute left-0 right-0 mt-1 rounded-md overflow-hidden border border-[#2A2F36] bg-[#0c0f14] z-10">
+                    {sugLoading ? (
+                      <div className="px-3 py-2 text-sm text-gray-400">Searching…</div>
+                    ) : form.player_name.trim().length < 1 ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">Type 1+ characters</div>
+                    ) : suggestions.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
+                    ) : (
+                      <ul className="max-h-64 overflow-y-auto">
+                        {suggestions.map((p) => (
+                          <li
+                            key={`${p.card_id}-${p.name}`}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => applySuggestion(p)}
+                            className="px-3 py-2 text-sm hover:bg-gray-800 cursor-pointer flex items-center gap-2"
+                          >
+                            {p.image_url ? (
+                              <img src={p.image_url} alt="" className="w-6 h-6 rounded-sm object-cover" />
+                            ) : (
+                              <div className="w-6 h-6 rounded-sm bg-gray-700" />
+                            )}
+                            <div className="flex-1">
+                              <div className="text-white">
+                                {p.name} {p.rating ? <span className="text-gray-400">({p.rating})</span> : null}
+                              </div>
+                              <div className="text-[11px] text-gray-400">
+                                ID {p.card_id} • {p.version || "Base"} • {p.position || "—"}
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-1">Card ID (EA/FUT.GG)</label>
+                <input
+                  className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                  value={form.card_id}
+                  onChange={(e) => setForm((f) => ({ ...f, card_id: e.target.value.replace(/\D/g, "") }))}
+                  placeholder="e.g., 100664475"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Version</label>
+                  <input
+                    className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                    value={form.version}
+                    onChange={(e) => setForm((f) => ({ ...f, version: e.target.value }))}
+                    placeholder="Base / IF / RTTK …"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Platform</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                    value={form.platform}
+                    onChange={(e) => setForm((f) => ({ ...f, platform: e.target.value }))}
+                  >
+                    <option value="ps">PS</option>
+                    <option value="xbox">Xbox</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-1">Notes (optional)</label>
+                <textarea
+                  className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                  rows={3}
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Target buy/sell, reasons, etc."
+                />
+              </div>
+
+              <button
+                disabled={busyAdd}
+                className="w-full py-2 rounded-md bg-lime-500/90 hover:bg-lime-500 text-black font-bold"
+              >
+                {busyAdd ? "Adding…" : "Add to Watchlist"}
+              </button>
+            </form>
+          </div>
         </div>
       )}
-
-      {loading && <div className="text-gray-400">Loading…</div>}
-      {!loading && items.length === 0 && (
-        <div className="text-gray-400">No watched players yet. Add from Trade Finder or player pages.</div>
-      )}
-
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {items.map((it) => {
-          const img =
-            it.image ||
-            it.image_url ||
-            `https://game-assets.fut.gg/cdn-cgi/image/quality=100,format=auto,width=500/2025/player-item-card/25-${it.card_id}.webp`;
-
-          const priceNow = it.current_price ?? null;
-          const start = it.started_price ?? null;
-          const diff = it.change ?? (priceNow != null && start != null ? priceNow - start : null);
-          const diffPct =
-            it.change_pct ??
-            (priceNow != null && start ? Math.round(((priceNow - start) / start) * 10000) / 100 : null);
-
-          return (
-            <div
-              key={it.id}
-              className="rounded-2xl bg-zinc-900/70 border border-zinc-800 p-4 flex gap-4 items-center shadow-sm"
-            >
-              <img src={img} alt={it.player_name || it.name} className="w-16 h-24 object-cover rounded-lg" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 justify-between">
-                  <div className="truncate">
-                    <div className="text-base text-gray-100 font-semibold truncate">
-                      {it.player_name || it.name} {it.rating ? <span className="text-gray-400">({it.rating})</span> : null}
-                    </div>
-                    <div className="text-xs text-gray-400 truncate">
-                      {it.version ? `${it.version} • ` : ""}
-                      {it.club ? `${it.club} • ` : ""}
-                      {it.nation || it.league || ""}
-                    </div>
-                  </div>
-                  <span className="text-[10px] px-2 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-gray-300">
-                    {platformLabel(it.platform)}
-                  </span>
-                </div>
-
-                <div className="mt-2 grid grid-cols-4 gap-2 text-sm">
-                  <Tile label="Start" value={start != null ? `${formatCoins(start)}c` : "—"} />
-                  <Tile label="Current" value={priceNow != null ? `${formatCoins(priceNow)}c` : "—"} />
-                  <Tile
-                    label="Change"
-                    value={
-                      diff != null ? (
-                        <span className={diff >= 0 ? "text-lime-400" : "text-rose-400"}>
-                          {diff >= 0 ? "+" : ""}
-                          {formatCoins(diff)}c
-                        </span>
-                      ) : (
-                        "—"
-                      )
-                    }
-                  />
-                  <Tile
-                    label="Δ %"
-                    value={
-                      diffPct != null ? (
-                        <span className={diffPct >= 0 ? "text-lime-400" : "text-rose-400"}>
-                          {diffPct >= 0 ? "+" : ""}
-                          {diffPct.toFixed(2)}%
-                        </span>
-                      ) : (
-                        "—"
-                      )
-                    }
-                  />
-                </div>
-
-                <div className="mt-2 text-[11px] text-gray-400 flex items-center gap-3">
-                  <span className="inline-flex items-center gap-1">
-                    <Clock size={12} />
-                    {it.updated_at ? `Updated ${formatDate(it.updated_at)}` : "Freshness unknown"}
-                  </span>
-                  {it.is_extinct ? (
-                    <span className="inline-flex items-center gap-1 text-amber-400">
-                      <MonitorSmartphone size={12} /> Extinct
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => onRefresh(it.id)}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-sm"
-                  title="Refresh"
-                >
-                  <RefreshCcw size={16} />
-                </button>
-                <button
-                  onClick={() => onDelete(it.id)}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-rose-600/40 bg-rose-600/10 hover:bg-rose-600/20 text-sm text-rose-300"
-                  title="Remove"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function Tile({ label, value }) {
-  return (
-    <div className="bg-zinc-950/50 rounded-xl p-2 border border-zinc-800">
-      <div className="text-[11px] text-gray-400">{label}</div>
-      <div className="text-gray-100 font-medium truncate">{value}</div>
     </div>
   );
 }
