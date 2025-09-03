@@ -1,5 +1,5 @@
 // src/api/tradeFinder.js
-import api from "./axios";
+import api from "../axios";
 
 // params example:
 // { platform:"console", timeframe:24, budget_max:150000, min_profit:1500,
