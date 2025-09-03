@@ -4,6 +4,12 @@ import { RefreshCcw, Info, PlusCircle, AlertTriangle } from "lucide-react";
 import { fetchTradeFinder as fetchDeals, fetchDealInsight as explainDeal } from "../api/tradeFinder";
 import { addWatch as addToWatchlist } from "../api/watchlist";
 
+// Debug logging - remove this after fixing
+console.log('🔍 TradeFinder Environment Check:');
+console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('  MODE:', import.meta.env.MODE);
+console.log('  All env vars:', import.meta.env);
+
 const cls = (...xs) => xs.filter(Boolean).join(" ");
 
 const NumberInput = ({ label, value, onChange, min, step = 100 }) => (
@@ -133,9 +139,14 @@ export default function TradeFinder() {
     setLoading(true);
     setError("");
     setRelaxed(false);
+    
+    console.log('🔍 TradeFinder loading with params:', params);
+    
     try {
       // 1) strict
       let data = await fetchDeals(params);
+      console.log('🔍 TradeFinder received data:', data);
+      
       // 2) auto-relax once if empty
       if (!data.length) {
         const relaxedParams = {
@@ -144,12 +155,13 @@ export default function TradeFinder() {
           min_profit: 0,
           budget_max: params.budget_max && params.budget_max < 2_000_000 ? 2_000_000 : params.budget_max,
         };
+        console.log('🔍 Trying relaxed params:', relaxedParams);
         data = await fetchDeals(relaxedParams);
         if (data.length) setRelaxed(true);
       }
       setDeals(data);
     } catch (e) {
-      console.error(e);
+      console.error('🚨 TradeFinder error:', e);
       setError(e?.message || "Failed to load deals");
     } finally {
       setLoading(false);
@@ -197,6 +209,13 @@ export default function TradeFinder() {
         >
           <RefreshCcw size={16} /> Refresh
         </button>
+      </div>
+
+      {/* Debug Info - Remove this after fixing */}
+      <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-3 text-sm">
+        <strong>🔍 Debug Info:</strong><br />
+        API Base: {import.meta.env.VITE_API_URL || 'FALLBACK'}<br />
+        Should be: https://api.futhub.co.uk
       </div>
 
       <div className="grid lg:grid-cols-6 md:grid-cols-3 grid-cols-2 gap-3">
