@@ -1,20 +1,20 @@
 import axios from "axios";
 
-const instance = axios.create({
+const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "https://api.futhub.co.uk",
   withCredentials: true,
   timeout: 10000,
 });
 
-instance.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      console.log('Authentication required, redirecting to login...');
-      window.location.href = '/login';
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401 && !location.pathname.startsWith("/login")) {
+      const next = encodeURIComponent(location.pathname + location.search);
+      location.href = `/login?next=${next}`;
     }
-    return Promise.reject(error);
+    return Promise.reject(err);
   }
 );
 
-export default instance;
+export default api;
