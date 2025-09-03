@@ -1,18 +1,24 @@
-import { apiFetch } from "./http";
+// src/api/watchlist.js
+import api from "./axios";
 
-export const getWatchlist = async () => {
-  const r = await apiFetch("/api/watchlist");
-  return Array.isArray(r?.items) ? r.items : [];
-};
+// All functions return JSON payloads from the API host (VITE_API_URL)
+export async function getWatchlist() {
+  const { data } = await api.get("/api/watchlist");
+  return data;
+}
 
-export const addWatch = (payload) =>
-  apiFetch("/api/watchlist", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+export async function addWatch(payload) {
+  // payload: { player_name, card_id, version?, platform, notes? }
+  const { data } = await api.post("/api/watchlist", payload);
+  return data;
+}
 
-export const deleteWatch = (id) =>
-  apiFetch(`/api/watchlist/${id}`, { method: "DELETE" });
+export async function deleteWatch(id) {
+  const { data } = await api.delete(`/api/watchlist/${id}`);
+  return data;
+}
 
-export const refreshWatch = (id) =>
-  apiFetch(`/api/watchlist/${id}/refresh`, { method: "POST" });
+export async function refreshWatch(id) {
+  const { data } = await api.post(`/api/watchlist/${id}/refresh`);
+  return data;
+}
