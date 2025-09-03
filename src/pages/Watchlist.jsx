@@ -175,7 +175,7 @@ export default function Watchlist() {
         player_name: form.player_name.trim(),
         card_id: Number(form.card_id),
         version: form.version || null,
-        platform: form.platform, // already 'ps' | 'xbox'
+        platform: form.platform.toUpperCase(), // 'PS' | 'XBOX' (API-safe)
         notes: form.notes || null,
       });
       setShowAdd(false);
