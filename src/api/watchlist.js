@@ -1,5 +1,5 @@
 // src/api/watchlist.js
-import api from "./axios";
+import api from "../axios";
 
 // All functions return JSON payloads from the API host (VITE_API_URL)
 export async function getWatchlist() {
