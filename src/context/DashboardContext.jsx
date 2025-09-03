@@ -1,6 +1,6 @@
 // context/DashboardContext.jsx
 import { createContext, useContext, useReducer, useEffect } from 'react';
-import api from '../utils/axios';
+import api from '../axios';
 
 const DashboardContext = createContext();
 
