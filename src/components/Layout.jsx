@@ -1,5 +1,5 @@
 import React from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Outlet } from "react-router-dom";
 import DesktopSidebar from "./DesktopSidebar";
 import MobileHeader from "./MobileHeader";
 import { useMediaQuery } from "../hooks/useMediaQuery";
@@ -7,7 +7,7 @@ import { useMediaQuery } from "../hooks/useMediaQuery";
 const Layout = ({ children }) => {
   const location = useLocation();
   const isMobile = useMediaQuery("(max-width: 768px)");
-
+  
   // Routes that should not show navigation
   const noNavRoutes = ["/login", "/register", "/onboarding"];
   const showNavigation = !noNavRoutes.includes(location.pathname);
@@ -22,19 +22,17 @@ const Layout = ({ children }) => {
         <>
           <MobileHeader />
           <main className="min-h-screen bg-gray-950">
-            <Outlet /> {/* ✅ Add this */}
-            {children}
+            <Outlet />
           </main>
         </>
       ) : (
         <>
           <DesktopSidebar />
-          <main
+          <main 
             className="min-h-screen bg-gray-950 transition-all duration-200"
             style={{ marginLeft: "var(--sidebar-width, 16rem)" }}
           >
-            <Outlet /> {/* ✅ Add this */}
-            {children}
+            <Outlet />
           </main>
         </>
       )}
