@@ -12,7 +12,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from "recharts";
-import api from "../utils/axios";
+import api from "../axios';
 
 const ModernDashboard = () => {
   const {
