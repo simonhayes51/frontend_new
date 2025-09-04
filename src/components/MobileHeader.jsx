@@ -19,6 +19,7 @@ const MobileHeader = () => {
     { path: "/trades", label: "Trades", icon: "📋" },
     { path: "/player-search", label: "Player Search", icon: "🔍" },
     { path: "/player-compare", label: "Compare", icon: "⚖️" },
+    { path: "/smart-buy", label: "Smart Buy", icon: "🧠" }, // 👈 NEW
     { path: "/watchlist", label: "Watchlist", icon: "👀" },
     { path: "/trending", label: "Trending", icon: "📈" },
     { path: "/squad", label: "Squad Builder", icon: "⚽" },
