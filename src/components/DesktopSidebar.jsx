@@ -41,14 +41,17 @@ const DesktopSidebar = () => {
     setUserMenuOpen(false);
   }, [location.pathname]);
 
+// Update to src/components/DesktopSidebar.jsx - Add Smart Buy to navigation
+
   const navItems = [
     { path: "/", label: "Dashboard" },
     { path: "/add-trade", label: "Add Trade" },
     { path: "/trades", label: "Trades" },
     { path: "/player-search", label: "Player Search" },
     { path: "/player-compare", label: "Compare" },    
+    { path: "/smart-buy", label: "Smart Buy" }, // 👈 NEW
     { path: "/watchlist", label: "Watchlist" },
-    { path: "/trending", label: "Trending" }, // NEW
+    { path: "/trending", label: "Trending" },
     { path: "/squad", label: "Squad Builder" },
   ];
 
