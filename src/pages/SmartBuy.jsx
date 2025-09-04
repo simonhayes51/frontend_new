@@ -1,5 +1,5 @@
-// src/pages/SmartBuy.jsx
-import React, { useState, useEffect, useMemo } from "react";
+// Enhanced src/pages/SmartBuy.jsx with performance optimizations and better UX
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Brain, 
   TrendingUp, 
@@ -14,7 +14,11 @@ import {
   Eye,
   ShoppingCart,
   BarChart3,
-  Zap
+  Zap,
+  Filter,
+  ChevronDown,
+  Info,
+  X
 } from "lucide-react";
 import { 
   fetchSmartBuyData, 
@@ -29,64 +33,86 @@ import { useSettings } from "../context/SettingsContext";
 
 const ACCENT = "#91db32";
 
-const cardBase = "bg-gray-900/70 rounded-2xl p-4 border border-gray-800 hover:border-gray-700 transition-colors";
+const cardBase = "bg-gray-900/70 rounded-2xl p-4 border border-gray-800 hover:border-gray-700 transition-all duration-200";
 
-function MarketStateIndicator({ state, confidence }) {
+// Performance: Memoized market state indicator
+const MarketStateIndicator = React.memo(({ state, confidence, intelligence }) => {
   const stateConfig = {
     [MARKET_STATES.NORMAL]: { 
       color: "text-blue-400", 
       bg: "bg-blue-400/10", 
       label: "Normal Trading",
-      icon: <BarChart3 size={16} />
+      icon: <BarChart3 size={16} />,
+      description: "Standard market conditions"
     },
     [MARKET_STATES.PRE_CRASH]: { 
       color: "text-yellow-400", 
       bg: "bg-yellow-400/10", 
       label: "Pre-Crash Window",
-      icon: <AlertTriangle size={16} />
+      icon: <AlertTriangle size={16} />,
+      description: "Market showing signs of instability"
     },
     [MARKET_STATES.CRASH_ACTIVE]: { 
       color: "text-red-400", 
       bg: "bg-red-400/10", 
       label: "Market Crash Active",
-      icon: <TrendingDown size={16} />
+      icon: <TrendingDown size={16} />,
+      description: "Prices dropping rapidly - buying opportunity"
     },
     [MARKET_STATES.RECOVERY]: { 
       color: "text-green-400", 
       bg: "bg-green-400/10", 
       label: "Recovery Phase",
-      icon: <TrendingUp size={16} />
+      icon: <TrendingUp size={16} />,
+      description: "Market recovering from crash"
     },
     [MARKET_STATES.PROMO_HYPE]: { 
       color: "text-purple-400", 
       bg: "bg-purple-400/10", 
       label: "Promo Hype",
-      icon: <Zap size={16} />
+      icon: <Zap size={16} />,
+      description: "New promo causing market excitement"
     }
   };
 
   const config = stateConfig[state] || stateConfig[MARKET_STATES.NORMAL];
 
   return (
-    <div className={`${cardBase} ${config.bg} border-opacity-50`}>
+    <div className={`${cardBase} ${config.bg} border-opacity-50 cursor-help group relative`}>
       <div className="flex items-center gap-3">
         <div className={`${config.color}`}>
           {config.icon}
         </div>
-        <div>
+        <div className="flex-1">
           <div className={`font-semibold ${config.color}`}>{config.label}</div>
           <div className="text-xs text-gray-400">Confidence: {confidence}%</div>
+        </div>
+        <Info size={14} className="text-gray-500" />
+      </div>
+      
+      {/* Tooltip */}
+      <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10">
+        <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm w-64 shadow-xl">
+          <div className={`font-medium ${config.color} mb-1`}>{config.label}</div>
+          <div className="text-gray-300 mb-2">{config.description}</div>
+          {intelligence?.upcoming_events?.length > 0 && (
+            <div className="text-xs text-gray-400">
+              Next event: {intelligence.upcoming_events[0].name}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
-}
+});
 
-function SuggestionCard({ suggestion, onBuy, onWatchlist, onIgnore }) {
+// Performance: Memoized suggestion card with action optimizations
+const SuggestionCard = React.memo(({ suggestion, onBuy, onWatchlist, onIgnore }) => {
   const { formatCurrency } = useSettings();
   const [loading, setLoading] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
-  const handleAction = async (action) => {
+  const handleAction = useCallback(async (action) => {
     setLoading(true);
     try {
       if (action === "buy") {
@@ -94,6 +120,7 @@ function SuggestionCard({ suggestion, onBuy, onWatchlist, onIgnore }) {
       } else if (action === "watchlist") {
         await onWatchlist(suggestion);
       } else if (action === "ignore") {
+        setDismissed(true);
         await onIgnore(suggestion);
       }
       
@@ -104,21 +131,32 @@ function SuggestionCard({ suggestion, onBuy, onWatchlist, onIgnore }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [suggestion, onBuy, onWatchlist, onIgnore]);
 
-  const profitColor = suggestion.expected_profit >= 0 ? "text-green-400" : "text-red-400";
-  const riskColor = suggestion.risk_level === "low" ? "text-green-400" : 
-                   suggestion.risk_level === "medium" ? "text-yellow-400" : "text-red-400";
+  // Memoized calculations
+  const { profitColor, riskColor, profitPercentage } = useMemo(() => {
+    const profitColor = suggestion.expected_profit >= 0 ? "text-green-400" : "text-red-400";
+    const riskColor = suggestion.risk_level === "low" ? "text-green-400" : 
+                     suggestion.risk_level === "medium" ? "text-yellow-400" : "text-red-400";
+    const profitPercentage = ((suggestion.expected_profit / suggestion.current_price) * 100).toFixed(1);
+    
+    return { profitColor, riskColor, profitPercentage };
+  }, [suggestion.expected_profit, suggestion.current_price, suggestion.risk_level]);
+
+  if (dismissed) {
+    return null;
+  }
 
   return (
-    <div className={cardBase}>
+    <div className={`${cardBase} transform hover:scale-[1.01] transition-all duration-200`}>
       <div className="flex items-start gap-4">
-        {/* Player Image */}
+        {/* Player Image with loading state */}
         <div className="relative">
           <img
             src={suggestion.image_url || "/img/card-placeholder.png"}
             alt={suggestion.name}
             className="w-20 h-28 object-contain rounded-lg bg-gray-800/50"
+            loading="lazy"
             onError={(e) => {
               e.currentTarget.src = "/img/card-placeholder.png";
             }}
@@ -148,7 +186,7 @@ function SuggestionCard({ suggestion, onBuy, onWatchlist, onIgnore }) {
             </div>
           </div>
 
-          {/* Price Info */}
+          {/* Enhanced Price Info with profit percentage */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
             <div className="bg-gray-800/50 rounded-lg p-3">
               <div className="text-xs text-gray-400">Current Price</div>
@@ -162,177 +200,226 @@ function SuggestionCard({ suggestion, onBuy, onWatchlist, onIgnore }) {
               <div className="text-xs text-gray-400">Expected Profit</div>
               <div className={`font-semibold ${profitColor}`}>
                 {suggestion.expected_profit >= 0 ? "+" : ""}{formatCurrency(suggestion.expected_profit)}
+                <span className="text-xs ml-1">({profitPercentage}%)</span>
               </div>
             </div>
             <div className="bg-gray-800/50 rounded-lg p-3">
               <div className="text-xs text-gray-400">Time to Profit</div>
-              <div className="font-semibold text-white">{suggestion.time_to_profit}</div>
+              <div className="font-semibold text-white flex items-center gap-1">
+                <Clock size={12} />
+                {suggestion.time_to_profit}
+              </div>
             </div>
           </div>
 
-          {/* Reason */}
+          {/* Reason with better formatting */}
           <div className="mb-4">
-            <div className="text-sm text-gray-300 leading-relaxed">
-              <strong>Why this card:</strong> {suggestion.reason}
+            <div className="text-sm text-gray-300 leading-relaxed bg-gray-800/30 rounded-lg p-3 border-l-4 border-blue-500/50">
+              <div className="flex items-start gap-2">
+                <Brain size={14} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <strong className="text-blue-300">AI Analysis:</strong> {suggestion.reason}
+                </div>
+              </div>
             </div>
             {suggestion.category && (
-              <div className="mt-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 <span className="px-2 py-1 rounded-full text-xs bg-blue-500/20 text-blue-300 border border-blue-500/30">
                   {suggestion.category.replace(/_/g, " ").toUpperCase()}
                 </span>
+                {suggestion.confidence_score && (
+                  <span className="px-2 py-1 rounded-full text-xs bg-green-500/20 text-green-300 border border-green-500/30">
+                    {suggestion.confidence_score}% Confidence
+                  </span>
+                )}
               </div>
             )}
           </div>
 
-          {/* Actions */}
+          {/* Enhanced Actions with loading states */}
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => handleAction("buy")}
               disabled={loading}
-              className="px-4 py-2 rounded-lg bg-green-500/90 hover:bg-green-500 text-black font-semibold flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2 rounded-lg bg-green-500/90 hover:bg-green-500 text-black font-semibold flex items-center gap-2 disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-green-500/20"
             >
               <ShoppingCart size={16} />
-              Mark as Bought
+              {loading ? "Processing..." : "Mark as Bought"}
             </button>
             <button
               onClick={() => handleAction("watchlist")}
               disabled={loading}
-              className="px-4 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 flex items-center gap-2 disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-blue-500/20"
             >
               <Eye size={16} />
-              Add to Watchlist
+              Watchlist
             </button>
             <button
               onClick={() => handleAction("ignore")}
               disabled={loading}
-              className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 flex items-center gap-2 disabled:opacity-50 transition-all"
             >
-              Not Interested
+              <X size={16} />
+              Dismiss
             </button>
           </div>
         </div>
       </div>
     </div>
   );
-}
+});
 
+// Enhanced filter panel with better UX
 function FilterPanel({ filters, onChange, onReset }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
     <div className={cardBase}>
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-white flex items-center gap-2">
-          <Settings size={18} />
+          <Filter size={18} />
           Suggestion Filters
+          <span className="text-xs text-gray-500">({Object.keys(filters).length} active)</span>
         </h3>
-        <button
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="text-sm text-blue-400 hover:text-blue-300"
-        >
-          {showAdvanced ? "Simple" : "Advanced"}
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div>
-          <label className="block text-sm text-gray-300 mb-1">Budget</label>
-          <input
-            type="number"
-            min="1000"
-            step="1000"
-            value={filters.budget}
-            onChange={(e) => onChange({ ...filters, budget: Number(e.target.value) })}
-            className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-sm text-gray-300 mb-1">Risk Tolerance</label>
-          <select
-            value={filters.risk_tolerance}
-            onChange={(e) => onChange({ ...filters, risk_tolerance: e.target.value })}
-            className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
           >
-            <option value="conservative">Conservative</option>
-            <option value="moderate">Moderate</option>
-            <option value="aggressive">Aggressive</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm text-gray-300 mb-1">Time Horizon</label>
-          <select
-            value={filters.time_horizon}
-            onChange={(e) => onChange({ ...filters, time_horizon: e.target.value })}
-            className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+            {showAdvanced ? "Simple" : "Advanced"}
+          </button>
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-1 rounded hover:bg-gray-800 transition-colors"
           >
-            <option value="quick_flip">Quick Flip (1-6h)</option>
-            <option value="short">Short Term (6-48h)</option>
-            <option value="long_term">Long Term (2-14d)</option>
-          </select>
+            <ChevronDown size={16} className={`text-gray-400 transition-transform ${isCollapsed ? "rotate-180" : ""}`} />
+          </button>
         </div>
       </div>
 
-      {showAdvanced && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Preferred Categories</label>
-            <div className="space-y-2">
-              {Object.values(BUY_CATEGORIES).map((category) => (
-                <label key={category} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={filters.categories?.includes(category)}
-                    onChange={(e) => {
-                      const categories = filters.categories || [];
-                      if (e.target.checked) {
-                        onChange({ ...filters, categories: [...categories, category] });
-                      } else {
-                        onChange({ ...filters, categories: categories.filter(c => c !== category) });
-                      }
-                    }}
-                    className="mr-2"
-                  />
-                  <span className="text-sm text-gray-300">
-                    {category.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Rating Range</label>
-            <div className="flex gap-2">
+      {!isCollapsed && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">
+                Budget <span className="text-gray-500">({filters.budget.toLocaleString()} coins)</span>
+              </label>
               <input
-                type="number"
-                min="40"
-                max="99"
-                value={filters.min_rating}
-                onChange={(e) => onChange({ ...filters, min_rating: Number(e.target.value) })}
-                className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-                placeholder="Min"
+                type="range"
+                min="10000"
+                max="1000000"
+                step="10000"
+                value={filters.budget}
+                onChange={(e) => onChange({ ...filters, budget: Number(e.target.value) })}
+                className="w-full mb-2"
               />
               <input
                 type="number"
-                min="40"
-                max="99"
-                value={filters.max_rating}
-                onChange={(e) => onChange({ ...filters, max_rating: Number(e.target.value) })}
-                className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-                placeholder="Max"
+                min="1000"
+                step="1000"
+                value={filters.budget}
+                onChange={(e) => onChange({ ...filters, budget: Number(e.target.value) })}
+                className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm"
               />
             </div>
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">Risk Tolerance</label>
+              <select
+                value={filters.risk_tolerance}
+                onChange={(e) => onChange({ ...filters, risk_tolerance: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+              >
+                <option value="conservative">🟢 Conservative</option>
+                <option value="moderate">🟡 Moderate</option>
+                <option value="aggressive">🔴 Aggressive</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">Time Horizon</label>
+              <select
+                value={filters.time_horizon}
+                onChange={(e) => onChange({ ...filters, time_horizon: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+              >
+                <option value="quick_flip">⚡ Quick Flip (1-6h)</option>
+                <option value="short">📅 Short Term (6-48h)</option>
+                <option value="long_term">📆 Long Term (2-14d)</option>
+              </select>
+            </div>
           </div>
-        </div>
+
+          {showAdvanced && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-700/50">
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Strategy Categories</label>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {Object.values(BUY_CATEGORIES).map((category) => (
+                    <label key={category} className="flex items-center hover:bg-gray-800/30 p-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={filters.categories?.includes(category)}
+                        onChange={(e) => {
+                          const categories = filters.categories || [];
+                          if (e.target.checked) {
+                            onChange({ ...filters, categories: [...categories, category] });
+                          } else {
+                            onChange({ ...filters, categories: categories.filter(c => c !== category) });
+                          }
+                        }}
+                        className="mr-2 accent-blue-500"
+                      />
+                      <span className="text-sm text-gray-300">
+                        {category.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Rating Range</label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="40"
+                      max="99"
+                      value={filters.min_rating}
+                      onChange={(e) => onChange({ ...filters, min_rating: Number(e.target.value) })}
+                      className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm"
+                      placeholder="Min"
+                    />
+                    <input
+                      type="number"
+                      min="40"
+                      max="99"
+                      value={filters.max_rating}
+                      onChange={(e) => onChange({ ...filters, max_rating: Number(e.target.value) })}
+                      className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm"
+                      placeholder="Max"
+                    />
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Current: {filters.min_rating} - {filters.max_rating} OVR
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-700/50">
+            <div className="text-xs text-gray-500">
+              Filters will auto-update suggestions
+            </div>
+            <button
+              onClick={onReset}
+              className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition-colors"
+            >
+              Reset All
+            </button>
+          </div>
+        </>
       )}
-
-      <div className="flex justify-end mt-4">
-        <button
-          onClick={onReset}
-          className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm"
-        >
-          Reset Filters
-        </button>
-      </div>
     </div>
   );
 }
@@ -345,6 +432,7 @@ export default function SmartBuy() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const [filters, setFilters] = useState({
     budget: 100000,
@@ -356,14 +444,23 @@ export default function SmartBuy() {
     max_rating: 95
   });
 
-  const loadData = async (showRefresh = false) => {
+  // Debounced filter changes to prevent excessive API calls
+  const [debouncedFilters, setDebouncedFilters] = useState(filters);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilters(filters);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filters]);
+
+  const loadData = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
     else setLoading(true);
     setError("");
 
     try {
       const [suggestionsData, intelligence, userStats] = await Promise.all([
-        fetchSmartBuyData(filters),
+        fetchSmartBuyData(debouncedFilters),
         fetchMarketIntelligence(),
         fetchSuggestionStats()
       ]);
@@ -372,25 +469,27 @@ export default function SmartBuy() {
       setMarketState(suggestionsData.market_state);
       setMarketIntelligence(intelligence);
       setStats(userStats);
+      setLastUpdated(new Date());
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [debouncedFilters]);
 
   useEffect(() => {
     loadData();
-  }, [JSON.stringify(filters)]);
+  }, [loadData]);
 
-  const handleBuyAction = async (suggestion) => {
-    // In a real app, this might open a trade logging modal or redirect to add-trade
+  // Optimized action handlers
+  const handleBuyAction = useCallback(async (suggestion) => {
     console.log("User wants to buy:", suggestion);
+    // Could integrate with your add-trade functionality
     alert(`Great choice! Remember to buy ${suggestion.name} around ${suggestion.current_price} coins.`);
-  };
+  }, []);
 
-  const handleWatchlistAction = async (suggestion) => {
+  const handleWatchlistAction = useCallback(async (suggestion) => {
     try {
       await addWatch({
         player_name: suggestion.name,
@@ -403,13 +502,13 @@ export default function SmartBuy() {
     } catch (error) {
       alert(`Failed to add to watchlist: ${error.message}`);
     }
-  };
+  }, [filters.platform]);
 
-  const handleIgnoreAction = async (suggestion) => {
+  const handleIgnoreAction = useCallback(async (suggestion) => {
     setSuggestions(prev => prev.filter(s => s.card_id !== suggestion.card_id));
-  };
+  }, []);
 
-  const resetFilters = () => {
+  const resetFilters = useCallback(() => {
     setFilters({
       budget: 100000,
       risk_tolerance: "moderate", 
@@ -419,7 +518,15 @@ export default function SmartBuy() {
       min_rating: 75,
       max_rating: 95
     });
-  };
+  }, []);
+
+  // Auto-refresh every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   if (loading) {
     return (
@@ -438,15 +545,23 @@ export default function SmartBuy() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
+      {/* Enhanced Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white flex items-center gap-3">
             <Brain size={32} style={{ color: ACCENT }} />
             Smart Buy Suggestions
+            <span className="text-sm bg-green-500/20 text-green-300 px-2 py-1 rounded-full border border-green-500/30">
+              AI-Powered
+            </span>
           </h1>
-          <p className="text-gray-400 mt-1">
+          <p className="text-gray-400 mt-1 flex items-center gap-2">
             AI-powered trading opportunities based on market analysis
+            {lastUpdated && (
+              <span className="text-xs text-gray-500">
+                • Last updated {lastUpdated.toLocaleTimeString()}
+              </span>
+            )}
           </p>
         </div>
         
@@ -454,24 +569,25 @@ export default function SmartBuy() {
           <button
             onClick={() => loadData(true)}
             disabled={refreshing}
-            className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white flex items-center gap-2 disabled:opacity-50 transition-all hover:shadow-lg"
           >
             <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-            Refresh
+            {refreshing ? "Updating..." : "Refresh"}
           </button>
         </div>
       </div>
 
-      {/* Market State & Stats */}
+      {/* Enhanced Market State & Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MarketStateIndicator 
           state={marketState} 
-          confidence={marketIntelligence?.current_state_confidence || 0} 
+          confidence={marketIntelligence?.current_state_confidence || 0}
+          intelligence={marketIntelligence}
         />
         
         {stats && (
           <>
-            <div className={`${cardBase} bg-green-400/10`}>
+            <div className={`${cardBase} bg-green-400/10 hover:bg-green-400/15 transition-colors`}>
               <div className="flex items-center gap-3">
                 <Star className="text-green-400" size={16} />
                 <div>
@@ -481,7 +597,7 @@ export default function SmartBuy() {
               </div>
             </div>
             
-            <div className={`${cardBase} bg-blue-400/10`}>
+            <div className={`${cardBase} bg-blue-400/10 hover:bg-blue-400/15 transition-colors`}>
               <div className="flex items-center gap-3">
                 <DollarSign className="text-blue-400" size={16} />
                 <div>
@@ -491,12 +607,12 @@ export default function SmartBuy() {
               </div>
             </div>
             
-            <div className={`${cardBase} bg-purple-400/10`}>
+            <div className={`${cardBase} bg-purple-400/10 hover:bg-purple-400/15 transition-colors`}>
               <div className="flex items-center gap-3">
                 <Target className="text-purple-400" size={16} />
                 <div>
                   <div className="font-semibold text-purple-400">{stats.suggestions_taken}/{stats.total_suggestions}</div>
-                  <div className="text-xs text-gray-400">Taken</div>
+                  <div className="text-xs text-gray-400">Suggestions Taken</div>
                 </div>
               </div>
             </div>
@@ -504,31 +620,40 @@ export default function SmartBuy() {
         )}
       </div>
 
-      {/* Filters */}
+      {/* Enhanced Filters */}
       <FilterPanel 
         filters={filters} 
         onChange={setFilters}
         onReset={resetFilters}
       />
 
-      {/* Error */}
+      {/* Error with retry */}
       {error && (
         <div className="p-4 rounded-lg bg-red-900/20 border border-red-500/30 text-red-300">
-          <div className="flex items-center gap-2">
-            <AlertTriangle size={16} />
-            {error}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} />
+              {error}
+            </div>
+            <button
+              onClick={() => loadData()}
+              className="px-3 py-1 rounded bg-red-500/20 hover:bg-red-500/30 text-sm"
+            >
+              Retry
+            </button>
           </div>
         </div>
       )}
 
-      {/* Suggestions */}
+      {/* Enhanced Suggestions */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-white">
             Buy Recommendations ({suggestions.length})
           </h2>
           {suggestions.length > 0 && (
-            <div className="text-sm text-gray-400">
+            <div className="text-sm text-gray-400 flex items-center gap-2">
+              <Target size={14} />
               Sorted by priority score
             </div>
           )}
@@ -538,9 +663,15 @@ export default function SmartBuy() {
           <div className={`${cardBase} text-center py-12`}>
             <Brain size={48} className="mx-auto mb-4 text-gray-500" />
             <h3 className="text-lg font-semibold text-gray-400 mb-2">No suggestions available</h3>
-            <p className="text-gray-500">
+            <p className="text-gray-500 mb-4">
               Try adjusting your filters or check back later for new opportunities.
             </p>
+            <button
+              onClick={() => loadData()}
+              className="px-4 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30"
+            >
+              Refresh Suggestions
+            </button>
           </div>
         ) : (
           <div className="space-y-4">
