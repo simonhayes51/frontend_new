@@ -1,3 +1,5 @@
+// Update to src/App.jsx - Add the new route
+
 import { lazy, Suspense } from "react";
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
@@ -20,7 +22,8 @@ const Profile      = lazy(() => import("./pages/Profile"));
 const Settings     = lazy(() => import("./pages/Settings"));
 const ProfitGraph  = lazy(() => import("./pages/ProfitGraph"));
 const PriceCheck   = lazy(() => import("./pages/PriceCheck"));
-const Trending     = lazy(() => import("./pages/Trending"));  // 👈 NEW
+const Trending     = lazy(() => import("./pages/Trending"));
+const SmartBuy     = lazy(() => import("./pages/SmartBuy")); // 👈 NEW
 const Login        = lazy(() => import("./pages/Login"));
 const AccessDenied = lazy(() => import("./pages/AccessDenied"));
 const NotFound     = lazy(() => import("./pages/NotFound"));
@@ -62,8 +65,9 @@ function App() {
                   <Route path="pricecheck" element={<PriceCheck />} />
                   <Route path="watchlist" element={<Watchlist />} />
                   <Route path="squad" element={<SquadBuilder />} />
-                  <Route path="trending" element={<Trending />} /> {/* 👈 NEW */}
+                  <Route path="trending" element={<Trending />} />
                   <Route path="trade-finder" element={<TradeFinder />} />
+                  <Route path="smart-buy" element={<SmartBuy />} /> {/* 👈 NEW */}
                 </Route>
 
                 {/* 404 */}
