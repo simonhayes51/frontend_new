@@ -1,6 +1,20 @@
 // src/axios.js
 import axios from "axios";
 
+/**
+ * Axios instance with:
+ * - Base URL from VITE_API_URL (fallback: https://api.futhub.co.uk)
+ * - withCredentials cookies (Starlette session)
+ * - 10s timeout
+ * - Idempotent GET retries (max 2; exponential backoff + jitter)
+ * - 429 Retry-After honouring
+ * - Premium gate (HTTP 402) → dispatches `premium:blocked` event
+ * - Normalised error: err.userMessage
+ *
+ * To disable retries per request: api.get("/x", { __noRetry: true })
+ * To change max retries per request: api.get("/x", { __maxRetries: 1 })
+ */
+
 const FALLBACK_API = "https://api.futhub.co.uk";
 
 const base =
@@ -8,28 +22,43 @@ const base =
   FALLBACK_API;
 
 if (import.meta.env.DEV) {
-  console.log("🔍 Environment check:", {
+  console.log("🔧 Axios env:", {
     VITE_API_URL: import.meta.env?.VITE_API_URL,
     base,
     mode: import.meta.env.MODE,
   });
 }
 
-const instance = axios.create({
-  baseURL: base,          // keep no trailing slash; requests pass "/api/..."
+const api = axios.create({
+  baseURL: base, // no trailing slash; callers pass "/api/..."
   withCredentials: true,
   timeout: 10000,
 });
 
-// ---- helpers --------------------------------------------------
+// -------- helpers ------------------------------------------------------------
 
 const IDEMPOTENT = new Set(["get", "head", "options"]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const backoff = (attempt) => {
-  // 0 -> 300ms, 1 -> 600ms, 2 -> 1200ms (+ jitter 0–150ms)
+  // attempt 0 → 300ms, 1 → 600ms, 2 → 1200ms (+ jitter 0–150ms)
   const base = 300 * Math.pow(2, attempt);
   return base + Math.floor(Math.random() * 150);
 };
+
+function parseRetryAfter(headerValue) {
+  if (!headerValue) return null;
+  // If number → seconds
+  const asNum = Number(headerValue);
+  if (!Number.isNaN(asNum)) return Math.max(0, asNum * 1000);
+
+  // Otherwise, HTTP-date
+  const when = Date.parse(headerValue);
+  if (!Number.isNaN(when)) {
+    const diff = when - Date.now();
+    return diff > 0 ? diff : 0;
+  }
+  return null;
+}
 
 function getUserFriendlyMessage(status, originalMessage) {
   switch (status) {
@@ -44,21 +73,23 @@ function getUserFriendlyMessage(status, originalMessage) {
   }
 }
 
-// ---- interceptors --------------------------------------------
+// -------- interceptors -------------------------------------------------------
 
 // Request
-instance.interceptors.request.use(
+api.interceptors.request.use(
   (config) => {
     // default headers
     config.headers["Accept"] = config.headers["Accept"] || "application/json";
-    config.headers["Content-Type"] = config.headers["Content-Type"] || "application/json";
+    if (!config.headers["Content-Type"] && !(config.data instanceof FormData)) {
+      config.headers["Content-Type"] = "application/json";
+    }
 
-    // ensure no double slashes in the path portion
+    // ensure no double slashes in path (keeps protocol intact)
     if (config.url) config.url = config.url.replace(/([^:]\/)\/+/g, "$1");
 
     // retry metadata
     if (config.__retryCount == null) config.__retryCount = 0;
-    if (config.__maxRetries == null) config.__maxRetries = 2; // only used for idempotent methods
+    if (config.__maxRetries == null) config.__maxRetries = 2; // GET/HEAD/OPTIONS only
 
     if (import.meta.env.DEV) {
       console.log(`[axios] → ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
@@ -69,7 +100,7 @@ instance.interceptors.request.use(
 );
 
 // Response (success)
-instance.interceptors.response.use(
+api.interceptors.response.use(
   (response) => {
     if (import.meta.env.DEV) {
       console.log("[axios] ←", response.status, response.config.url);
@@ -79,18 +110,24 @@ instance.interceptors.response.use(
 
   // Response (error) + retry + premium gate
   async (error) => {
+    const cfg = error.config || {};
+    const method = (cfg.method || "get").toLowerCase();
     const status = error.response?.status;
     const detail = error.response?.data?.detail;
-    const method = (error.config?.method || "get").toLowerCase();
-    const cfg = error.config || {};
 
-    // Dev log
-    console.error("🚨 Axios error:", {
-      status,
-      message: typeof detail === "string" ? detail : detail?.message || error.message,
-      url: cfg.url,
-      baseURL: cfg.baseURL,
-    });
+    const rawMessage =
+      (typeof detail === "string" && detail) ||
+      detail?.message ||
+      error.message;
+
+    if (import.meta.env.DEV) {
+      console.error("🚨 Axios error:", {
+        status,
+        message: rawMessage,
+        url: cfg.url,
+        baseURL: cfg.baseURL,
+      });
+    }
 
     // --- 402 Premium gate ---
     if (status === 402 && detail?.feature) {
@@ -101,25 +138,25 @@ instance.interceptors.response.use(
       return Promise.reject(enhanced402);
     }
 
-    // --- 401: bounce to login (keep your behaviour) ---
+    // --- 401: redirect to login ---
     if (status === 401) {
       if (typeof window !== "undefined") window.location.href = "/login";
       const enhanced401 = { ...error, userMessage: getUserFriendlyMessage(401) };
       return Promise.reject(enhanced401);
     }
 
-    // --- 429: honour Retry-After if present (idempotent only) ---
+    // --- 429: honour Retry-After for idempotent methods ---
     if (status === 429 && IDEMPOTENT.has(method) && !cfg.__noRetry) {
-      const ra = error.response.headers?.["retry-after"];
-      const waitMs = ra ? Number(ra) * 1000 : backoff(cfg.__retryCount || 0);
+      const waitMs = parseRetryAfter(error.response.headers?.["retry-after"]) ??
+                     backoff(cfg.__retryCount || 0);
       if ((cfg.__retryCount || 0) < (cfg.__maxRetries || 0)) {
         cfg.__retryCount = (cfg.__retryCount || 0) + 1;
         await sleep(waitMs);
-        return instance(cfg);
+        return api(cfg);
       }
     }
 
-    // --- Network / timeouts / 5xx: retry idempotent methods only ---
+    // --- Network/timeout/5xx: retry idempotent methods ---
     const isNetworkError = !error.response;
     const isTimeout = error.code === "ECONNABORTED";
     const is5xx = status >= 500 && status <= 599;
@@ -129,19 +166,14 @@ instance.interceptors.response.use(
         const attempt = cfg.__retryCount || 0;
         cfg.__retryCount = attempt + 1;
         await sleep(backoff(attempt));
-        return instance(cfg);
+        return api(cfg);
       }
     }
 
     // Normalise and bubble up
-    const message =
-      (typeof detail === "string" && detail) ||
-      detail?.message ||
-      error.message;
-
-    const enhancedError = { ...error, userMessage: getUserFriendlyMessage(status, message) };
+    const enhancedError = { ...error, userMessage: getUserFriendlyMessage(status, rawMessage) };
     return Promise.reject(enhancedError);
   }
 );
 
-export default instance;
+export default api;
