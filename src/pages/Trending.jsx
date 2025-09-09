@@ -1,4 +1,3 @@
-// src/pages/Trending.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   RefreshCcw,
@@ -6,6 +5,8 @@ import {
   TrendingDown,
   Loader2,
   BookmarkPlus,
+  Lightbulb,
+  Info,
 } from "lucide-react";
 
 const ACCENT = "#91db32";
@@ -58,17 +59,17 @@ function normaliseItem(p) {
     pid: p.pid ?? p.card_id ?? p.id,
     version: p.version ?? p.card_type ?? "",
     image: p.image ?? p.image_url ?? null,
-    // console-only price (falls back to legacy fields if needed)
     price_console:
       p.price_console ??
       p.price_ps ??
       p.ps ??
       (typeof p.price === "number" ? p.price : null),
-    // generic percent for risers/fallers, fallback chain
-    percent: p.percent ?? p.percent_24h ?? p.percent_12h ?? p.percent_6h ?? null,
-    // smart movers fields (if present)
-    p6: p.percent_6h ?? p.p6 ?? null,
-    p24: p.percent_24h ?? p.p24 ?? null,
+    percent:
+      p.percent ??
+      p.percent_24h ??
+      p.percent_12h ??
+      p.percent_6h ??
+      null,
     club: p.club ?? null,
     league: p.league ?? null,
   };
@@ -86,6 +87,7 @@ function extractPricesFromHistory(data) {
   const out = [];
   for (const p of points) {
     if (Array.isArray(p)) {
+      // [t, v] or [v]
       if (p.length >= 2) out.push([Number(p[0]), Number(p[1])]);
       else if (p.length === 1) out.push([NaN, Number(p[0])]);
     } else if (p && typeof p === "object") {
@@ -106,9 +108,35 @@ function mean(nums) {
   return sum / nums.length;
 }
 
+/** simple heuristic flags */
+function computeSmartFlags(p, avg) {
+  // Only if we have both prices
+  if (!(typeof p.price_console === "number" && typeof avg === "number")) {
+    return { tag: null, reason: "" };
+  }
+  const diff = avg - p.price_console;
+  const diffPct = (diff / p.price_console) * 100;
+
+  // Undervalued: price fell recently but avg > current by 5%+
+  if (Number(p.percent ?? 0) < 0 && diffPct >= 5) {
+    return {
+      tag: "Undervalued",
+      reason: `Avg ≈ ${Math.round(avg).toLocaleString()} vs now ${p.price_console.toLocaleString()} (+${diffPct.toFixed(1)}%)`,
+    };
+  }
+  // Overheated: price spiked but avg < current by 5%+
+  if (Number(p.percent ?? 0) > 0 && diffPct <= -5) {
+    return {
+      tag: "Overheated",
+      reason: `Avg ≈ ${Math.round(avg).toLocaleString()} vs now ${p.price_console.toLocaleString()} (${diffPct.toFixed(1)}%)`,
+    };
+  }
+  return { tag: null, reason: "" };
+}
+
 export default function Trending() {
-  const [trendType, setTrendType] = useState("fallers"); // "risers" | "fallers" | "smart"
-  const [timeframe, setTimeframe] = useState(24);        // 6 | 12 | 24 (number)
+  const [trendType, setTrendType] = useState("fallers"); // "risers" | "fallers"
+  const [timeframe, setTimeframe] = useState("24");      // "6" | "12" | "24"
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -123,20 +151,9 @@ export default function Trending() {
     setLoading(true);
     setErr("");
     try {
-      const allowed = new Set(["risers", "fallers", "smart"]);
-      const kind = allowed.has((trendType || "").toLowerCase())
-        ? (trendType || "").toLowerCase()
-        : "fallers";
-      const tfNum = parseInt(String(timeframe).replace(/[^\d]/g, ""), 10) || 24;
-
-      const qs = new URLSearchParams({ type: kind, tf: String(tfNum) });
-      const url = `${API_BASE}/api/trending?${qs.toString()}`;
+      const url = `${API_BASE}/api/trending?type=${trendType}&tf=${timeframe}`;
       const r = await fetch(url, { credentials: "include" });
-      if (!r.ok) {
-        let detail = "";
-        try { detail = await r.text(); } catch {}
-        throw new Error(`HTTP ${r.status}${detail ? ` – ${detail}` : ""}`);
-      }
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
       setItems((data.items || []).map(normaliseItem));
       setLastUpdated(new Date());
@@ -203,6 +220,17 @@ export default function Trending() {
 
   const [left, right] = useMemo(() => chunkTop10(items), [items]);
 
+  // Smart movers derived from items + avgMap
+  const smartMovers = useMemo(() => {
+    const enriched = items.map((p) => {
+      const avg = avgMap[p.pid];
+      const { tag, reason } = computeSmartFlags(p, avg);
+      return { ...p, avg, tag, reason };
+    });
+    // pick up to 4 with a tag
+    return enriched.filter((x) => x.tag).slice(0, 4);
+  }, [items, avgMap]);
+
   // Add to watchlist (store as PS under the hood; UI shows "Console")
   async function addToWatchlist(p) {
     try {
@@ -210,7 +238,7 @@ export default function Trending() {
         card_id: p.pid,
         player_name: p.name,
         version: p.version || null,
-        platform: "ps", // backend expects 'ps' or 'xbox'; we treat Console as PS
+        platform: "ps",
         notes: null,
       };
       const r = await fetch(`${API_BASE}/api/watchlist`, {
@@ -221,7 +249,6 @@ export default function Trending() {
       });
 
       if (r.status === 401) {
-        // not logged in -> bounce to login
         window.location.href = `${API_BASE}/api/login`;
         return;
       }
@@ -276,25 +303,14 @@ export default function Trending() {
               Risers
             </span>
           </button>
-          <button
-            onClick={() => setTrendType("smart")}
-            className={`px-3 py-2 rounded-xl border ${
-              trendType === "smart"
-                ? "border-gray-700 bg-gray-900 text-white"
-                : "border-gray-800 bg-gray-900/40 text-gray-300"
-            }`}
-            title="Opposite moves on 6h vs 24h"
-          >
-            <span className="inline-flex items-center gap-2">🔁 Smart</span>
-          </button>
 
           {/* Timeframe pills */}
           <div className="h-6 w-px bg-gray-700 hidden md:block" />
           <div className="inline-flex rounded-xl border border-gray-800 overflow-hidden">
-            {[6, 12, 24].map((tf) => (
+            {["6", "12", "24"].map((tf) => (
               <button
                 key={tf}
-                onClick={() => setTimeframe(Number(tf))}
+                onClick={() => setTimeframe(tf)}
                 className={`px-3 py-2 text-sm ${
                   timeframe === tf ? "bg-gray-900 text-white" : "bg-gray-900/40 text-gray-300"
                 }`}
@@ -319,13 +335,13 @@ export default function Trending() {
       {/* Status */}
       <div className="flex items-center justify-between">
         <div className="text-xs text-gray-400">
-        {trendType === "smart" ? (
-          <>Showing smart (6h vs 24h). Add players to your watchlist using the button on each card.</>
-        ) : (
-          <>Showing {trendType} for <span className="font-medium">{timeframe}h</span>. Add players to your watchlist using the button on each card.</>
+          Showing {trendType} for <span className="font-medium">{timeframe}h</span>. Add players
+          to your watchlist using the button on each card.
+        </div>
+        {lastUpdated && (
+          <div className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</div>
         )}
       </div>
-
 
       {/* Error */}
       {err && (
@@ -333,6 +349,57 @@ export default function Trending() {
           {err}
         </div>
       )}
+
+      {/* Smart Movers */}
+      <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-gray-300">
+            <Lightbulb size={16} style={{ color: ACCENT }} />
+            <span className="font-semibold">Smart Movers</span>
+            <span className="text-xs text-gray-500">(heuristic)</span>
+          </div>
+          <div className="text-xs text-gray-500 inline-flex items-center gap-1">
+            <Info size={12} /> Uses {timeframe}h average vs current price
+          </div>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-7 w-40 bg-gray-800/80 border border-gray-800 rounded-full animate-pulse" />
+            ))
+          ) : smartMovers.length ? (
+            smartMovers.map((p) => (
+              <div
+                key={`smart-${p.pid}`}
+                className="flex items-center gap-2 px-3 py-1 rounded-full border border-gray-800 bg-gray-900/70"
+                title={p.reason}
+              >
+                {p.image ? (
+                  <img src={p.image} alt={p.name} className="h-5 w-4 object-contain rounded bg-gray-800/60" />
+                ) : (
+                  <div className="h-5 w-4 rounded bg-gray-800" />
+                )}
+                <span className="text-xs text-gray-200">
+                  <span className="font-semibold">{p.name}</span>{" "}
+                  {p.rating ? <span className="text-gray-400">• {p.rating}</span> : null}
+                </span>
+                <span
+                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                  style={{
+                    background: p.tag === "Undervalued" ? "rgba(145,219,50,0.12)" : "rgba(248,113,113,0.12)",
+                    color: p.tag === "Undervalued" ? ACCENT : "#f87171",
+                    border: `1px solid ${p.tag === "Undervalued" ? ACCENT : "#f87171"}22`,
+                  }}
+                >
+                  {p.tag}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="text-xs text-gray-500">No obvious movers right now.</div>
+          )}
+        </div>
+      </div>
 
       {/* Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -399,38 +466,15 @@ export default function Trending() {
                         ) : null}
                       </div>
 
-                      {/* Percent(s) */}
-                      {trendType === "smart" ? (
-                        <div className="mt-1 text-xs text-gray-300 leading-tight">
-                          <div className="flex items-center gap-2">
-                            <span className="opacity-80">🔁 6h:</span>
-                            <strong
-                              className="tabular-nums"
-                              style={{ color: (p.p6 ?? 0) > 0 ? ACCENT : "#f87171" }}
-                            >
-                              {pctString(p.p6)}
-                            </strong>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="opacity-80">🔁 24h:</span>
-                            <strong
-                              className="tabular-nums"
-                              style={{ color: (p.p24 ?? 0) > 0 ? ACCENT : "#f87171" }}
-                            >
-                              {pctString(p.p24)}
-                            </strong>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-1 text-sm text-gray-300 leading-tight flex items-center gap-2">
-                          <strong
-                            className="tabular-nums"
-                            style={{ color: isUp ? ACCENT : "#f87171" }}
-                          >
-                            {pctString(p.percent)}
-                          </strong>
-                        </div>
-                      )}
+                      {/* Percent */}
+                      <div className="mt-1 text-sm text-gray-300 leading-tight flex items-center gap-2">
+                        <strong
+                          className="tabular-nums"
+                          style={{ color: isUp ? ACCENT : "#f87171" }}
+                        >
+                          {pctString(p.percent)}
+                        </strong>
+                      </div>
 
                       {/* Price (Console + Average) */}
                       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -449,7 +493,9 @@ export default function Trending() {
                           title={`Average (${timeframe}h)`}
                         >
                           Avg ({timeframe}h):{" "}
-                          {typeof avg === "number" ? Math.round(avg).toLocaleString() : "N/A"}
+                          {typeof avg === "number"
+                            ? Math.round(avg).toLocaleString()
+                            : "N/A"}
                         </span>
                       </div>
                     </div>
