@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, LayoutDashboard, PlusSquare, ListChecks, Search, GitCompare, Brain, Bell, TrendingUp, Users, HelpCircle } from "lucide-react";
 
 const DesktopSidebar = () => {
   const location = useLocation();
@@ -41,18 +41,17 @@ const DesktopSidebar = () => {
     setUserMenuOpen(false);
   }, [location.pathname]);
 
-// Update to src/components/DesktopSidebar.jsx - Add Smart Buy to navigation
-
+  // Nav config (now with icons)
   const navItems = [
-    { path: "/", label: "Dashboard" },
-    { path: "/add-trade", label: "Add Trade" },
-    { path: "/trades", label: "Trades" },
-    { path: "/player-search", label: "Player Search" },
-    { path: "/player-compare", label: "Compare" },    
-    { path: "/smart-buy", label: "Smart Buy" }, // 👈 NEW
-    { path: "/watchlist", label: "Watchlist" },
-    { path: "/trending", label: "Trending" },
-    { path: "/squad", label: "Squad Builder" },
+    { path: "/", label: "Dashboard", icon: LayoutDashboard },
+    { path: "/add-trade", label: "Add Trade", icon: PlusSquare },
+    { path: "/trades", label: "Trades", icon: ListChecks },
+    { path: "/player-search", label: "Player Search", icon: Search },
+    { path: "/player-compare", label: "Compare", icon: GitCompare },
+    { path: "/smart-buy", label: "Smart Buy", icon: Brain }, // 👈 NEW
+    { path: "/watchlist", label: "Watchlist", icon: Bell },
+    { path: "/trending", label: "Trending", icon: TrendingUp },
+    { path: "/squad", label: "Squad Builder", icon: Users },
   ];
 
   const isActive = (p) => location.pathname === p;
@@ -62,7 +61,6 @@ const DesktopSidebar = () => {
       className={`fixed left-0 top-0 h-screen bg-gray-900/95 backdrop-blur-sm border-r border-gray-700/50
                   flex flex-col transition-all duration-200
                   ${collapsed ? "w-16 px-2" : "w-64 p-4"}`}
-      // allow the edge toggle to “stick out”
       style={{ overflow: "visible" }}
     >
       {/* Header / brand + toggle */}
@@ -84,19 +82,19 @@ const DesktopSidebar = () => {
           />
         </div>
 
-        {/* Title (only when expanded) */}
         {!collapsed && (
           <h1 className="mt-2 text-lg font-bold text-white text-center">FUT Traders Hub</h1>
         )}
 
-        {/* Toggle button on sidebar edge */}
+        {/* Toggle */}
         <button
           onClick={() => setCollapsed((c) => !c)}
           className="absolute top-1/2 -right-3 -translate-y-1/2 
                      p-1.5 rounded-md bg-gray-900 border border-gray-700
                      hover:bg-gray-800 text-gray-300 shadow-lg"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label="Toggle sidebar"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!collapsed}
         >
           {collapsed ? (
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -120,6 +118,7 @@ const DesktopSidebar = () => {
           onClick={() => setUserMenuOpen((o) => !o)}
           className={`w-full flex items-center ${collapsed ? "justify-center" : "gap-3"} text-left`}
           title="Account menu"
+          aria-expanded={userMenuOpen}
         >
           <img
             src={user?.avatar_url}
@@ -144,7 +143,6 @@ const DesktopSidebar = () => {
           )}
         </button>
 
-        {/* Dropdown menu */}
         {userMenuOpen && (
           <div
             className={`absolute z-50 ${
@@ -192,34 +190,58 @@ const DesktopSidebar = () => {
               Navigation
             </p>
           )}
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              title={collapsed ? item.label : undefined}
-              className={`flex items-center rounded-lg transition-colors h-9
-                          ${collapsed ? "justify-center" : "gap-2 px-2.5"}
-                          ${
-                            isActive(item.path)
-                              ? "bg-purple-600/20 text-purple-300 border-r-2 border-purple-500"
-                              : "text-gray-300 hover:text-white hover:bg-gray-800/60"
-                          }`}
-            >
-              <span className="text-sm font-medium truncate">{item.label}</span>
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const Active = isActive(item.path);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                aria-label={item.label}
+                title={collapsed ? item.label : undefined}
+                className={`group relative flex items-center rounded-lg transition-colors h-9
+                            ${collapsed ? "justify-center" : "gap-2 px-2.5"}
+                            ${
+                              Active
+                                ? "bg-purple-600/20 text-purple-300 border-r-2 border-purple-500"
+                                : "text-gray-300 hover:text-white hover:bg-gray-800/60"
+                            }`}
+              >
+                <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+                {/* Hide the text when collapsed to avoid truncation */}
+                {!collapsed && (
+                  <span className="text-sm font-medium truncate">{item.label}</span>
+                )}
+
+                {/* Tooltip on hover (collapsed) */}
+                {collapsed && (
+                  <span
+                    role="tooltip"
+                    className="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 
+                               whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs text-white 
+                               opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100"
+                  >
+                    {item.label}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </nav>
       </div>
 
-      {/* Footer (no Logout here anymore) */}
+      {/* Footer */}
       <div className={`${collapsed ? "px-2 py-2" : "px-2 py-3"} border-t border-gray-700/50 shrink-0`}>
         <div className="space-y-1">
           <Link
             to="/help"
             className={`flex items-center rounded-lg text-sm text-gray-300 hover:text-white hover:bg-gray-800/60 h-9
                         ${collapsed ? "justify-center" : "gap-2 px-2.5"}`}
+            aria-label="Help & Support"
+            title={collapsed ? "Help & Support" : undefined}
           >
-            Help &amp; Support
+            <HelpCircle className="w-4 h-4" aria-hidden="true" />
+            {!collapsed && <span>Help &amp; Support</span>}
           </Link>
         </div>
       </div>
