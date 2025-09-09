@@ -1,36 +1,20 @@
-// src/context/SettingsContext.jsx
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { apiFetch } from "../api/http";
 
 const SettingsContext = createContext(null);
 
-/* ===========================
-   Defaults
-   =========================== */
+/* ---------------------- Defaults ---------------------- */
 const DEFAULT_GENERAL = {
   dateFormat: "DD/MM/YYYY",
   timeFormat: "24h",
   timezone: "Europe/London",
-  coinFormat: "short_m", // short_m | european_kk | dot_thousands | space_thousands
+  coinFormat: "short_m",
   compactThreshold: 100000,
   compactDecimals: 1,
 };
 
-/** Master list of all widgets the dashboard can render */
 export const ALL_WIDGET_KEYS = [
-  // engagement / utility
-  "performance",
-  "quick_actions",
-  "daily_target",
-  "streak",
-
-  // core stats
+  // Core
   "profit",
   "tax",
   "trades",
@@ -42,12 +26,16 @@ export const ALL_WIDGET_KEYS = [
   "latest_trade",
   "top_earner",
   "balance",
-
-  // market & extras
-  "market_summary",
+  "roi",
+  // Extras
   "promo",
   "trending",
   "alerts",
+  "performance",
+  "quick_actions",
+  "daily_target",
+  "streak",
+  "market_summary",
 ];
 
 const DEFAULT_WIDGET_ORDER = [...ALL_WIDGET_KEYS];
@@ -58,40 +46,30 @@ const DEFAULT_ALERTS = {
   enabled: false,
   thresholdPct: 5,
   cooldownMin: 30,
-  delivery: "inapp", // "inapp" | "discord"
+  delivery: "inapp",
 };
 
+const DEFAULT_DAILY_TARGET = 50_000;
 const EA_TAX_RATE = 0.05;
 
-/* ===========================
-   Provider
-   =========================== */
+/* ---------------------- Provider ---------------------- */
 export const SettingsProvider = ({ children }) => {
-  // General/user prefs
   const [general, setGeneral] = useState(DEFAULT_GENERAL);
   const [portfolio, setPortfolio] = useState({ startingCoins: 0 });
   const [include_tax_in_profit, setIncludeTaxInProfit] = useState(true);
 
-  // Widgets
   const [visible_widgets, setVisibleWidgets] = useState(DEFAULT_VISIBLE);
   const [widget_order, setWidgetOrder] = useState(DEFAULT_WIDGET_ORDER);
-  const [recent_trades_limit, setRecentTradesLimit] = useState(
-    DEFAULT_RECENT_TRADES_LIMIT
-  );
+  const [recent_trades_limit, setRecentTradesLimit] = useState(DEFAULT_RECENT_TRADES_LIMIT);
 
-  // Alerts (watchlist)
   const [alerts, setAlerts] = useState(DEFAULT_ALERTS);
+  const [daily_target, setDailyTarget] = useState(DEFAULT_DAILY_TARGET);
 
-  // Status
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  /* ---------- Formatters ---------- */
-  const formatCurrency = useCallback(
-    (n) => (Number(n) || 0).toLocaleString("en-GB"),
-    []
-  );
-
+  /* ---------------------- Formatters ---------------------- */
+  const formatCurrency = useCallback((n) => (Number(n) || 0).toLocaleString("en-GB"), []);
   const formatDate = useCallback(
     (d) => {
       const dt = d instanceof Date ? d : new Date(d);
@@ -105,7 +83,7 @@ export const SettingsProvider = ({ children }) => {
         timeZone: general.timezone || "Europe/London",
       }).format(dt);
     },
-    [general.timeFormat, general.timezone]
+    [general]
   );
 
   const formatCoins = useCallback(
@@ -119,39 +97,22 @@ export const SettingsProvider = ({ children }) => {
       const num = Number(n) || 0;
 
       if (cfg.coinFormat === "short_m" && num >= cfg.compactThreshold) {
-        if (num >= 1_000_000)
-          return (
-            (num / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") +
-            "M"
-          );
-        if (num >= 1_000)
-          return (
-            (num / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") +
-            "k"
-          );
+        if (num >= 1_000_000) return (num / 1_000_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "M";
+        if (num >= 1_000) return (num / 1_000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "") + "k";
       }
       if (cfg.coinFormat === "european_kk" && num >= 1000) {
-        const kk = (num / 1000)
-          .toFixed(cfg.compactDecimals)
-          .replace(/\.0+$/, "");
+        const kk = (num / 1000).toFixed(cfg.compactDecimals).replace(/\.0+$/, "");
         return kk + "kk";
       }
-      if (cfg.coinFormat === "dot_thousands")
-        return (num || 0).toLocaleString("de-DE");
-      if (cfg.coinFormat === "space_thousands")
-        return (num || 0).toLocaleString("fr-FR");
-
+      if (cfg.coinFormat === "dot_thousands") return (num || 0).toLocaleString("de-DE");
+      if (cfg.coinFormat === "space_thousands") return (num || 0).toLocaleString("fr-FR");
       return toFull(num);
     },
     [general]
   );
 
-  /* ---------- Tax & Profit helpers ---------- */
-  const calcTax = useCallback(
-    (sellPrice) => Math.floor((Number(sellPrice) || 0) * EA_TAX_RATE),
-    []
-  );
-
+  /* ---------------------- Helpers ---------------------- */
+  const calcTax = useCallback((sellPrice) => Math.floor((Number(sellPrice) || 0) * EA_TAX_RATE), []);
   const calcProfit = useCallback(
     (buy, sell, includeTax) => {
       const b = Number(buy) || 0;
@@ -162,7 +123,7 @@ export const SettingsProvider = ({ children }) => {
     [calcTax]
   );
 
-  /* ---------- Load settings (local + server) ---------- */
+  /* ---------------------- Load on mount ---------------------- */
   useEffect(() => {
     (async () => {
       setIsLoading(true);
@@ -174,64 +135,48 @@ export const SettingsProvider = ({ children }) => {
             const ls = JSON.parse(raw);
             if (Array.isArray(ls.visible_widgets)) setVisibleWidgets(ls.visible_widgets);
             if (Array.isArray(ls.widget_order)) setWidgetOrder(ls.widget_order);
-            if (Number.isFinite(ls.recent_trades_limit))
-              setRecentTradesLimit(ls.recent_trades_limit);
-            if (typeof ls.include_tax_in_profit === "boolean")
-              setIncludeTaxInProfit(ls.include_tax_in_profit);
+            if (Number.isFinite(ls.recent_trades_limit)) setRecentTradesLimit(ls.recent_trades_limit);
+            if (typeof ls.include_tax_in_profit === "boolean") setIncludeTaxInProfit(ls.include_tax_in_profit);
           }
           const a = localStorage.getItem("alerts_settings");
           if (a) setAlerts({ ...DEFAULT_ALERTS, ...JSON.parse(a) });
-        } catch {
-          // ignore local parsing errors
-        }
 
-        // Server next
-        const [s, p] = await Promise.all([
-          apiFetch("/api/settings"),
-          apiFetch("/api/profile"),
-        ]);
+          const dt = localStorage.getItem("daily_target");
+          if (dt) setDailyTarget(Number(dt) || DEFAULT_DAILY_TARGET);
+        } catch {}
 
-        // General
+        // Server
+        const [s, p] = await Promise.all([apiFetch("/api/settings"), apiFetch("/api/profile")]);
+
         setGeneral((g) => ({
           ...g,
           timezone: s.timezone || g.timezone,
-          dateFormat:
-            s.date_format === "US"
-              ? "MM/DD/YYYY"
-              : s.date_format === "ISO"
-              ? "YYYY-MM-DD"
-              : g.dateFormat,
+          dateFormat: s.date_format === "US" ? "MM/DD/YYYY" : s.date_format === "ISO" ? "YYYY-MM-DD" : g.dateFormat,
         }));
-        setIncludeTaxInProfit(
-          typeof s.include_tax_in_profit === "boolean"
-            ? s.include_tax_in_profit
-            : true
-        );
+        setIncludeTaxInProfit(typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true);
         setPortfolio({ startingCoins: p?.startingBalance ?? 0 });
 
-        // Merge visible widget list (server + defaults) and ensure order is the default list
         const serverVis = Array.isArray(s.visible_widgets) ? s.visible_widgets : [];
-        const mergedVis = Array.from(new Set([...serverVis, ...DEFAULT_VISIBLE])).filter(
-          (k) => ALL_WIDGET_KEYS.includes(k)
+        const mergedVis = Array.from(new Set([...serverVis, ...DEFAULT_VISIBLE])).filter((k) =>
+          ALL_WIDGET_KEYS.includes(k)
         );
         setVisibleWidgets(mergedVis);
         setWidgetOrder(DEFAULT_WIDGET_ORDER);
 
-        // Persist to local storage
         localStorage.setItem(
           "user_settings",
           JSON.stringify({
             visible_widgets: mergedVis,
             widget_order: DEFAULT_WIDGET_ORDER,
             recent_trades_limit: DEFAULT_RECENT_TRADES_LIMIT,
-            include_tax_in_profit:
-              typeof s.include_tax_in_profit === "boolean"
-                ? s.include_tax_in_profit
-                : true,
+            include_tax_in_profit: typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true,
           })
         );
         if (!localStorage.getItem("alerts_settings")) {
           localStorage.setItem("alerts_settings", JSON.stringify(DEFAULT_ALERTS));
+        }
+        if (!localStorage.getItem("daily_target")) {
+          localStorage.setItem("daily_target", String(DEFAULT_DAILY_TARGET));
         }
       } catch (e) {
         console.error("Settings load failed:", e);
@@ -242,23 +187,14 @@ export const SettingsProvider = ({ children }) => {
     })();
   }, []);
 
-  /* ---------- Save partial updates ---------- */
+  /* ---------------------- Save partial updates ---------------------- */
   const saveSettings = async (partial) => {
-    // Update local state immediately
     if (partial.general) setGeneral((g) => ({ ...g, ...partial.general }));
     if (partial.portfolio) setPortfolio((p) => ({ ...p, ...partial.portfolio }));
-    if (partial.visible_widgets)
-      setVisibleWidgets(
-        partial.visible_widgets.filter((k) => ALL_WIDGET_KEYS.includes(k))
-      );
-    if (partial.widget_order)
-      setWidgetOrder(
-        partial.widget_order.filter((k) => ALL_WIDGET_KEYS.includes(k))
-      );
-    if (partial.recent_trades_limit !== undefined)
-      setRecentTradesLimit(partial.recent_trades_limit);
-    if (typeof partial.include_tax_in_profit === "boolean")
-      setIncludeTaxInProfit(partial.include_tax_in_profit);
+    if (partial.visible_widgets) setVisibleWidgets(partial.visible_widgets.filter((k) => ALL_WIDGET_KEYS.includes(k)));
+    if (partial.widget_order) setWidgetOrder(partial.widget_order.filter((k) => ALL_WIDGET_KEYS.includes(k)));
+    if (partial.recent_trades_limit !== undefined) setRecentTradesLimit(partial.recent_trades_limit);
+    if (typeof partial.include_tax_in_profit === "boolean") setIncludeTaxInProfit(partial.include_tax_in_profit);
     if (partial.alerts) {
       setAlerts((a) => {
         const next = { ...a, ...partial.alerts };
@@ -266,27 +202,26 @@ export const SettingsProvider = ({ children }) => {
         return next;
       });
     }
+    if (partial.daily_target !== undefined) {
+      const val = Math.max(0, Number(partial.daily_target) || 0);
+      setDailyTarget(val);
+      localStorage.setItem("daily_target", String(val));
+    }
 
-    // Mirror to localStorage
     const ls = JSON.parse(localStorage.getItem("user_settings") || "{}");
     localStorage.setItem(
       "user_settings",
       JSON.stringify({
         ...ls,
-        ...(partial.visible_widgets
-          ? { visible_widgets: partial.visible_widgets }
-          : {}),
+        ...(partial.visible_widgets ? { visible_widgets: partial.visible_widgets } : {}),
         ...(partial.widget_order ? { widget_order: partial.widget_order } : {}),
-        ...(partial.recent_trades_limit !== undefined
-          ? { recent_trades_limit: partial.recent_trades_limit }
-          : {}),
+        ...(partial.recent_trades_limit !== undefined ? { recent_trades_limit: partial.recent_trades_limit } : {}),
         ...(typeof partial.include_tax_in_profit === "boolean"
           ? { include_tax_in_profit: partial.include_tax_in_profit }
           : {}),
       })
     );
 
-    // Persist to server (best-effort)
     try {
       if (partial.portfolio?.startingCoins !== undefined) {
         await apiFetch("/api/portfolio/balance", {
@@ -295,20 +230,11 @@ export const SettingsProvider = ({ children }) => {
         });
       }
 
-      if (
-        partial.general ||
-        partial.visible_widgets ||
-        typeof partial.include_tax_in_profit === "boolean"
-      ) {
+      if (partial.general || partial.visible_widgets || typeof partial.include_tax_in_profit === "boolean") {
         const g = { ...general, ...(partial.general || {}) };
         const payload = {
           timezone: g.timezone,
-          date_format:
-            g.dateFormat === "MM/DD/YYYY"
-              ? "US"
-              : g.dateFormat === "YYYY-MM-DD"
-              ? "ISO"
-              : "EU",
+          date_format: g.dateFormat === "MM/DD/YYYY" ? "US" : g.dateFormat === "YYYY-MM-DD" ? "ISO" : "EU",
           default_platform: "Console",
           custom_tags: [],
           currency_format: "coins",
@@ -335,14 +261,7 @@ export const SettingsProvider = ({ children }) => {
     saveSettings({ visible_widgets: Array.from(set) });
   };
 
-  const settings = {
-    general,
-    portfolio,
-    visible_widgets,
-    widget_order,
-    recent_trades_limit,
-    alerts,
-  };
+  const settings = { general, portfolio, visible_widgets, widget_order, recent_trades_limit, alerts, daily_target };
 
   return (
     <SettingsContext.Provider
@@ -354,8 +273,9 @@ export const SettingsProvider = ({ children }) => {
         widget_order,
         recent_trades_limit,
         alerts,
+        daily_target,
         include_tax_in_profit,
-        includeTaxInProfit: include_tax_in_profit, // alias for older components
+        includeTaxInProfit: include_tax_in_profit,
         taxRate: EA_TAX_RATE,
         calcTax,
         calcProfit,
@@ -375,8 +295,5 @@ export const SettingsProvider = ({ children }) => {
   );
 };
 
-/* ===========================
-   Hooks
-   =========================== */
 export const useSettings = () => useContext(SettingsContext);
 export default SettingsContext;
