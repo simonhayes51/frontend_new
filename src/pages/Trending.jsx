@@ -1,3 +1,4 @@
+// src/pages/Trending.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   RefreshCcw,
@@ -63,12 +64,11 @@ function normaliseItem(p) {
       p.price_ps ??
       p.ps ??
       (typeof p.price === "number" ? p.price : null),
-    percent:
-      p.percent ??
-      p.percent_24h ??
-      p.percent_12h ??
-      p.percent_6h ??
-      null,
+    // generic percent for risers/fallers, fallback chain
+    percent: p.percent ?? p.percent_24h ?? p.percent_12h ?? p.percent_6h ?? null,
+    // smart movers fields (if present)
+    p6: p.percent_6h ?? p.p6 ?? null,
+    p24: p.percent_24h ?? p.p24 ?? null,
     club: p.club ?? null,
     league: p.league ?? null,
   };
@@ -86,7 +86,6 @@ function extractPricesFromHistory(data) {
   const out = [];
   for (const p of points) {
     if (Array.isArray(p)) {
-      // [t, v] or [v]
       if (p.length >= 2) out.push([Number(p[0]), Number(p[1])]);
       else if (p.length === 1) out.push([NaN, Number(p[0])]);
     } else if (p && typeof p === "object") {
@@ -108,8 +107,8 @@ function mean(nums) {
 }
 
 export default function Trending() {
-  const [trendType, setTrendType] = useState("fallers"); // "risers" | "fallers"
-  const [timeframe, setTimeframe] = useState("24");      // "6" | "12" | "24"
+  const [trendType, setTrendType] = useState("fallers"); // "risers" | "fallers" | "smart"
+  const [timeframe, setTimeframe] = useState(24);        // 6 | 12 | 24 (number)
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -124,9 +123,20 @@ export default function Trending() {
     setLoading(true);
     setErr("");
     try {
-      const url = `${API_BASE}/api/trending?type=${trendType}&tf=${timeframe}`;
+      const allowed = new Set(["risers", "fallers", "smart"]);
+      const kind = allowed.has((trendType || "").toLowerCase())
+        ? (trendType || "").toLowerCase()
+        : "fallers";
+      const tfNum = parseInt(String(timeframe).replace(/[^\d]/g, ""), 10) || 24;
+
+      const qs = new URLSearchParams({ type: kind, tf: String(tfNum) });
+      const url = `${API_BASE}/api/trending?${qs.toString()}`;
       const r = await fetch(url, { credentials: "include" });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      if (!r.ok) {
+        let detail = "";
+        try { detail = await r.text(); } catch {}
+        throw new Error(`HTTP ${r.status}${detail ? ` – ${detail}` : ""}`);
+      }
       const data = await r.json();
       setItems((data.items || []).map(normaliseItem));
       setLastUpdated(new Date());
@@ -266,14 +276,25 @@ export default function Trending() {
               Risers
             </span>
           </button>
+          <button
+            onClick={() => setTrendType("smart")}
+            className={`px-3 py-2 rounded-xl border ${
+              trendType === "smart"
+                ? "border-gray-700 bg-gray-900 text-white"
+                : "border-gray-800 bg-gray-900/40 text-gray-300"
+            }`}
+            title="Opposite moves on 6h vs 24h"
+          >
+            <span className="inline-flex items-center gap-2">🔁 Smart</span>
+          </button>
 
           {/* Timeframe pills */}
           <div className="h-6 w-px bg-gray-700 hidden md:block" />
           <div className="inline-flex rounded-xl border border-gray-800 overflow-hidden">
-            {["6", "12", "24"].map((tf) => (
+            {[6, 12, 24].map((tf) => (
               <button
                 key={tf}
-                onClick={() => setTimeframe(tf)}
+                onClick={() => setTimeframe(Number(tf))}
                 className={`px-3 py-2 text-sm ${
                   timeframe === tf ? "bg-gray-900 text-white" : "bg-gray-900/40 text-gray-300"
                 }`}
@@ -378,15 +399,38 @@ export default function Trending() {
                         ) : null}
                       </div>
 
-                      {/* Percent */}
-                      <div className="mt-1 text-sm text-gray-300 leading-tight flex items-center gap-2">
-                        <strong
-                          className="tabular-nums"
-                          style={{ color: isUp ? ACCENT : "#f87171" }}
-                        >
-                          {pctString(p.percent)}
-                        </strong>
-                      </div>
+                      {/* Percent(s) */}
+                      {trendType === "smart" ? (
+                        <div className="mt-1 text-xs text-gray-300 leading-tight">
+                          <div className="flex items-center gap-2">
+                            <span className="opacity-80">🔁 6h:</span>
+                            <strong
+                              className="tabular-nums"
+                              style={{ color: (p.p6 ?? 0) > 0 ? ACCENT : "#f87171" }}
+                            >
+                              {pctString(p.p6)}
+                            </strong>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="opacity-80">🔁 24h:</span>
+                            <strong
+                              className="tabular-nums"
+                              style={{ color: (p.p24 ?? 0) > 0 ? ACCENT : "#f87171" }}
+                            >
+                              {pctString(p.p24)}
+                            </strong>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-1 text-sm text-gray-300 leading-tight flex items-center gap-2">
+                          <strong
+                            className="tabular-nums"
+                            style={{ color: isUp ? ACCENT : "#f87171" }}
+                          >
+                            {pctString(p.percent)}
+                          </strong>
+                        </div>
+                      )}
 
                       {/* Price (Console + Average) */}
                       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -405,9 +449,7 @@ export default function Trending() {
                           title={`Average (${timeframe}h)`}
                         >
                           Avg ({timeframe}h):{" "}
-                          {typeof avg === "number"
-                            ? Math.round(avg).toLocaleString()
-                            : "N/A"}
+                          {typeof avg === "number" ? Math.round(avg).toLocaleString() : "N/A"}
                         </span>
                       </div>
                     </div>
