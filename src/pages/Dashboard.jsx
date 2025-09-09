@@ -9,46 +9,24 @@ import {
 
 const ACCENT = "#91db32";
 
-// Layout persistence functions
+/* ---------------- Layout persistence ---------------- */
 const LAYOUT_STORAGE_KEY = "dashboard_layout_v2";
 const WIDGET_SETTINGS_KEY = "dashboard_widgets_v2";
 
 const saveLayoutToStorage = (layout) => {
-  try {
-    localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout));
-  } catch (error) {
-    console.warn("Failed to save layout to localStorage:", error);
-  }
+  try { localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout)); } catch {}
 };
-
 const loadLayoutFromStorage = () => {
-  try {
-    const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : null;
-  } catch (error) {
-    console.warn("Failed to load layout from localStorage:", error);
-    return null;
-  }
+  try { const s = localStorage.getItem(LAYOUT_STORAGE_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
 };
-
 const saveWidgetSettingsToStorage = (settings) => {
-  try {
-    localStorage.setItem(WIDGET_SETTINGS_KEY, JSON.stringify(settings));
-  } catch (error) {
-    console.warn("Failed to save widget settings to localStorage:", error);
-  }
+  try { localStorage.setItem(WIDGET_SETTINGS_KEY, JSON.stringify(settings)); } catch {}
 };
-
 const loadWidgetSettingsFromStorage = () => {
-  try {
-    const saved = localStorage.getItem(WIDGET_SETTINGS_KEY);
-    return saved ? JSON.parse(saved) : null;
-  } catch (error) {
-    console.warn("Failed to load widget settings from localStorage:", error);
-    return null;
-  }
+  try { const s = localStorage.getItem(WIDGET_SETTINGS_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
 };
 
+/* ---------------- UI bits ---------------- */
 const cardBase =
   "bg-gray-900/70 rounded-2xl p-4 border border-gray-800 hover:border-gray-700 transition-colors h-[150px] flex flex-col justify-between";
 const cardTitle = "text-[13px] font-semibold text-gray-200/90 leading-none";
@@ -69,6 +47,7 @@ const ALL_WIDGET_LABELS = {
   latest_trade: "Latest Trade",
   top_earner: "Top Earner",
   balance: "Starting Balance",
+  roi: "ROI",
   promo: "Next Promo",
   trending: "Trending (6h)",
   alerts: "Watchlist Alerts",
@@ -85,7 +64,8 @@ export default function Dashboard() {
     formatCurrency, formatDate,
     visible_widgets, widget_order,
     include_tax_in_profit, alerts, saveSettings, toggleWidget,
-    recent_trades_limit, isLoading: settingsLoading
+    recent_trades_limit, isLoading: settingsLoading,
+    daily_target,
   } = useSettings();
 
   const [tf, setTf] = useState("7D");
@@ -104,30 +84,21 @@ export default function Dashboard() {
   });
 
   // Auto-save layout changes
-  useEffect(() => {
-    saveLayoutToStorage({ widget_order: localWidgetOrder });
-  }, [localWidgetOrder]);
-
-  useEffect(() => {
-    saveWidgetSettingsToStorage({ visible_widgets: localVisibleWidgets });
-  }, [localVisibleWidgets]);
+  useEffect(() => { saveLayoutToStorage({ widget_order: localWidgetOrder }); }, [localWidgetOrder]);
+  useEffect(() => { saveWidgetSettingsToStorage({ visible_widgets: localVisibleWidgets }); }, [localVisibleWidgets]);
 
   // Sync with context when it changes (but prioritize local state)
   useEffect(() => {
     if (widget_order && widget_order.length > 0) {
       const saved = loadLayoutFromStorage();
-      if (!saved) {
-        setLocalWidgetOrder(widget_order);
-      }
+      if (!saved) setLocalWidgetOrder(widget_order);
     }
   }, [widget_order]);
 
   useEffect(() => {
     if (visible_widgets && visible_widgets.length > 0) {
       const saved = loadWidgetSettingsFromStorage();
-      if (!saved) {
-        setLocalVisibleWidgets(visible_widgets);
-      }
+      if (!saved) setLocalVisibleWidgets(visible_widgets);
     }
   }, [visible_widgets]);
 
@@ -183,42 +154,34 @@ export default function Dashboard() {
     return { totalProfit, totalTax, gross, taxPct, wins, losses, winRate, avgProfit, best, volume, latest, topEarner };
   }, [filteredTrades, netProfit, taxPaid, include_tax_in_profit, startingBalance]);
 
-  // Calculate performance score
+  /* --------- Performance Score (kinder ramp) --------- */
   const performanceScore = useMemo(() => {
     if (filteredTrades.length === 0) return 0;
-    
-    const winRateScore = Math.min(totals.winRate / 80 * 40, 40); // Max 40 points for 80%+ win rate
-    const profitTrendScore = totals.totalProfit > 0 ? 30 : 0; // 30 points for positive profit
-    const activityScore = Math.min(filteredTrades.length / 50 * 30, 30); // Max 30 points for 50+ trades
-    
+    const winRateScore = Math.min(totals.winRate / 80 * 40, 40);
+    const profitTrendScore = totals.totalProfit > 0 ? 30 : 0;
+    const activityScore = Math.min(filteredTrades.length / 30 * 30, 30);
     return Math.round(winRateScore + profitTrendScore + activityScore);
   }, [totals, filteredTrades.length]);
 
-  // Calculate today's stats for daily target
+  /* --------- Today for Daily Target --------- */
   const todayStats = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const todayTrades = trades.filter(t => {
-      const tradeDate = new Date(t?.timestamp || 0);
-      tradeDate.setHours(0, 0, 0, 0);
-      return tradeDate.getTime() === today.getTime();
+      const d = new Date(t?.timestamp || 0); d.setHours(0, 0, 0, 0);
+      return d.getTime() === today.getTime();
     });
-    
     const todayProfit = todayTrades.reduce((sum, t) => sum + (t?.profit ?? 0), 0);
-    const target = 50000; // Default daily target of 50k coins
+    const target = Number(daily_target) || 50000;
     const progress = Math.min((todayProfit / target) * 100, 100);
-    
     return { profit: todayProfit, target, progress, trades: todayTrades.length };
-  }, [trades]);
+  }, [trades, daily_target]);
 
-  // Calculate current streak
+  /* --------- Current Streak --------- */
   const currentStreak = useMemo(() => {
     if (trades.length === 0) return { type: 'none', count: 0 };
-    
     const sortedTrades = [...trades].sort((a, b) => new Date(b?.timestamp || 0) - new Date(a?.timestamp || 0));
     let streakCount = 0;
     let streakType = 'none';
-    
     for (const trade of sortedTrades) {
       const profit = trade?.profit ?? 0;
       if (streakCount === 0) {
@@ -226,18 +189,14 @@ export default function Dashboard() {
         streakCount = 1;
       } else {
         const isWin = profit > 0;
-        if ((streakType === 'win' && isWin) || (streakType === 'loss' && !isWin)) {
-          streakCount++;
-        } else {
-          break;
-        }
+        if ((streakType === 'win' && isWin) || (streakType === 'loss' && !isWin)) streakCount++;
+        else break;
       }
     }
-    
     return { type: streakType, count: streakCount };
   }, [trades]);
 
-  // sparkline
+  /* --------- 7d sparkline --------- */
   const spark = useMemo(() => {
     const dayKey = (d) => { const dt = new Date(d); return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime(); };
     const map = new Map();
@@ -262,7 +221,7 @@ export default function Dashboard() {
     return { dAttr, w, h, last: ysRaw[ysRaw.length - 1] };
   }, [trades, include_tax_in_profit]);
 
-  // ordering with local state
+  /* --------- Order with local state --------- */
   const orderedKeys = useMemo(() => {
     const set = new Set(vis);
     const primary = order.filter((k) => set.has(k));
@@ -270,67 +229,40 @@ export default function Dashboard() {
     return primary;
   }, [vis, order]);
 
-  // Enhanced toggle widget function
+  /* --------- Enhanced toggle --------- */
   const enhancedToggleWidget = useCallback((key, show) => {
-    if (show) {
-      setLocalVisibleWidgets(prev => [...prev, key]);
-    } else {
-      setLocalVisibleWidgets(prev => prev.filter(k => k !== key));
-    }
-    
-    // Also update context for server sync
+    if (show) setLocalVisibleWidgets(prev => [...prev, key]);
+    else setLocalVisibleWidgets(prev => prev.filter(k => k !== key));
     toggleWidget(key, show);
   }, [toggleWidget]);
 
-  // drag + drop with local state
-  const onDragStart = useCallback((idx) => (e) => { 
-    if (!editLayout) return; 
-    e.dataTransfer.effectAllowed = "move"; 
-    e.dataTransfer.setData("text/plain", String(idx)); 
+  /* --------- DnD --------- */
+  const onDragStart = useCallback((idx) => (e) => {
+    if (!editLayout) return;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(idx));
     e.currentTarget.style.opacity = "0.5";
   }, [editLayout]);
-  
-  const onDragEnd = useCallback((e) => {
-    e.currentTarget.style.opacity = "1";
-  }, []);
-  
-  const onDragOver = useCallback((e) => { 
-    if (editLayout) {
-      e.preventDefault();
-      e.currentTarget.style.transform = "scale(1.02)";
-    }
-  }, [editLayout]);
-  
-  const onDragLeave = useCallback((e) => {
-    e.currentTarget.style.transform = "scale(1)";
-  }, []);
-  
+  const onDragEnd = useCallback((e) => { e.currentTarget.style.opacity = "1"; }, []);
+  const onDragOver = useCallback((e) => { if (editLayout) { e.preventDefault(); e.currentTarget.style.transform = "scale(1.02)"; } }, [editLayout]);
+  const onDragLeave = useCallback((e) => { e.currentTarget.style.transform = "scale(1)"; }, []);
   const onDrop = useCallback((toIdx) => (e) => {
     if (!editLayout) return;
     e.preventDefault();
     e.currentTarget.style.transform = "scale(1)";
-    
     const fromIdx = Number(e.dataTransfer.getData("text/plain"));
     if (!Number.isInteger(fromIdx) || fromIdx === toIdx) return;
-    
     const next = [...orderedKeys];
     const [moved] = next.splice(fromIdx, 1);
     next.splice(toIdx, 0, moved);
-    
     const hidden = localWidgetOrder.filter((k) => !vis.includes(k));
     const newOrder = [...next, ...hidden];
-    
     setLocalWidgetOrder(newOrder);
-    
-    // Also update context for server sync
     saveSettings({ widget_order: newOrder });
   }, [editLayout, orderedKeys, localWidgetOrder, vis, saveSettings]);
-  
   const resetLayout = useCallback(() => {
     const defaultOrder = [...ALL_WIDGET_KEYS];
     setLocalWidgetOrder(defaultOrder);
-    
-    // Also update context for server sync
     saveSettings({ widget_order: defaultOrder });
   }, [saveSettings]);
 
@@ -348,24 +280,10 @@ export default function Dashboard() {
   }
   if (error) return <div className="text-red-500 p-4">{String(error)}</div>;
 
-  // ---- Performance Score Widget ----
+  /* -------------------- Widgets -------------------- */
   const PerformanceScoreCard = () => {
-    const getScoreLabel = (score) => {
-      if (score >= 90) return "Excellent";
-      if (score >= 75) return "Good";
-      if (score >= 60) return "Average";
-      if (score >= 40) return "Below Average";
-      return "Poor";
-    };
-
-    const getScoreColor = (score) => {
-      if (score >= 90) return "text-green-400";
-      if (score >= 75) return "text-blue-400";
-      if (score >= 60) return "text-yellow-400";
-      if (score >= 40) return "text-orange-400";
-      return "text-red-400";
-    };
-
+    const getScoreLabel = (score) => score >= 90 ? "Excellent" : score >= 75 ? "Good" : score >= 60 ? "Average" : score >= 40 ? "Below Average" : "Poor";
+    const getScoreColor = (score) => score >= 90 ? "text-green-400" : score >= 75 ? "text-blue-400" : score >= 60 ? "text-yellow-400" : score >= 40 ? "text-orange-400" : "text-red-400";
     return (
       <div className={`${cardBase} bg-gradient-to-br from-purple-900/20 to-pink-900/20`}>
         <div className="flex items-center justify-between">
@@ -373,24 +291,17 @@ export default function Dashboard() {
           <span className={chip}><Trophy size={10} /> {tf}</span>
         </div>
         <div className="flex items-end gap-4">
-          <div className={`${cardHuge} ${getScoreColor(performanceScore)}`}>
-            {performanceScore}
-          </div>
+          <div className={`${cardHuge} ${getScoreColor(performanceScore)}`}>{performanceScore}</div>
           <div className="pb-1">
             <div className="text-[10px] text-gray-400">/ 100</div>
-            <div className={`text-[11px] ${getScoreColor(performanceScore)}`}>
-              {getScoreLabel(performanceScore)}
-            </div>
+            <div className={`text-[11px] ${getScoreColor(performanceScore)}`}>{getScoreLabel(performanceScore)}</div>
           </div>
         </div>
-        <div className={subText}>
-          Win rate: {totals.winRate.toFixed(1)}% • Trades: {filteredTrades.length}
-        </div>
+        <div className={subText}>Win rate: {totals.winRate.toFixed(1)}% • Trades: {filteredTrades.length}</div>
       </div>
     );
   };
 
-  // ---- Quick Actions Widget ----
   const QuickActionsCard = () => {
     const actions = [
       { icon: Plus, label: "Add Trade", href: "/trades/new", color: "bg-green-600 hover:bg-green-700" },
@@ -398,7 +309,6 @@ export default function Dashboard() {
       { icon: Bell, label: "Alerts", href: "/settings#alerts", color: "bg-purple-600 hover:bg-purple-700" },
       { icon: Cog, label: "Settings", href: "/settings", color: "bg-gray-600 hover:bg-gray-700" }
     ];
-
     return (
       <div className={`${cardBase} bg-gradient-to-br from-blue-900/20 to-cyan-900/20`}>
         <div className="flex items-center justify-between">
@@ -406,14 +316,10 @@ export default function Dashboard() {
           <span className={chip}><Zap size={10} /> shortcuts</span>
         </div>
         <div className="grid grid-cols-2 gap-2 mt-2">
-          {actions.map((action, idx) => (
-            <Link
-              key={idx}
-              to={action.href}
-              className={`${action.color} rounded-lg p-2 flex flex-col items-center gap-1 transition-all transform hover:scale-105`}
-            >
-              <action.icon size={16} className="text-white" />
-              <span className="text-[10px] text-white font-medium">{action.label}</span>
+          {actions.map((a, i) => (
+            <Link key={i} to={a.href} className={`${a.color} rounded-lg p-2 flex flex-col items-center gap-1 transition-all transform hover:scale-105`}>
+              <a.icon size={16} className="text-white" />
+              <span className="text-[10px] text-white font-medium">{a.label}</span>
             </Link>
           ))}
         </div>
@@ -421,13 +327,23 @@ export default function Dashboard() {
     );
   };
 
-  // ---- Daily Target Widget ----
   const DailyTargetCard = () => {
     return (
       <div className={`${cardBase} bg-gradient-to-br from-green-900/20 to-emerald-900/20`}>
         <div className="flex items-center justify-between">
           <div className={cardTitle}>Daily Target</div>
-          <span className={chip}><Target size={10} /> today</span>
+          <div className="flex items-center gap-2">
+            <span className={chip}><Target size={10} /> today</span>
+            <button
+              onClick={() => {
+                const v = prompt("Set daily target (coins):", String(todayStats.target));
+                if (v !== null) saveSettings({ daily_target: Number(v) || 0 });
+              }}
+              className="text-[10px] underline text-gray-400 hover:text-gray-200"
+            >
+              edit
+            </button>
+          </div>
         </div>
         <div className="flex items-end gap-4">
           <div className={`${cardBig} ${todayStats.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -440,42 +356,19 @@ export default function Dashboard() {
         </div>
         <div className="mt-2">
           <div className="w-full bg-gray-800 rounded-full h-1.5">
-            <div 
-              className="bg-gradient-to-r from-green-500 to-emerald-400 h-1.5 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(todayStats.progress, 100)}%` }}
-            />
+            <div className="bg-gradient-to-r from-green-500 to-emerald-400 h-1.5 rounded-full transition-all duration-500" style={{ width: `${Math.min(todayStats.progress, 100)}%` }} />
           </div>
-          <div className={`${subText} mt-1`}>
-            {todayStats.trades} trades today
-          </div>
+          <div className={`${subText} mt-1`}>{todayStats.trades} trades today</div>
         </div>
       </div>
     );
   };
 
-  // ---- Current Streak Widget ----
   const CurrentStreakCard = () => {
-    const getStreakEmoji = (type, count) => {
-      if (type === 'none') return "🎯";
-      if (type === 'win') {
-        if (count >= 10) return "🔥";
-        if (count >= 5) return "⚡";
-        return "✅";
-      }
-      if (count >= 5) return "💀";
-      return "❌";
-    };
-
-    const getStreakMessage = (type, count) => {
-      if (type === 'none') return "Start trading!";
-      if (type === 'win') {
-        if (count >= 10) return "On fire!";
-        if (count >= 5) return "Great streak!";
-        return "Keep it up!";
-      }
-      if (count >= 5) return "Time to bounce back";
-      return "Next one's a winner";
-    };
+    const getStreakEmoji = (type, count) =>
+      type === 'none' ? "🎯" : type === 'win' ? (count >= 10 ? "🔥" : count >= 5 ? "⚡" : "✅") : (count >= 5 ? "💀" : "❌");
+    const getStreakMessage = (type, count) =>
+      type === 'none' ? "Start trading!" : type === 'win' ? (count >= 10 ? "On fire!" : count >= 5 ? "Great streak!" : "Keep it up!") : (count >= 5 ? "Time to bounce back" : "Next one's a winner");
 
     return (
       <div className={`${cardBase} bg-gradient-to-br from-orange-900/20 to-red-900/20`}>
@@ -491,76 +384,90 @@ export default function Dashboard() {
             <div className="text-[11px] text-gray-400 capitalize">{currentStreak.type}s</div>
           </div>
         </div>
-        <div className={subText}>
-          {getStreakMessage(currentStreak.type, currentStreak.count)}
-        </div>
+        <div className={subText}>{getStreakMessage(currentStreak.type, currentStreak.count)}</div>
       </div>
     );
   };
 
-  // ---- Market Summary Widget ----
+  /* ---- Market Summary (with TF) ---- */
   const MarketSummaryCard = () => {
-    const [summary, setSummary] = useState({ trending: 0, falling: 0, stable: 0 });
+    const API = import.meta.env.VITE_API_URL || "";
+    const [tfLocal, setTfLocal] = useState("24");
+    const [summary, setSummary] = useState({ trending: 0, falling: 0, stable: 0, sample: 0, tf: "24h" });
     const [loading, setLoading] = useState(true);
+    const [err, setErr] = useState("");
+    const [updated, setUpdated] = useState(null);
 
-    useEffect(() => {
-      const API = import.meta.env.VITE_API_URL || "";
-      (async () => {
-        setLoading(true);
-        try {
-          const res = await fetch(`${API}/api/market/summary`, { credentials: "include" });
-          const data = await res.json();
-          setSummary(data || { trending: 0, falling: 0, stable: 0 });
-        } catch {
-          setSummary({ trending: 0, falling: 0, stable: 0 });
-        } finally {
-          setLoading(false);
-        }
-      })();
-    }, []);
+    const load = useCallback(async () => {
+      setLoading(true); setErr("");
+      try {
+        const r = await fetch(`${API}/api/market/summary?tf=${tfLocal}`, { credentials: "include" });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const js = await r.json();
+        setSummary({
+          trending: js?.trending ?? 0,
+          falling: js?.falling ?? 0,
+          stable: js?.stable ?? 0,
+          sample: js?.sample ?? 0,
+          tf: js?.tf ?? `${tfLocal}h`,
+        });
+        setUpdated(new Date());
+      } catch (e) {
+        setErr(e.message || "Failed to load");
+        setSummary({ trending: 0, falling: 0, stable: 0, sample: 0, tf: `${tfLocal}h` });
+      } finally {
+        setLoading(false);
+      }
+    }, [API, tfLocal]);
 
-    if (loading) {
-      return (
-        <div className={cardBase}>
-          <div className={cardTitle}>Market Summary</div>
-          <div className="space-y-2 mt-2">
-            {[1,2,3].map(i => <div key={i} className="h-4 bg-gray-800 rounded animate-pulse" />)}
-          </div>
-        </div>
-      );
-    }
+    useEffect(() => { load(); }, [load]);
+
+    const row = (label, value, cls) => (
+      <div className="flex justify-between items-center">
+        <span className={`text-[11px] ${cls}`}>{label}</span>
+        <span className={`text-[12px] font-semibold ${cls}`}>{value}</span>
+      </div>
+    );
 
     return (
       <div className={`${cardBase} bg-gradient-to-br from-teal-900/20 to-blue-900/20`}>
         <div className="flex items-center justify-between">
           <div className={cardTitle}>Market Summary</div>
-          <span className={chip}><Activity size={10} /> 24h</span>
+          <div className="flex items-center gap-1">
+            {["6","12","24"].map(v => (
+              <button
+                key={v}
+                onClick={() => setTfLocal(v)}
+                className={`text-[10px] px-2 py-0.5 rounded ${tfLocal===v ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}
+                title={`${v}h`}
+              >{v}h</button>
+            ))}
+          </div>
         </div>
-        <div className="space-y-2 mt-1">
-          <div className="flex justify-between items-center">
-            <span className="text-[11px] text-green-400 flex items-center gap-1">
-              <TrendingUp size={10} /> Trending
-            </span>
-            <span className="text-[12px] font-semibold text-green-400">{summary.trending}</span>
+
+        {loading ? (
+          <div className="space-y-2 mt-1">
+            {[...Array(3)].map((_,i)=> <div key={i} className="h-4 bg-gray-800 rounded animate-pulse" />)}
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-[11px] text-red-400 flex items-center gap-1">
-              <TrendingDown size={10} /> Falling
-            </span>
-            <span className="text-[12px] font-semibold text-red-400">{summary.falling}</span>
+        ) : err ? (
+          <div className="text-[12px] text-red-400 mt-1">Error: {err}</div>
+        ) : (
+          <div className="space-y-2 mt-1">
+            {row(<span className="flex items-center gap-1"><TrendingUp size={10}/> Trending</span>, summary.trending, "text-green-400")}
+            {row(<span className="flex items-center gap-1"><TrendingDown size={10}/> Falling</span>, summary.falling, "text-red-400")}
+            {row(<span className="flex items-center gap-1"><Timer size={10}/> Stable</span>, summary.stable, "text-gray-400")}
+            <div className="text-[10px] text-gray-500 mt-1">Sample: {summary.sample} • Window: {summary.tf}</div>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-[11px] text-gray-400 flex items-center gap-1">
-              <Timer size={10} /> Stable
-            </span>
-            <span className="text-[12px] font-semibold text-gray-400">{summary.stable}</span>
-          </div>
+        )}
+
+        <div className="flex items-center justify-between mt-2">
+          <span className={chip}>auto-updated</span>
+          {updated && <span className="text-[10px] text-gray-500">Updated {updated.toLocaleTimeString()}</span>}
         </div>
       </div>
     );
   };
 
-  // ---- Next Promo ----
   const NextPromoCard = () => {
     const API = import.meta.env.VITE_API_URL || "";
     const [data, setData] = useState(null);
@@ -617,7 +524,6 @@ export default function Dashboard() {
     );
   };
 
-  // ---- Trending (fixed to 6h) ----
   const TrendingCard = () => {
     const API = import.meta.env.VITE_API_URL || "";
     const [type, setType] = useState("risers");
@@ -639,20 +545,21 @@ export default function Dashboard() {
       <div className={cardBase}>
         <div className="flex items-center justify-between">
           <div className={cardTitle}>Trending (6h)</div>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setType("risers")} className={`text-[10px] px-2 py-0.5 rounded ${type==="risers" ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}><TrendingUp size={10}/>Risers</button>
-            <button onClick={() => setType("fallers")} className={`text-[10px] px-2 py-0.5 rounded ${type==="fallers" ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}><TrendingDown size={10}/>Fallers</button>
+          <div className="flex items-center gap-2">
+            <Link to="/trending?tab=smart&tf=24" className="text-[10px] text-gray-400 hover:text-gray-200 underline">See all →</Link>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setType("risers")} className={`text-[10px] px-2 py-0.5 rounded ${type==="risers" ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}><TrendingUp size={10}/>Risers</button>
+              <button onClick={() => setType("fallers")} className={`text-[10px] px-2 py-0.5 rounded ${type==="fallers" ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}><TrendingDown size={10}/>Fallers</button>
+            </div>
           </div>
         </div>
         <div className="mt-1 space-y-1.5">
           {loading ? (
-            [...Array(3)].map((_,i)=>(
-              <div key={i} className="flex items-center gap-2">
-                <div className="w-6 h-6 bg-gray-800 rounded" />
-                <div className="h-3 w-36 bg-gray-800 rounded" />
-                <div className="h-3 w-10 bg-gray-800 rounded ml-auto" />
-              </div>
-            ))
+            [...Array(3)].map((_,i)=>(<div key={i} className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-gray-800 rounded" />
+              <div className="h-3 w-36 bg-gray-800 rounded" />
+              <div className="h-3 w-10 bg-gray-800 rounded ml-auto" />
+            </div>))
           ) : items.length === 0 ? (
             <div className={subText}>No data.</div>
           ) : (
@@ -676,7 +583,6 @@ export default function Dashboard() {
     );
   };
 
-  // ---- Watchlist Alerts (with inline settings) ----
   const AlertsCard = () => {
     const API = import.meta.env.VITE_API_URL || "";
     const [counts, setCounts] = useState({ watch: 0, alerts: 0 });
@@ -793,13 +699,11 @@ export default function Dashboard() {
       case "trending":      return <TrendingCard />;
       case "alerts":        return <AlertsCard />;
       case "profit":        return (
-          <div className={cardBase}>
-            <div className={cardTitle}>Net Profit</div>
-            <div className="text-green-400">
-              <span className={cardBig}>{formatCurrency(totals.totalProfit)} coins</span>
-            </div>
-            <div className={subText}></div>
-          </div>
+        <div className={cardBase}>
+          <div className={cardTitle}>Net Profit</div>
+          <div className="text-green-400"><span className={cardBig}>{formatCurrency(totals.totalProfit)} coins</span></div>
+          <div className={subText}></div>
+        </div>
       );
       case "tax":           return (
         <div className={cardBase}>
@@ -825,9 +729,7 @@ export default function Dashboard() {
       case "roi":           return (
         <div className={cardBase}>
           <div className={cardTitle}>ROI</div>
-          <div className={cardBig}>
-            {(startingBalance ?? 0) > 0 ? (((totals.totalProfit)/(startingBalance||1))*100).toFixed(1) : 0}%
-          </div>
+          <div className={cardBig}>{(startingBalance ?? 0) > 0 ? (((totals.totalProfit)/(startingBalance||1))*100).toFixed(1) : 0}%</div>
           <div className={subText}>cumulative</div>
         </div>
       );
@@ -850,9 +752,7 @@ export default function Dashboard() {
       case "avg_profit":    return (
         <div className={cardBase}>
           <div className={cardTitle}>Average Profit per Trade ({tf})</div>
-          <div className="text-green-400">
-            <span className={cardBig}>{formatCurrency(totals.avgProfit)} coins</span>
-          </div>
+          <div className="text-green-400"><span className={cardBig}>{formatCurrency(totals.avgProfit)} coins</span></div>
           <div className={subText}></div>
         </div>
       );
@@ -889,8 +789,9 @@ export default function Dashboard() {
           {totals.latest ? (
             <div className="mt-0.5">
               <div className="flex items-center gap-2">
-                <div className="text-[13px] font-semibold">{totals.latest.player ?? "Unknown"}</div>
-                <div className="text-[11px] text-gray-400">({totals.latest.version ?? "—"})</div>
+                <span className="text-[13px] font-semibold">{totals.latest.player ?? "Unknown"}</span>
+                <span className="text-[11px] text-gray-400">({totals.latest.version ?? "—"})</span>
+                {totals.latest.tag && <span className="text-xs bg-gray-800 border border-gray-700 px-2 py-1 rounded-full">{totals.latest.tag}</span>}
               </div>
               <div className={`${subText} mt-0.5`}>
                 {formatCurrency(totals.latest.buy ?? 0)} → {formatCurrency(totals.latest.sell ?? 0)}
@@ -918,6 +819,7 @@ export default function Dashboard() {
     }
   };
 
+  /* -------------------- Render -------------------- */
   return (
     <div className="p-4 max-w-6xl mx-auto">
       {/* Header */}
@@ -953,9 +855,7 @@ export default function Dashboard() {
         <div className="mb-3 p-3 bg-gray-950 border border-gray-800 rounded-xl">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm text-gray-300">Hidden widgets</div>
-            <button onClick={() => setPickerOpen(false)} className="text-gray-400 hover:text-gray-200">
-              <X size={16} />
-            </button>
+            <button onClick={() => setPickerOpen(false)} className="text-gray-400 hover:text-gray-200"><X size={16} /></button>
           </div>
           {hiddenWidgets.length === 0 ? (
             <div className="text-xs text-gray-500">All widgets are currently visible.</div>
@@ -965,11 +865,7 @@ export default function Dashboard() {
                 <button
                   key={k}
                   className="text-xs px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 hover:bg-gray-800 transition-colors flex items-center gap-1.5"
-                  onClick={() => { 
-                    enhancedToggleWidget(k, true);
-                    // Remove from hidden list immediately for better UX
-                    setPickerOpen(false);
-                  }}
+                  onClick={() => { enhancedToggleWidget(k, true); setPickerOpen(false); }}
                 >
                   <Plus size={12} />
                   {ALL_WIDGET_LABELS[k] || k}
@@ -992,11 +888,7 @@ export default function Dashboard() {
             onDragLeave={onDragLeave}
             onDrop={onDrop(idx)}
             className={`${editLayout ? "cursor-move" : ""} group relative transition-transform`}
-            style={editLayout ? { 
-              outline: "2px dashed rgba(145,219,50,0.3)", 
-              borderRadius: "1rem",
-              backgroundColor: "rgba(145,219,50,0.05)"
-            } : undefined}
+            style={editLayout ? { outline: "2px dashed rgba(145,219,50,0.3)", borderRadius: "1rem", backgroundColor: "rgba(145,219,50,0.05)" } : undefined}
           >
             {editLayout && (
               <button
