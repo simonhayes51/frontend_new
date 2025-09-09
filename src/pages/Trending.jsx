@@ -319,13 +319,13 @@ export default function Trending() {
       {/* Status */}
       <div className="flex items-center justify-between">
         <div className="text-xs text-gray-400">
-          Showing {trendType} for <span className="font-medium">{timeframe}h</span>. Add players
-          to your watchlist using the button on each card.
-        </div>
-        {lastUpdated && (
-          <div className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</div>
+        {trendType === "smart" ? (
+          <>Showing smart (6h vs 24h). Add players to your watchlist using the button on each card.</>
+        ) : (
+          <>Showing {trendType} for <span className="font-medium">{timeframe}h</span>. Add players to your watchlist using the button on each card.</>
         )}
       </div>
+
 
       {/* Error */}
       {err && (
