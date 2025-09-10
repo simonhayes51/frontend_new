@@ -1,43 +1,32 @@
-import React from "react";
-import { useLocation, Outlet } from "react-router-dom";
-import DesktopSidebar from "./DesktopSidebar";
-import MobileHeader from "./MobileHeader";
-import { useMediaQuery } from "../hooks/useMediaQuery";
+// src/components/Layout.jsx
+import React, { useEffect } from "react";
+import { Outlet } from "react-router-dom";
+import Navigation from "./Navigation";
 
-const Layout = ({ children }) => {
-  const location = useLocation();
-  const isMobile = useMediaQuery("(max-width: 768px)");
-  
-  // Routes that should not show navigation
-  const noNavRoutes = ["/login", "/register", "/onboarding"];
-  const showNavigation = !noNavRoutes.includes(location.pathname);
+export default function Layout() {
+  // Listen for premium blocking events from axios interceptor
+  useEffect(() => {
+    const handlePremiumBlocked = (event) => {
+      console.log("Premium feature blocked:", event.detail);
+      // You could show a toast notification here instead of the full page
+      // toast.warning(`${event.detail.feature} requires premium access`);
+    };
 
-  if (!showNavigation) {
-    return <>{children}</>;
-  }
+    window.addEventListener("premium:blocked", handlePremiumBlocked);
+    return () => window.removeEventListener("premium:blocked", handlePremiumBlocked);
+  }, []);
 
   return (
-    <>
-      {isMobile ? (
-        <>
-          <MobileHeader />
-          <main className="min-h-screen bg-gray-950">
-            <Outlet />
-          </main>
-        </>
-      ) : (
-        <>
-          <DesktopSidebar />
-          <main 
-            className="min-h-screen bg-gray-950 transition-all duration-200"
-            style={{ marginLeft: "var(--sidebar-width, 16rem)" }}
-          >
-            <Outlet />
-          </main>
-        </>
-      )}
-    </>
+    <div className="flex min-h-screen bg-black">
+      {/* Sidebar Navigation */}
+      <Navigation />
+      
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto">
+        <div className="min-h-screen">
+          <Outlet />
+        </div>
+      </main>
+    </div>
   );
-};
-
-export default Layout;
+}
