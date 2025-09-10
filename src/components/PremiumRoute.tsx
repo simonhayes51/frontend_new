@@ -1,24 +1,26 @@
 import React from "react";
-import { PremiumGate } from "./PremiumGate";
+import PremiumGate from "./PremiumGate"; // ⬅️ default import (not { PremiumGate })
 
 type Props = {
   requirePremium?: boolean;
-  requiredFeature?: string;
+  featureKey?: string;
+  fallback?: React.ReactNode;
   children: React.ReactNode;
 };
 
-const PremiumRoute: React.FC<Props> = ({ requirePremium, requiredFeature, children }) => {
+export default function PremiumRoute({
+  children,
+  requirePremium,
+  featureKey,
+  fallback,
+}: Props) {
   return (
     <PremiumGate
-      mode="route"
       requirePremium={requirePremium}
-      requiredFeature={requiredFeature}
-      // Optional: custom route loading skeleton
-      loadingFallback={<div className="p-6">Checking your plan…</div>}
+      featureKey={featureKey}
+      fallback={fallback}
     >
       {children}
     </PremiumGate>
   );
-};
-
-export default PremiumRoute;
+}
