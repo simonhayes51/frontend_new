@@ -10,6 +10,7 @@ const EntitlementsContext = createContext({
 
 export function EntitlementsProvider({ children }) {
   const API = import.meta.env.VITE_API_URL || "";
+  const res = await fetch(`${API}/api/entitlements`, { credentials: "include" });
   const [state, setState] = useState({
     isPremium: false,
     limits: { watchlist_max: 5 },
