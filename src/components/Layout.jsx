@@ -1,7 +1,7 @@
 // src/components/Layout.jsx
 import React, { useEffect } from "react";
 import { Outlet } from "react-router-dom";
-import Navigation from "./Navigation";
+import DesktopSidebar from "./DesktopSidebar";
 
 export default function Layout() {
   // Listen for premium blocking events from axios interceptor
@@ -19,10 +19,13 @@ export default function Layout() {
   return (
     <div className="flex min-h-screen bg-black">
       {/* Sidebar Navigation */}
-      <Navigation />
+      <DesktopSidebar />
       
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main 
+        className="flex-1 overflow-auto transition-all duration-200"
+        style={{ marginLeft: "var(--sidebar-width, 16rem)" }}
+      >
         <div className="min-h-screen">
           <Outlet />
         </div>
