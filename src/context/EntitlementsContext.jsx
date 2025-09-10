@@ -1,32 +1,48 @@
 // src/context/EntitlementsContext.jsx
-import React, { createContext, useContext, useEffect, useState } from "react";
-import api from "@/axios";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-const EntContext = createContext(null);
+const EntitlementsContext = createContext({
+  isPremium: false,
+  limits: { watchlist_max: 5 },
+  loading: true,
+  error: null,
+});
 
 export function EntitlementsProvider({ children }) {
-  const [me, setMe] = useState({ loading: true, is_premium: false, features: new Set() });
+  const API = import.meta.env.VITE_API_URL || "";
+  const [state, setState] = useState({
+    isPremium: false,
+    limits: { watchlist_max: 5 },
+    loading: true,
+    error: null,
+  });
 
   useEffect(() => {
-    let alive = true;
+    let cancelled = false;
     (async () => {
       try {
-        const { data } = await api.get("/api/auth/me");
-        if (!alive) return;
-        setMe({
-          ...data,
-          loading: false,
-          features: new Set(data?.features || []),
-        });
-      } catch {
-        if (!alive) return;
-        setMe((m) => ({ ...m, loading: false }));
+        // Prefer a dedicated entitlements endpoint if you have one.
+        // Fallback to /api/auth/me (expected to include { is_premium, limits }).
+        const res = await fetch(`${API}/api/auth/me`, { credentials: "include" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const js = await res.json();
+        const isPremium = !!js?.is_premium;
+        const limits = js?.limits || (isPremium ? { watchlist_max: 100 } : { watchlist_max: 5 });
+
+        if (!cancelled) {
+          setState({ isPremium, limits, loading: false, error: null });
+        }
+      } catch (e) {
+        if (!cancelled) setState(s => ({ ...s, loading: false, error: String(e?.message || e) }));
       }
     })();
-    return () => { alive = false; };
-  }, []);
+    return () => { cancelled = true; };
+  }, [API]);
 
-  return <EntContext.Provider value={me}>{children}</EntContext.Provider>;
+  const value = useMemo(() => state, [state]);
+  return <EntitlementsContext.Provider value={value}>{children}</EntitlementsContext.Provider>;
 }
 
-export const useEntitlements = () => useContext(EntContext);
+export function useEntitlements() {
+  return useContext(EntitlementsContext);
+}
