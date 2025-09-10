@@ -1,74 +1,46 @@
 // src/context/EntitlementsContext.jsx
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
 
-const EntitlementsContext = createContext({
-  isPremium: false,
-  features: [],
-  limits: { watchlist_max: 3, trending: { timeframes: ["24h"], limit: 5, smart: false } },
-  roles: [],
-  plan: null,
-  loading: true,
-  error: null,
-  hasFeature: () => false,
-  refreshEntitlements: () => {},
-});
+const EntitlementsContext = createContext(null);
 
 export function EntitlementsProvider({ children }) {
   const API = import.meta.env.VITE_API_URL || "";
-
   const [state, setState] = useState({
+    loading: true,
     isPremium: false,
     features: [],
     limits: { watchlist_max: 3, trending: { timeframes: ["24h"], limit: 5, smart: false } },
     roles: [],
-    plan: null,
-    loading: true,
-    error: null,
   });
 
-  const load = useCallback(async () => {
-    setState((s) => ({ ...s, loading: true, error: null }));
-    try {
-      const res = await fetch(`${API}/api/entitlements`, { credentials: "include" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const js = await res.json();
-      setState({
-        isPremium: Boolean(js.is_premium),
-        features: Array.isArray(js.features) ? js.features : [],
-        limits: js.limits || { watchlist_max: 3, trending: { timeframes: ["24h"], limit: 5, smart: false } },
-        roles: Array.isArray(js.roles) ? js.roles : [],
-        plan: js.plan || null,
-        loading: false,
-        error: null,
-      });
-    } catch (e) {
-      setState((s) => ({ ...s, loading: false, error: e?.message || "Failed to load entitlements" }));
-    }
+  useEffect(() => {
+    let abort = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/api/entitlements`, { credentials: "include" });
+        const data = await res.json();
+        if (!abort) {
+          setState({
+            loading: false,
+            isPremium: Boolean(data?.is_premium),
+            features: Array.isArray(data?.features) ? data.features : [],
+            limits: data?.limits || { watchlist_max: 3, trending: { timeframes: ["24h"], limit: 5, smart: false } },
+            roles: Array.isArray(data?.roles) ? data.roles : [],
+          });
+        }
+      } catch {
+        if (!abort) setState(s => ({ ...s, loading: false }));
+      }
+    })();
+    return () => { abort = true; };
   }, [API]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const value = useMemo(
-    () => ({
-      ...state,
-      hasFeature: (key) => state.isPremium || (state.features || []).includes(key),
-      refreshEntitlements: load,
-    }),
-    [state, load]
-  );
-
+  const value = useMemo(() => state, [state]);
   return <EntitlementsContext.Provider value={value}>{children}</EntitlementsContext.Provider>;
 }
 
 export function useEntitlements() {
-  return useContext(EntitlementsContext);
+  const ctx = useContext(EntitlementsContext);
+  if (!ctx) throw new Error("useEntitlements must be used within EntitlementsProvider");
+  return ctx;
 }
