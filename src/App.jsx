@@ -5,11 +5,12 @@ import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { DashboardProvider } from "./context/DashboardContext";
 import { SettingsProvider } from "./context/SettingsContext";
+import { EntitlementsProvider } from "./context/EntitlementsContext"; // Make sure this is imported
 import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
 import Loading from "./components/Loading";
 import PrivateRoute from "./components/PrivateRoute";
-import PremiumRoute from "./components/PremiumRoute"; // ⟵ premium route guard
+import PremiumRoute from "./components/PremiumRoute";
 
 // Eager pages
 import Landing from "./pages/Landing";
@@ -27,7 +28,7 @@ const Settings      = lazy(() => import("./pages/Settings"));
 const ProfitGraph   = lazy(() => import("./pages/ProfitGraph"));
 const PriceCheck    = lazy(() => import("./pages/PriceCheck"));
 const Trending      = lazy(() => import("./pages/Trending"));
-const SmartBuy      = lazy(() => import("./pages/SmartBuy")); // ⟵ premium page
+const SmartBuy      = lazy(() => import("./pages/SmartBuy"));
 const Login         = lazy(() => import("./pages/Login"));
 const AccessDenied  = lazy(() => import("./pages/AccessDenied"));
 const NotFound      = lazy(() => import("./pages/NotFound"));
@@ -37,61 +38,91 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <Router>
-          <div className="bg-black min-h-screen text-white">
-            <Suspense fallback={<Loading />}>
-              <Routes>
-                {/* Public */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/access-denied" element={<AccessDenied />} />
-                {/* (Optional) Public landing page if you ever want one */}
-                <Route path="/landing" element={<Landing />} />
+        <EntitlementsProvider>
+          <Router>
+            <div className="bg-black min-h-screen text-white">
+              <Suspense fallback={<Loading />}>
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/access-denied" element={<AccessDenied />} />
+                  <Route path="/landing" element={<Landing />} />
 
-                {/* Protected shell */}
-                <Route
-                  path="/"
-                  element={
-                    <PrivateRoute>
-                      <SettingsProvider>
-                        <DashboardProvider>
-                          <Layout />
-                        </DashboardProvider>
-                      </SettingsProvider>
-                    </PrivateRoute>
-                  }
-                >
-                  {/* Protected pages */}
-                  <Route index element={<Dashboard />} />
-                  <Route path="add-trade" element={<AddTrade />} />
-                  <Route path="trades" element={<Trades />} />
-                  <Route path="player-search" element={<PlayerSearch />} />
-                  <Route path="player-compare" element={<PlayerCompare />} />
-                  <Route path="profile" element={<Profile />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="analytics" element={<ProfitGraph />} />
-                  <Route path="pricecheck" element={<PriceCheck />} />
-                  <Route path="watchlist" element={<Watchlist />} />
-                  <Route path="squad" element={<SquadBuilder />} />
-                  <Route path="trending" element={<Trending />} />
-                  <Route path="trade-finder" element={<TradeFinder />} />
-
-                  {/* Premium-only route(s) */}
+                  {/* Protected shell */}
                   <Route
-                    path="smart-buy"
+                    path="/"
                     element={
-                      <PremiumRoute requiredFeature="smart_buy">
-                        <SmartBuy />
-                      </PremiumRoute>
+                      <PrivateRoute>
+                        <SettingsProvider>
+                          <DashboardProvider>
+                            <Layout />
+                          </DashboardProvider>
+                        </SettingsProvider>
+                      </PrivateRoute>
                     }
-                  />
-                </Route>
+                  >
+                    {/* Free tier pages */}
+                    <Route index element={<Dashboard />} />
+                    <Route path="add-trade" element={<AddTrade />} />
+                    <Route path="trades" element={<Trades />} />
+                    <Route path="player-search" element={<PlayerSearch />} />
+                    <Route path="player-compare" element={<PlayerCompare />} />
+                    <Route path="profile" element={<Profile />} />
+                    <Route path="settings" element={<Settings />} />
+                    <Route path="analytics" element={<ProfitGraph />} />
+                    <Route path="pricecheck" element={<PriceCheck />} />
+                    <Route path="watchlist" element={<Watchlist />} />
+                    <Route path="squad" element={<SquadBuilder />} />
 
-                {/* 404 */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-          </div>
-        </Router>
+                    {/* Basic trending (free tier gets limited access) */}
+                    <Route path="trending" element={<Trending />} />
+
+                    {/* Premium-only routes with full page protection */}
+                    <Route
+                      path="smart-buy"
+                      element={
+                        <PremiumRoute 
+                          feature="smart_buy"
+                          featureName="Smart Buy AI"
+                        >
+                          <SmartBuy />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    <Route
+                      path="trade-finder"
+                      element={
+                        <PremiumRoute 
+                          feature="trade_finder"
+                          featureName="Advanced Trade Finder"
+                        >
+                          <TradeFinder />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    {/* You can add more premium routes here */}
+                    <Route
+                      path="advanced-analytics"
+                      element={
+                        <PremiumRoute 
+                          feature="advanced_analytics"
+                          featureName="Advanced Analytics"
+                        >
+                          <ProfitGraph />
+                        </PremiumRoute>
+                      }
+                    />
+                  </Route>
+
+                  {/* 404 fallback */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+            </div>
+          </Router>
+        </EntitlementsProvider>
       </AuthProvider>
     </ErrorBoundary>
   );
