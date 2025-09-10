@@ -4,13 +4,28 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
 import { useSettings, ALL_WIDGET_KEYS } from "../context/SettingsContext";
-import PremiumGate from "../components/PremiumGate"; // ⟵ guard premium-only bits
+import PremiumGate from "../components/PremiumGate";
 import {
   LineChart, PencilLine, RotateCcw, Plus, X, CalendarClock, TrendingUp, TrendingDown,
   Bell, Settings as Cog, Target, Zap, Trophy, Activity, BarChart3, Timer
 } from "lucide-react";
 
 const ACCENT = "#91db32";
+
+/* ---------- choose which widgets are premium ---------- */
+const PREMIUM_WIDGETS = new Set([
+  "trending",
+  "profit_trend",
+  "performance",
+  "promo",
+]);
+
+/* tiny helper so usage stays clean */
+const Gate = ({ name, children, fallback }) => (
+  <PremiumGate requiredFeature={name} fallback={fallback}>
+    {children}
+  </PremiumGate>
+);
 
 /* ---------------- Layout persistence ---------------- */
 const LAYOUT_STORAGE_KEY = "dashboard_layout_v2";
@@ -79,7 +94,7 @@ export default function Dashboard() {
   const [localWidgetOrder, setLocalWidgetOrder] = useState(() => {
     const saved = loadLayoutFromStorage();
     return saved?.widget_order || widget_order || [...ALL_WIDGET_KEYS];
-    });
+  });
 
   const [localVisibleWidgets, setLocalVisibleWidgets] = useState(() => {
     const saved = loadWidgetSettingsFromStorage();
@@ -157,7 +172,6 @@ export default function Dashboard() {
     return { totalProfit, totalTax, gross, taxPct, wins, losses, winRate, avgProfit, best, volume, latest, topEarner };
   }, [filteredTrades, netProfit, taxPaid, include_tax_in_profit, startingBalance]);
 
-  /* --------- Performance Score (kinder ramp) --------- */
   const performanceScore = useMemo(() => {
     if (filteredTrades.length === 0) return 0;
     const winRateScore = Math.min(totals.winRate / 80 * 40, 40);
@@ -166,7 +180,6 @@ export default function Dashboard() {
     return Math.round(winRateScore + profitTrendScore + activityScore);
   }, [totals, filteredTrades.length]);
 
-  /* --------- Today for Daily Target --------- */
   const todayStats = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const todayTrades = trades.filter(t => {
@@ -179,7 +192,6 @@ export default function Dashboard() {
     return { profit: todayProfit, target, progress, trades: todayTrades.length };
   }, [trades, daily_target]);
 
-  /* --------- Current Streak --------- */
   const currentStreak = useMemo(() => {
     if (trades.length === 0) return { type: 'none', count: 0 };
     const sortedTrades = [...trades].sort((a, b) => new Date(b?.timestamp || 0) - new Date(a?.timestamp || 0));
@@ -199,7 +211,6 @@ export default function Dashboard() {
     return { type: streakType, count: streakCount };
   }, [trades]);
 
-  /* --------- 7d sparkline --------- */
   const spark = useMemo(() => {
     const dayKey = (d) => { const dt = new Date(d); return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime(); };
     const map = new Map();
@@ -224,7 +235,6 @@ export default function Dashboard() {
     return { dAttr, w, h, last: ysRaw[ysRaw.length - 1] };
   }, [trades, include_tax_in_profit]);
 
-  /* --------- Order with local state --------- */
   const orderedKeys = useMemo(() => {
     const set = new Set(vis);
     const primary = order.filter((k) => set.has(k));
@@ -232,14 +242,12 @@ export default function Dashboard() {
     return primary;
   }, [vis, order]);
 
-  /* --------- Enhanced toggle --------- */
   const enhancedToggleWidget = useCallback((key, show) => {
     if (show) setLocalVisibleWidgets(prev => [...prev, key]);
     else setLocalVisibleWidgets(prev => prev.filter(k => k !== key));
     toggleWidget(key, show);
   }, [toggleWidget]);
 
-  /* --------- DnD --------- */
   const onDragStart = useCallback((idx) => (e) => {
     if (!editLayout) return;
     e.dataTransfer.effectAllowed = "move";
@@ -256,13 +264,13 @@ export default function Dashboard() {
     const fromIdx = Number(e.dataTransfer.getData("text/plain"));
     if (!Number.isInteger(fromIdx) || fromIdx === toIdx) return;
     const next = [...orderedKeys];
-    const [moved] = next.splice(fromIdx, 1);
-    next.splice(toIdx, 0, moved);
+    next.splice(toIdx, 0, next.splice(fromIdx, 1)[0]);
     const hidden = localWidgetOrder.filter((k) => !vis.includes(k));
     const newOrder = [...next, ...hidden];
     setLocalWidgetOrder(newOrder);
     saveSettings({ widget_order: newOrder });
   }, [editLayout, orderedKeys, localWidgetOrder, vis, saveSettings]);
+
   const resetLayout = useCallback(() => {
     const defaultOrder = [...ALL_WIDGET_KEYS];
     setLocalWidgetOrder(defaultOrder);
@@ -311,7 +319,6 @@ export default function Dashboard() {
       { icon: BarChart3, label: "Analytics", href: "/analytics", color: "bg-blue-600 hover:bg-blue-700" },
       { icon: Bell, label: "Alerts", href: "/settings#alerts", color: "bg-purple-600 hover:bg-purple-700" },
       { icon: Cog, label: "Settings", href: "/settings", color: "bg-gray-600 hover:bg-gray-700" },
-      // Premium shortcut
       { icon: Zap, label: "Smart Buy", href: "/smart-buy", color: "bg-amber-600 hover:bg-amber-700", premiumFeature: "smart_buy" },
     ];
     return (
@@ -329,9 +336,7 @@ export default function Dashboard() {
               </Link>
             );
             return a.premiumFeature ? (
-              <PremiumGate key={i} requiredFeature={a.premiumFeature}>
-                {Btn}
-              </PremiumGate>
+              <Gate key={i} name={a.premiumFeature}>{Btn}</Gate>
             ) : (
               <React.Fragment key={i}>{Btn}</React.Fragment>
             );
@@ -341,42 +346,40 @@ export default function Dashboard() {
     );
   };
 
-  const DailyTargetCard = () => {
-    return (
-      <div className={`${cardBase} bg-gradient-to-br from-green-900/20 to-emerald-900/20`}>
-        <div className="flex items-center justify-between">
-          <div className={cardTitle}>Daily Target</div>
-          <div className="flex items-center gap-2">
-            <span className={chip}><Target size={10} /> today</span>
-            <button
-              onClick={() => {
-                const v = prompt("Set daily target (coins):", String(todayStats.target));
-                if (v !== null) saveSettings({ daily_target: Number(v) || 0 });
-              }}
-              className="text-[10px] underline text-gray-400 hover:text-gray-200"
-            >
-              edit
-            </button>
-          </div>
-        </div>
-        <div className="flex items-end gap-4">
-          <div className={`${cardBig} ${todayStats.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {formatCurrency(todayStats.profit)}
-          </div>
-          <div className="pb-1">
-            <div className="text-[10px] text-gray-400">/ {formatCurrency(todayStats.target)}</div>
-            <div className="text-[11px] text-green-400">{todayStats.progress.toFixed(0)}%</div>
-          </div>
-        </div>
-        <div className="mt-2">
-          <div className="w-full bg-gray-800 rounded-full h-1.5">
-            <div className="bg-gradient-to-r from-green-500 to-emerald-400 h-1.5 rounded-full transition-all duration-500" style={{ width: `${Math.min(todayStats.progress, 100)}%` }} />
-          </div>
-          <div className={`${subText} mt-1`}>{todayStats.trades} trades today</div>
+  const DailyTargetCard = () => (
+    <div className={`${cardBase} bg-gradient-to-br from-green-900/20 to-emerald-900/20`}>
+      <div className="flex items-center justify-between">
+        <div className={cardTitle}>Daily Target</div>
+        <div className="flex items-center gap-2">
+          <span className={chip}><Target size={10} /> today</span>
+          <button
+            onClick={() => {
+              const v = prompt("Set daily target (coins):", String(todayStats.target));
+              if (v !== null) saveSettings({ daily_target: Number(v) || 0 });
+            }}
+            className="text-[10px] underline text-gray-400 hover:text-gray-200"
+          >
+            edit
+          </button>
         </div>
       </div>
-    );
-  };
+      <div className="flex items-end gap-4">
+        <div className={`${cardBig} ${todayStats.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+          {formatCurrency(todayStats.profit)}
+        </div>
+        <div className="pb-1">
+          <div className="text-[10px] text-gray-400">/ {formatCurrency(todayStats.target)}</div>
+          <div className="text-[11px] text-green-400">{todayStats.progress.toFixed(0)}%</div>
+        </div>
+      </div>
+      <div className="mt-2">
+        <div className="w-full bg-gray-800 rounded-full h-1.5">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-400 h-1.5 rounded-full transition-all duration-500" style={{ width: `${Math.min(todayStats.progress, 100)}%` }} />
+        </div>
+        <div className={`${subText} mt-1`}>{todayStats.trades} trades today</div>
+      </div>
+    </div>
+  );
 
   const CurrentStreakCard = () => {
     const getStreakEmoji = (type, count) =>
@@ -443,7 +446,7 @@ export default function Dashboard() {
       </div>
     );
 
-    return (
+    const body = (
       <div className={`${cardBase} bg-gradient-to-br from-teal-900/20 to-blue-900/20`}>
         <div className="flex items-center justify-between">
           <div className={cardTitle}>Market Summary</div>
@@ -461,7 +464,7 @@ export default function Dashboard() {
 
         {loading ? (
           <div className="space-y-2 mt-1">
-            {[...Array(3)].map((_,i)=> <div key={i} className="h-4 bg-gray-800 rounded animate-pulse" />)}
+            {[...Array(3)].map((_,i)=><div key={i} className="h-4 bg-gray-800 rounded animate-pulse" />)}
           </div>
         ) : err ? (
           <div className="text-[12px] text-red-400 mt-1">Error: {err}</div>
@@ -480,6 +483,9 @@ export default function Dashboard() {
         </div>
       </div>
     );
+
+    // If you want Market Summary to be free, remove the Gate wrapper here
+    return <Gate name="market_summary" fallback={body}>{body}</Gate>;
   };
 
   const NextPromoCard = () => {
@@ -511,7 +517,7 @@ export default function Dashboard() {
       return () => clearInterval(id);
     }, [data?.start_at]);
 
-    return (
+    const body = (
       <div className={cardBase}>
         <div className="flex items-center justify-between">
           <div className={cardTitle}>Next Promo</div>
@@ -536,6 +542,10 @@ export default function Dashboard() {
         )}
       </div>
     );
+
+    return PREMIUM_WIDGETS.has("promo")
+      ? <Gate name="promo" fallback={body}>{body}</Gate>
+      : body;
   };
 
   const TrendingCard = () => {
@@ -548,7 +558,6 @@ export default function Dashboard() {
       (async () => {
         setLoading(true);
         try {
-          // Note: backend will coerce TF for free users; premium users can use 6/12 freely.
           const res = await fetch(`${API}/api/trending?type=${type}&tf=6`, { credentials: "include" });
           const js = await res.json();
           setItems(Array.isArray(js?.items) ? js.items.slice(0, 2) : []);
@@ -556,21 +565,23 @@ export default function Dashboard() {
       })();
     }, [type]); // eslint-disable-line
 
-    return (
+    const body = (
       <div className={cardBase}>
         <div className="flex items-center justify-between">
           <div className={cardTitle}>Trending (6h)</div>
           <div className="flex items-center gap-2">
-            {/* Smart tab is premium — gate the deep link */}
-            <PremiumGate requiredFeature="smart_buy" fallback={
-              <Link to="/trending" className="text-[10px] text-gray-400 hover:text-gray-200 underline">
-                See all →
-              </Link>
-            }>
+            <Gate
+              name="smart_buy"
+              fallback={
+                <Link to="/trending" className="text-[10px] text-gray-400 hover:text-gray-200 underline">
+                  See all →
+                </Link>
+              }
+            >
               <Link to="/trending?tab=smart&tf=24" className="text-[10px] text-gray-400 hover:text-gray-200 underline">
                 See all →
               </Link>
-            </PremiumGate>
+            </Gate>
             <div className="flex items-center gap-1">
               <button onClick={() => setType("risers")} className={`text-[10px] px-2 py-0.5 rounded ${type==="risers" ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}><TrendingUp size={10}/>Risers</button>
               <button onClick={() => setType("fallers")} className={`text-[10px] px-2 py-0.5 rounded ${type==="fallers" ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}><TrendingDown size={10}/>Fallers</button>
@@ -605,6 +616,10 @@ export default function Dashboard() {
         </div>
       </div>
     );
+
+    return PREMIUM_WIDGETS.has("trending")
+      ? <Gate name="trending" fallback={body}>{body}</Gate>
+      : body;
   };
 
   const AlertsCard = () => {
@@ -713,58 +728,67 @@ export default function Dashboard() {
   };
 
   const renderWidget = (key) => {
+    // Build the widget first
+    let node = null;
     switch (key) {
-      case "performance":   return <PerformanceScoreCard />;
-      case "quick_actions": return <QuickActionsCard />;
-      case "daily_target":  return <DailyTargetCard />;
-      case "streak":        return <CurrentStreakCard />;
-      case "market_summary": return <MarketSummaryCard />;
-      case "promo":         return <NextPromoCard />;
-      case "trending":      return <TrendingCard />;
-      case "alerts":        return <AlertsCard />;
-      case "profit":        return (
+      case "performance":   node = <PerformanceScoreCard />; break;
+      case "quick_actions": node = <QuickActionsCard />; break;
+      case "daily_target":  node = <DailyTargetCard />; break;
+      case "streak":        node = <CurrentStreakCard />; break;
+      case "market_summary": node = <MarketSummaryCard />; break;
+      case "promo":         node = <NextPromoCard />; break;
+      case "trending":      node = <TrendingCard />; break;
+      case "alerts":        node = <AlertsCard />; break;
+
+      case "profit": node = (
         <div className={cardBase}>
           <div className={cardTitle}>Net Profit</div>
           <div className="text-green-400"><span className={cardBig}>{formatCurrency(totals.totalProfit)} coins</span></div>
           <div className={subText}></div>
         </div>
-      );
-      case "tax":           return (
+      ); break;
+
+      case "tax": node = (
         <div className={cardBase}>
           <div className={cardTitle}>EA Tax Paid</div>
           <div className={`${cardBig} text-red-400`}>{formatCurrency(totals.totalTax)} coins</div>
           <div className={subText}>{totals.totalTax > 0 ? `${totals.taxPct.toFixed(1)}% of gross` : "No tax yet"}</div>
         </div>
-      );
-      case "balance":       return (
+      ); break;
+
+      case "balance": node = (
         <div className={cardBase}>
           <div className={cardTitle}>Starting Balance</div>
           <div className={`${cardBig} text-blue-400`}>{formatCurrency(startingBalance ?? 0)} coins</div>
           {(startingBalance ?? 0) > 0 && totals.totalProfit > 0 && <div className={subText}>ROI: {(((totals.totalProfit)/(startingBalance||1))*100).toFixed(1)}%</div>}
         </div>
-      );
-      case "trades":        return (
+      ); break;
+
+      case "trades": node = (
         <div className={cardBase}>
           <div className={cardTitle}>Total Trades ({tf})</div>
           <div className={`${cardBig} text-purple-400`}>{filteredTrades.length}</div>
           {filteredTrades.length > 0 && <div className={subText}>Avg profit: {formatCurrency(totals.avgProfit)} coins</div>}
         </div>
-      );
-      case "roi":           return (
+      ); break;
+
+      case "roi": node = (
         <div className={cardBase}>
           <div className={cardTitle}>ROI</div>
           <div className={cardBig}>{(startingBalance ?? 0) > 0 ? (((totals.totalProfit)/(startingBalance||1))*100).toFixed(1) : 0}%</div>
           <div className={subText}>cumulative</div>
         </div>
-      );
-      case "winrate":       return (
+      ); break;
+
+      case "winrate": node = (
         <div className={cardBase}>
           <div className={cardTitle}>Win Rate ({tf})</div>
           <div className={cardBig}>{filteredTrades.length ? totals.winRate.toFixed(1) : 0}%</div>
           <div className={subText}>{totals.wins} wins • {totals.losses} losses</div>
         </div>
-      );
-      case "best_trade":    return (
+      ); break;
+
+      case "best_trade": node = (
         <div className={cardBase}>
           <div className={cardTitle}>Best Trade ({tf})</div>
           <div className="text-green-400">
@@ -772,42 +796,50 @@ export default function Dashboard() {
           </div>
           <div className={subText}>{totals.best.trade ? `${totals.best.trade.player ?? "Unknown"} (${totals.best.trade.version ?? "—"})` : "—"}</div>
         </div>
-      );
-      case "avg_profit":    return (
+      ); break;
+
+      case "avg_profit": node = (
         <div className={cardBase}>
           <div className={cardTitle}>Average Profit per Trade ({tf})</div>
           <div className="text-green-400"><span className={cardBig}>{formatCurrency(totals.avgProfit)} coins</span></div>
           <div className={subText}></div>
         </div>
-      );
-      case "volume":        return (
+      ); break;
+
+      case "volume": node = (
         <div className={cardBase}>
           <div className={cardTitle}>Coin Volume ({tf})</div>
           <div className={`${cardBig} text-gray-200`}>{formatCurrency(totals.volume.total)}</div>
           <div className={subText}>Buys: {formatCurrency(totals.volume.buy)} • Sells: {formatCurrency(totals.volume.sell)}</div>
         </div>
-      );
-      case "profit_trend":  return (
-        <div className={cardBase}>
-          <div className="flex items-center justify-between">
-            <div className={cardTitle}>Profit Trend (7D)</div>
-            <span className={chip}><LineChart size={10} /> sparkline</span>
+      ); break;
+
+      case "profit_trend": {
+        const body = (
+          <div className={cardBase}>
+            <div className="flex items-center justify-between">
+              <div className={cardTitle}>Profit Trend (7D)</div>
+              <span className={chip}><LineChart size={10} /> sparkline</span>
+            </div>
+            <div className="mt-1">
+              <svg width={spark.w} height={spark.h}>
+                <defs>
+                  <linearGradient id="sparkGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor={ACCENT} stopOpacity="0.8" />
+                    <stop offset="100%" stopColor={ACCENT} stopOpacity="1" />
+                  </linearGradient>
+                </defs>
+                <path d={spark.dAttr} stroke="url(#sparkGradient)" fill="none" strokeWidth="2" />
+              </svg>
+              <div className={subText}>Last day: <span className={spark.last>=0?"text-green-400 font-medium":"text-red-400 font-medium"}>{formatCurrency(spark.last ?? 0)}</span></div>
+            </div>
           </div>
-          <div className="mt-1">
-            <svg width={spark.w} height={spark.h}>
-              <defs>
-                <linearGradient id="sparkGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor={ACCENT} stopOpacity="0.8" />
-                  <stop offset="100%" stopColor={ACCENT} stopOpacity="1" />
-                </linearGradient>
-              </defs>
-              <path d={spark.dAttr} stroke="url(#sparkGradient)" fill="none" strokeWidth="2" />
-            </svg>
-            <div className={subText}>Last day: <span className={spark.last>=0?"text-green-400 font-medium":"text-red-400 font-medium"}>{formatCurrency(spark.last ?? 0)}</span></div>
-          </div>
-        </div>
-      );
-      case "latest_trade":  return (
+        );
+        node = PREMIUM_WIDGETS.has("profit_trend") ? <Gate name="profit_trend" fallback={body}>{body}</Gate> : body;
+        break;
+      }
+
+      case "latest_trade": node = (
         <div className={cardBase}>
           <div className={cardTitle}>Latest Trade</div>
           {totals.latest ? (
@@ -831,16 +863,24 @@ export default function Dashboard() {
             </div>
           ) : <div className={`${subText} mt-1`}>No trades yet</div>}
         </div>
-      );
-      case "top_earner":    return (
+      ); break;
+
+      case "top_earner": node = (
         <div className={cardBase}>
           <div className={cardTitle}>Top Earner ({tf})</div>
           <div className={`${cardBig} text-green-400`}>{formatCurrency(Math.max(0, totals.topEarner.total))} coins</div>
           <div className={subText}>{totals.topEarner.player ? totals.topEarner.player : "—"}</div>
         </div>
-      );
-      default: return null;
+      ); break;
+
+      default: node = null;
     }
+
+    // finally: if the widget key is in PREMIUM_WIDGETS, gate the whole thing
+    if (PREMIUM_WIDGETS.has(key) && node) {
+      return <Gate name={key} fallback={node}>{node}</Gate>;
+    }
+    return node;
   };
 
   /* -------------------- Render -------------------- */
@@ -890,9 +930,11 @@ export default function Dashboard() {
                   key={k}
                   className="text-xs px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 hover:bg-gray-800 transition-colors flex items-center gap-1.5"
                   onClick={() => { enhancedToggleWidget(k, true); setPickerOpen(false); }}
+                  title={PREMIUM_WIDGETS.has(k) ? "Premium" : ""}
                 >
                   <Plus size={12} />
                   {ALL_WIDGET_LABELS[k] || k}
+                  {PREMIUM_WIDGETS.has(k) && <span className="ml-1">👑</span>}
                 </button>
               ))}
             </div>
