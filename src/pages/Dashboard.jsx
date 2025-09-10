@@ -1,4 +1,4 @@
-// src/pages/Dashboard.jsx - Fixed version with complete widget rendering
+// src/pages/Dashboard.jsx
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -105,28 +105,36 @@ export default function Dashboard() {
   // Calculate metrics from trades
   const { totalTrades, winRate, avgProfit, bestTrade, totalVolume, roi } = useMemo(() => {
     if (!trades.length) return { totalTrades: 0, winRate: 0, avgProfit: 0, bestTrade: 0, totalVolume: 0, roi: 0 };
-    
+
     const totalTrades = trades.length;
-    const wins = trades.filter(t => (t.profit || 0) > 0).length;
+    const wins = trades.filter(t => (Number(t.profit) || 0) > 0).length;
     const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
-    const avgProfit = totalTrades > 0 ? trades.reduce((sum, t) => sum + (t.profit || 0), 0) / totalTrades : 0;
-    const bestTrade = trades.length > 0 ? Math.max(...trades.map(t => t.profit || 0)) : 0;
-    const totalVolume = trades.reduce((sum, t) => sum + (t.volume || 0), 0);
-    const roi = startingBalance > 0 ? ((netProfit || 0) / startingBalance) * 100 : 0;
-    
+    const avgProfit = totalTrades > 0 ? trades.reduce((sum, t) => sum + (Number(t.profit) || 0), 0) / totalTrades : 0;
+    const bestTrade = trades.length > 0 ? Math.max(...trades.map(t => Number(t.profit) || 0)) : 0;
+
+    // Derive notional sold volume (sell * quantity)
+    const totalVolume = trades.reduce((sum, t) => {
+      const sell = Number(t.sell) || 0;
+      const qty  = Number(t.quantity) || 1;
+      return sum + sell * qty;
+    }, 0);
+
+    const roi = (Number(startingBalance) > 0)
+      ? ((Number(netProfit) || 0) / Number(startingBalance)) * 100
+      : 0;
+
     return { totalTrades, winRate, avgProfit, bestTrade, totalVolume, roi };
   }, [trades, netProfit, startingBalance]);
 
-  // Get recent trades for display
+  // Get recent trades for display (use backend's timestamp field)
   const recentTrades = useMemo(() => {
-    return trades
-      .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+    return [...trades]
+      .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
       .slice(0, previewLimit);
   }, [trades, previewLimit]);
 
   /* -------------------- Premium Widgets -------------------- */
-  
-  // AI Smart Insights Widget (Premium)
+
   const SmartInsightsCard = () => {
     return (
       <PremiumGate feature="smart_insights" featureName="AI Smart Insights">
@@ -148,7 +156,6 @@ export default function Dashboard() {
     );
   };
 
-  // Advanced Analytics Widget (Premium)
   const AdvancedAnalyticsCard = () => {
     return (
       <PremiumGate feature="advanced_analytics" featureName="Advanced Analytics">
@@ -175,7 +182,6 @@ export default function Dashboard() {
     );
   };
 
-  // Market Predictions Widget (Premium)
   const MarketPredictionsCard = () => {
     return (
       <PremiumGate feature="market_predictions" featureName="Market Predictions">
@@ -207,12 +213,12 @@ export default function Dashboard() {
       case "smart_insights": return <SmartInsightsCard />;
       case "advanced_analytics": return <AdvancedAnalyticsCard />;
       case "market_predictions": return <MarketPredictionsCard />;
-      
+
       // Core widgets
       case "profit": return (
         <div className={cardBase}>
           <div className={cardTitle}>Net Profit</div>
-          <div className="text-green-400"><span className={cardBig}>{formatCurrency(netProfit ?? 0)} coins</span></div>
+          <div className="text-green-400"><span className={cardBig}>{formatCurrency(Number(netProfit) || 0)} coins</span></div>
           <div className={subText}>Total earnings after costs</div>
         </div>
       );
@@ -220,7 +226,7 @@ export default function Dashboard() {
       case "tax": return (
         <div className={cardBase}>
           <div className={cardTitle}>EA Tax Paid</div>
-          <div className="text-red-400"><span className={cardBig}>{formatCurrency(taxPaid ?? 0)} coins</span></div>
+          <div className="text-red-400"><span className={cardBig}>{formatCurrency(Number(taxPaid) || 0)} coins</span></div>
           <div className={subText}>Transaction fees</div>
         </div>
       );
@@ -228,7 +234,7 @@ export default function Dashboard() {
       case "trades": return (
         <div className={cardBase}>
           <div className={cardTitle}>Total Trades</div>
-          <div className="text-blue-400"><span className={cardHuge}>{totalTrades}</span></div>
+          <div className="text-blue-400"><span className={cardHuge}>{Number(totalTrades) || 0}</span></div>
           <div className={subText}>Completed transactions</div>
         </div>
       );
@@ -237,7 +243,7 @@ export default function Dashboard() {
         <div className={cardBase}>
           <div className={cardTitle}>Win Rate</div>
           <div className="text-green-400">
-            <span className={cardHuge}>{winRate.toFixed(1)}%</span>
+            <span className={cardHuge}>{(Number(winRate) || 0).toFixed(1)}%</span>
           </div>
           <div className={subText}>Profitable trades</div>
         </div>
@@ -247,7 +253,7 @@ export default function Dashboard() {
         <div className={cardBase}>
           <div className={cardTitle}>Average Profit / Trade</div>
           <div className="text-yellow-400">
-            <span className={cardBig}>{formatCurrency(avgProfit)} coins</span>
+            <span className={cardBig}>{formatCurrency(Number(avgProfit) || 0)} coins</span>
           </div>
           <div className={subText}>Per transaction</div>
         </div>
@@ -257,7 +263,7 @@ export default function Dashboard() {
         <div className={cardBase}>
           <div className={cardTitle}>Best Trade</div>
           <div className="text-green-400">
-            <span className={cardBig}>{formatCurrency(bestTrade)} coins</span>
+            <span className={cardBig}>{formatCurrency(Number(bestTrade) || 0)} coins</span>
           </div>
           <div className={subText}>Highest single profit</div>
         </div>
@@ -267,9 +273,9 @@ export default function Dashboard() {
         <div className={cardBase}>
           <div className={cardTitle}>Coin Volume</div>
           <div className="text-purple-400">
-            <span className={cardBig}>{formatCurrency(totalVolume)} coins</span>
+            <span className={cardBig}>{formatCurrency(Number(totalVolume) || 0)} coins</span>
           </div>
-          <div className={subText}>Total traded value</div>
+          <div className={subText}>Total traded value (sell×qty)</div>
         </div>
       );
 
@@ -277,7 +283,7 @@ export default function Dashboard() {
         <div className={cardBase}>
           <div className={cardTitle}>Starting Balance</div>
           <div className="text-gray-300">
-            <span className={cardBig}>{formatCurrency(startingBalance ?? 0)} coins</span>
+            <span className={cardBig}>{formatCurrency(Number(startingBalance) || 0)} coins</span>
           </div>
           <div className={subText}>Initial investment</div>
         </div>
@@ -286,8 +292,8 @@ export default function Dashboard() {
       case "roi": return (
         <div className={cardBase}>
           <div className={cardTitle}>ROI</div>
-          <div className={roi >= 0 ? "text-green-400" : "text-red-400"}>
-            <span className={cardHuge}>{roi.toFixed(1)}%</span>
+          <div className={(Number(roi) || 0) >= 0 ? "text-green-400" : "text-red-400"}>
+            <span className={cardHuge}>{(Number(roi) || 0).toFixed(1)}%</span>
           </div>
           <div className={subText}>Return on investment</div>
         </div>
@@ -298,9 +304,9 @@ export default function Dashboard() {
           <div className={cardTitle}>Latest Trade</div>
           {recentTrades.length > 0 ? (
             <div className="flex-1 flex flex-col justify-center">
-              <div className="text-sm font-semibold text-white">{recentTrades[0].player_name || 'Unknown Player'}</div>
-              <div className={`text-lg font-bold ${(recentTrades[0].profit || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {formatCurrency(recentTrades[0].profit || 0)} coins
+              <div className="text-sm font-semibold text-white">{recentTrades[0].player || 'Unknown Player'}</div>
+              <div className={`text-lg font-bold ${(Number(recentTrades[0].profit) || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {formatCurrency(Number(recentTrades[0].profit) || 0)} coins
               </div>
             </div>
           ) : (
@@ -316,23 +322,32 @@ export default function Dashboard() {
           <div className="flex-1 flex items-center">
             <div className="w-full">
               <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-300">{formatCurrency(netProfit ?? 0)} coins</span>
-                <span className="text-gray-400">{formatCurrency(daily_target ?? 10000)} coins</span>
+                <span className="text-gray-300">{formatCurrency(Number(netProfit) || 0)} coins</span>
+                <span className="text-gray-400">{formatCurrency(Number(daily_target) || 10000)} coins</span>
               </div>
               <div className="w-full bg-gray-800 rounded-full h-2">
-                <div 
+                <div
                   className="bg-green-500 h-2 rounded-full transition-all"
-                  style={{ width: `${Math.min(((netProfit ?? 0) / (daily_target ?? 10000)) * 100, 100)}%` }}
+                  style={{
+                    width: `${Math.min(
+                      ((Number(netProfit) || 0) / ((Number(daily_target) || 10000))) * 100,
+                      100
+                    )}%`
+                  }}
                 />
               </div>
             </div>
           </div>
           <div className={subText}>
-            {((netProfit ?? 0) / (daily_target ?? 10000) * 100).toFixed(0)}% complete
+            {(() => {
+              const goal = Number(daily_target) || 10000;
+              const pct = Math.min(100, ((Number(netProfit) || 0) / goal) * 100);
+              return `${pct.toFixed(0)}% complete`;
+            })()}
           </div>
         </div>
       );
-      
+
       case "quick_actions": return (
         <div className={`${cardBase} bg-gradient-to-br from-blue-900/20 to-cyan-900/20`}>
           <div className="flex items-center justify-between">
@@ -381,7 +396,6 @@ export default function Dashboard() {
         </div>
       );
 
-      // Add more widget cases as needed...
       default: return (
         <div className={cardBase}>
           <div className={cardTitle}>{ALL_WIDGET_LABELS[key] || key}</div>
@@ -434,11 +448,9 @@ export default function Dashboard() {
             <PencilLine size={12} /> {editLayout ? "Done" : "Edit"}
           </button>
           {editLayout && (
-            <>
-              <button onClick={() => setPickerOpen(true)} className="text-xs px-3 py-1 rounded-lg bg-gray-900/70 border border-gray-800 hover:border-gray-700 flex items-center gap-1.5" title="Add hidden widgets">
-                <Plus size={12} /> Add
-              </button>
-            </>
+            <button onClick={() => setPickerOpen(true)} className="text-xs px-3 py-1 rounded-lg bg-gray-900/70 border border-gray-800 hover:border-gray-700 flex items-center gap-1.5" title="Add hidden widgets">
+              <Plus size={12} /> Add
+            </button>
           )}
         </div>
       </div>
@@ -462,7 +474,6 @@ export default function Dashboard() {
                 >
                   <Plus size={12} />
                   {ALL_WIDGET_LABELS[k] || k}
-                  {/* Show premium badge for premium widgets */}
                   {['smart_insights', 'advanced_analytics', 'market_predictions'].includes(k) && (
                     <Crown size={10} className="text-yellow-400" />
                   )}
@@ -473,19 +484,19 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Debug info (remove in production) */}
-      {process.env.NODE_ENV === 'development' && (
+      {/* Debug info (development only) */}
+      {import.meta.env.MODE === 'development' && (
         <div className="mb-4 p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg text-xs text-yellow-200">
           <div>Visible widgets: {vis.length} ({vis.join(', ')})</div>
           <div>Total trades: {trades.length}</div>
-          <div>Net profit: {netProfit}</div>
+          <div>Net profit: {String(netProfit)}</div>
           <div>Loading: {isLoading ? 'yes' : 'no'}</div>
         </div>
       )}
 
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {vis.map((key, idx) => (
+        {vis.map((key) => (
           <div
             key={key}
             className={`${editLayout ? "cursor-move" : ""} group relative transition-transform`}
@@ -519,22 +530,21 @@ export default function Dashboard() {
               <div key={idx} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-gray-700 rounded-lg flex items-center justify-center text-xs font-semibold">
-                    {(trade.player_name || 'UK')[0]}
+                    {(trade.player || 'UK')[0]}
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-white">{trade.player_name || 'Unknown Player'}</div>
-                    <div className="text-xs text-gray-400">{formatDate(new Date(trade.date || Date.now()))}</div>
+                    <div className="text-sm font-medium text-white">{trade.player || 'Unknown Player'}</div>
+                    <div className="text-xs text-gray-400">{formatDate(new Date(trade.timestamp || Date.now()))}</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className={`text-sm font-semibold ${(trade.profit || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {formatCurrency(trade.profit || 0)} coins
+                  <div className={`text-sm font-semibold ${(Number(trade.profit) || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {formatCurrency(Number(trade.profit) || 0)} coins
                   </div>
                   <div className="text-xs text-gray-400">
-                    {trade.buy_price && trade.sell_price ? 
-                      `${formatCurrency(trade.buy_price)} → ${formatCurrency(trade.sell_price)}` : 
-                      'No price data'
-                    }
+                    {(trade.buy != null) && (trade.sell != null)
+                      ? `${formatCurrency(Number(trade.buy) || 0)} → ${formatCurrency(Number(trade.sell) || 0)}`
+                      : 'No price data'}
                   </div>
                 </div>
               </div>
