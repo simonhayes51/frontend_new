@@ -1,7 +1,7 @@
-// src/components/PremiumGate.jsx
+// src/components/PremiumGate.jsx - FIXED VERSION
 import React from "react";
 import { Crown } from "lucide-react";
-import { useSettings } from "../context/SettingsContext";
+import { useEntitlements } from "../context/EntitlementsContext"; // ← Use EntitlementsContext directly
 
 /**
  * Blocks the entire widget when locked (children are NOT rendered).
@@ -12,12 +12,17 @@ export default function PremiumGate({
   featureName,        // label, e.g. "Advanced Analytics"
   className = "",     // pass your card rounding if needed
   children,           // ignored when locked
+  fallback,           // ← ADD: fallback content to show instead of premium prompt
 }) {
-  const { entitlements } = useSettings() || {};
-  const isPremium  = !!entitlements?.is_premium;
-  const hasFeature = !!entitlements?.features?.[feature];
+  const { isPremium, features } = useEntitlements(); // ← Use the correct context
+  
+  // Check if user has premium access
+  const hasAccess = isPremium || (feature && features.includes(feature));
 
-  if (isPremium || hasFeature) return <>{children}</>;
+  if (hasAccess) return <>{children}</>;
+
+  // If fallback is provided, show that instead of the upgrade prompt
+  if (fallback) return <>{fallback}</>;
 
   return (
     <div className={`bg-gray-900/70 rounded-2xl p-4 border border-gray-800 h-[150px] flex flex-col justify-between ${className}`}>
