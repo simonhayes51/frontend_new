@@ -666,7 +666,7 @@ export default function Billing() {
             
             <div className="grid md:grid-cols-3 gap-4 text-center">
               <div className="p-4 bg-black/30 rounded-xl">
-                <div className="text-2xl font-bold text-purple-400 mb-1">30+</div>
+                <div className="text-2xl font-bold text-purple-400 mb-1">100+</div>
                 <div className="text-sm text-gray-400">Premium Members</div>
               </div>
               <div className="p-4 bg-black/30 rounded-xl">
