@@ -1,78 +1,87 @@
 import React from "react";
-import UpsellCard from "./UpsellCard";
-import { useLocation, Navigate } from "react-router-dom";
+import PropTypes from "prop-types";
+import { Link } from "react-router-dom";
+import { Lock } from "lucide-react";
 import { useEntitlements } from "../hooks/useEntitlements";
 
-type Props = {
-  /** Set true to require any premium; otherwise supply a specific feature key */
-  requirePremium?: boolean;
-  requiredFeature?: string;
-  /** If used inside a route and you prefer redirect over inline upsell */
-  mode?: "widget" | "route";
-  /** Shown while loading */
-  loadingFallback?: React.ReactNode;
-  /** What to render if blocked (widget mode). Defaults to UpsellCard. */
-  fallback?: React.ReactNode;
-  children: React.ReactNode;
+/**
+ * Small default note shown when access is blocked.
+ * You can also import and use <GateNote /> directly in cards/widgets.
+ */
+export function GateNote({
+  title = "Premium feature",
+  message = "Upgrade to unlock this feature.",
+  ctaText = "See plans",
+  to = "/billing",
+}) {
+  return (
+    <div className="bg-gray-900/70 border border-gray-800 rounded-2xl p-4">
+      <div className="flex items-center gap-2 text-gray-200">
+        <Lock size={14} />
+        <span className="text-sm font-semibold">{title}</span>
+      </div>
+      <p className="text-xs text-gray-400 mt-1">{message}</p>
+      <Link
+        to={to}
+        className="inline-flex items-center text-xs mt-2 px-3 py-1 rounded-lg bg-gray-800 border border-gray-700 hover:border-gray-600"
+      >
+        {ctaText} →
+      </Link>
+    </div>
+  );
+}
+
+GateNote.propTypes = {
+  title: PropTypes.string,
+  message: PropTypes.string,
+  ctaText: PropTypes.string,
+  to: PropTypes.string,
 };
 
-export const PremiumGate: React.FC<Props> = ({
-  requirePremium = false,
-  requiredFeature,
-  mode = "widget",
-  loadingFallback = (
-    <div className="animate-pulse h-24 rounded-2xl bg-black/5 dark:bg-white/10" />
-  ),
-  fallback,
+/**
+ * PremiumGate — wraps routes, pages, or widgets.
+ * If `requirePremium` is true, any premium is enough.
+ * Otherwise, provide a specific `featureKey` to check.
+ */
+export default function PremiumGate({
   children,
-}) => {
-  const { status, ...rest } = useEntitlements();
-  const location = useLocation();
+  requirePremium = false,
+  featureKey,
+  fallback,
+}) {
+  const { isLoading, isPremium, hasFeature } = useEntitlements();
 
-  if (status === "loading" || status === "idle") {
-    return <>{loadingFallback}</>;
-  }
-  if (status === "error") {
-    // Fail-closed for safety: block premium features if we can't verify
-    return mode === "route"
-      ? <Navigate to={`/billing?from=${encodeURIComponent(location.pathname + location.search)}`} replace />
-      : (fallback ?? <UpsellCard from={location.pathname + location.search} />);
-  }
-
-  const data = (rest as any).data;
-  const isAuthed = data?.authenticated !== false; // treat undefined as authed (some endpoints omit)
-  const isPremium = !!data?.is_premium;
-  const features: Record<string, boolean> | undefined = data?.features;
-
-  // decide requirement
-  const requiresPremium = requirePremium || !!requiredFeature;
-  const hasFeature = requiredFeature
-    ? (features ? !!features[requiredFeature] : isPremium) // if features unknown, premium implies
-    : isPremium;
-
-  const allowed = !requiresPremium || (isAuthed && hasFeature);
-
-  if (allowed) return <>{children}</>;
-
-  // Not allowed
-  if (!isAuthed) {
-    return (
-      <Navigate
-        to={`/auth/login?from=${encodeURIComponent(location.pathname + location.search)}`}
-        replace
-      />
+  if (isLoading) {
+    return fallback || (
+      <div className="bg-gray-900/70 border border-gray-800 rounded-2xl p-4 animate-pulse h-[120px]" />
     );
   }
 
-  if (mode === "route") {
-    return (
-      <Navigate
-        to={`/billing?from=${encodeURIComponent(location.pathname + location.search)}`}
-        replace
-      />
-    );
-  }
+  const allowed = requirePremium
+    ? !!isPremium
+    : featureKey
+    ? !!hasFeature?.(featureKey)
+    : !!isPremium;
 
-  // widget mode: inline upsell
-  return <>{fallback ?? <UpsellCard from={location.pathname + location.search} />}</>;
+  if (allowed) return children;
+
+  return (
+    fallback || (
+      <GateNote
+        title="Premium required"
+        message={
+          featureKey
+            ? "This feature is available on Pro."
+            : "Upgrade to unlock premium features."
+        }
+      />
+    )
+  );
+}
+
+PremiumGate.propTypes = {
+  children: PropTypes.node,
+  requirePremium: PropTypes.bool,
+  featureKey: PropTypes.string, // e.g. "smart_buy" or "smart_trending"
+  fallback: PropTypes.node,
 };
