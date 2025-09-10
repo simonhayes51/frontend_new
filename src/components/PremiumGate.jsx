@@ -1,7 +1,7 @@
-// src/components/PremiumGate.jsx - FIXED VERSION
+// src/components/PremiumGate.jsx - COMPLETE FIXED VERSION
 import React from "react";
 import { Crown } from "lucide-react";
-import { useEntitlements } from "../context/EntitlementsContext"; // ← Use EntitlementsContext directly
+import { useEntitlements } from "../context/EntitlementsContext";
 
 /**
  * Blocks the entire widget when locked (children are NOT rendered).
@@ -12,9 +12,9 @@ export default function PremiumGate({
   featureName,        // label, e.g. "Advanced Analytics"
   className = "",     // pass your card rounding if needed
   children,           // ignored when locked
-  fallback,           // ← ADD: fallback content to show instead of premium prompt
+  fallback,           // fallback content to show instead of premium prompt
 }) {
-  const { isPremium, features } = useEntitlements(); // ← Use the correct context
+  const { isPremium, features } = useEntitlements();
   
   // Check if user has premium access
   const hasAccess = isPremium || (feature && features.includes(feature));
