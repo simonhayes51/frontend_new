@@ -1,23 +1,37 @@
-// src/pages/Billing.jsx
-import React, { useState } from "react";
-import { Crown, Star, Check, Zap, ArrowRight, CreditCard, Shield, Clock } from "lucide-react";
+// src/pages/Billing.jsx - Functional payment processing
+import React, { useState, useEffect } from "react";
+import { Crown, Star, Check, Zap, ArrowRight, CreditCard, Shield, Clock, AlertTriangle } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { useEntitlements } from "../context/EntitlementsContext";
+
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 export default function Billing() {
+  const { user } = useAuth();
+  const { isPremium, refreshEntitlements } = useEntitlements();
+  
   const [billingCycle, setBillingCycle] = useState("yearly");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("stripe"); // stripe, paypal
+  const [currentSubscription, setCurrentSubscription] = useState(null);
 
   const plans = {
     monthly: {
       price: "£9.99",
       period: "per month",
-      total: "£9.99",
-      savings: null
+      total: "£9.99 per month",
+      savings: null,
+      priceId: "price_monthly_premium", // Your Stripe price ID
+      amount: 999 // in pence
     },
     yearly: {
       price: "£8.33",
       period: "per month",
       total: "£99.99 per year",
-      savings: "Save £19.89 (17% off)"
+      savings: "Save £19.89 (17% off)",
+      priceId: "price_yearly_premium", // Your Stripe price ID
+      amount: 9999 // in pence
     }
   };
 
@@ -48,24 +62,217 @@ export default function Billing() {
     }
   ];
 
-  const handleSubscribe = async () => {
-    setLoading(true);
+  // Load current subscription status
+  useEffect(() => {
+    loadSubscriptionStatus();
+  }, []);
+
+  const loadSubscriptionStatus = async () => {
     try {
-      // Simulate API call to create subscription
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await fetch(`${API_BASE}/api/billing/subscription`, {
+        credentials: "include",
+      });
       
-      // In a real app, you'd integrate with Stripe, Paddle, etc.
-      console.log(`Subscribing to ${billingCycle} plan`);
-      
-      // Redirect to success page or back to dashboard
-      window.location.href = "/?subscription=success";
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentSubscription(data);
+      }
     } catch (error) {
-      console.error("Subscription failed:", error);
+      console.error("Failed to load subscription:", error);
+    }
+  };
+
+  const createCheckoutSession = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_BASE}/api/billing/create-checkout-session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          priceId: plans[billingCycle].priceId,
+          billingCycle,
+          paymentMethod,
+          successUrl: `${window.location.origin}/dashboard?payment=success`,
+          cancelUrl: `${window.location.origin}/billing?payment=cancelled`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create checkout session");
+      }
+
+      // Redirect to Stripe Checkout or PayPal
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else if (data.sessionId && window.Stripe) {
+        const stripe = window.Stripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+        await stripe.redirectToCheckout({ sessionId: data.sessionId });
+      } else {
+        throw new Error("Invalid checkout response");
+      }
+    } catch (error) {
+      console.error("Checkout error:", error);
+      setError(error.message || "Failed to start checkout process");
     } finally {
       setLoading(false);
     }
   };
 
+  const cancelSubscription = async () => {
+    if (!confirm("Are you sure you want to cancel your premium subscription?")) {
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_BASE}/api/billing/cancel-subscription`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to cancel subscription");
+      }
+
+      // Refresh subscription status
+      await loadSubscriptionStatus();
+      await refreshEntitlements();
+      
+      alert("Your subscription has been cancelled. You'll retain premium access until the end of your billing period.");
+    } catch (error) {
+      console.error("Cancel error:", error);
+      setError(error.message || "Failed to cancel subscription");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updatePaymentMethod = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_BASE}/api/billing/update-payment-method`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update payment method");
+      }
+
+      // Redirect to customer portal
+      if (data.portalUrl) {
+        window.location.href = data.portalUrl;
+      }
+    } catch (error) {
+      console.error("Update payment error:", error);
+      setError(error.message || "Failed to update payment method");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // If user is already premium, show subscription management
+  if (isPremium && currentSubscription) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
+        <div className="relative z-10 container mx-auto px-6 py-12 max-w-4xl">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-400 to-blue-500 rounded-full mb-6">
+              <Crown className="w-8 h-8 text-black" />
+            </div>
+            
+            <h1 className="text-4xl md:text-5xl font-black mb-4 bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+              Premium Active
+            </h1>
+            
+            <p className="text-xl text-gray-300 mb-8">
+              You're enjoying all premium features
+            </p>
+          </div>
+
+          {/* Current Subscription Card */}
+          <div className="max-w-md mx-auto mb-12">
+            <div className="bg-gray-900/70 border border-green-500/50 rounded-2xl p-8 text-center">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-green-400 mb-2">Current Plan</h2>
+                <div className="text-3xl font-black">{currentSubscription.plan_name}</div>
+                <p className="text-gray-400 mt-2">
+                  Next billing: {new Date(currentSubscription.next_billing_date).toLocaleDateString()}
+                </p>
+                <p className="text-gray-400">
+                  Amount: {currentSubscription.amount_display}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={updatePaymentMethod}
+                  disabled={loading}
+                  className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 rounded-xl text-white font-semibold transition-all duration-200 disabled:opacity-50"
+                >
+                  Update Payment Method
+                </button>
+                
+                <button
+                  onClick={cancelSubscription}
+                  disabled={loading}
+                  className="w-full py-3 px-6 bg-gray-700 hover:bg-gray-600 rounded-xl text-white font-semibold transition-all duration-200 disabled:opacity-50"
+                >
+                  Cancel Subscription
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="max-w-md mx-auto mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-xl text-red-300 text-center">
+              <AlertTriangle className="w-5 h-5 inline mr-2" />
+              {error}
+            </div>
+          )}
+
+          {/* Features List */}
+          <div className="mb-12">
+            <h3 className="text-2xl font-bold text-center mb-8">Your Premium Features</h3>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              {features.map((feature, index) => (
+                <div key={index} className="flex items-start gap-4 p-4 bg-green-900/20 rounded-xl border border-green-500/30">
+                  <div className="p-3 bg-gradient-to-br from-green-500/20 to-blue-500/20 rounded-lg border border-green-500/20">
+                    {feature.icon}
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-white mb-2 flex items-center gap-2">
+                      {feature.title}
+                      <Check className="w-4 h-4 text-green-400" />
+                    </h4>
+                    <p className="text-gray-400 text-sm leading-relaxed">{feature.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show upgrade page for non-premium users
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
       {/* Animated background */}
@@ -117,6 +324,14 @@ export default function Billing() {
           </div>
         </div>
 
+        {/* Error Display */}
+        {error && (
+          <div className="max-w-md mx-auto mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-xl text-red-300 text-center">
+            <AlertTriangle className="w-5 h-5 inline mr-2" />
+            {error}
+          </div>
+        )}
+
         {/* Pricing Card */}
         <div className="max-w-md mx-auto mb-12">
           <div className="bg-gray-900/70 border border-purple-500/50 rounded-2xl p-8 text-center relative overflow-hidden">
@@ -144,8 +359,36 @@ export default function Billing() {
                 )}
               </div>
 
+              {/* Payment Method Selection */}
+              <div className="mb-6">
+                <div className="text-sm text-gray-400 mb-3">Payment Method</div>
+                <div className="flex gap-2 justify-center">
+                  <button
+                    onClick={() => setPaymentMethod("stripe")}
+                    className={`px-4 py-2 rounded-lg border transition-all ${
+                      paymentMethod === "stripe"
+                        ? "border-purple-500 bg-purple-500/20 text-purple-300"
+                        : "border-gray-600 text-gray-400 hover:border-gray-500"
+                    }`}
+                  >
+                    <CreditCard className="w-4 h-4 inline mr-2" />
+                    Card
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod("paypal")}
+                    className={`px-4 py-2 rounded-lg border transition-all ${
+                      paymentMethod === "paypal"
+                        ? "border-blue-500 bg-blue-500/20 text-blue-300"
+                        : "border-gray-600 text-gray-400 hover:border-gray-500"
+                    }`}
+                  >
+                    PayPal
+                  </button>
+                </div>
+              </div>
+
               <button
-                onClick={handleSubscribe}
+                onClick={createCheckoutSession}
                 disabled={loading}
                 className="w-full py-4 px-6 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 rounded-xl text-white font-bold text-lg shadow-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
               >
@@ -266,71 +509,6 @@ export default function Billing() {
           </div>
         </div>
 
-        {/* FAQ */}
-        <div className="mb-12">
-          <h3 className="text-2xl font-bold text-center mb-8">Frequently Asked Questions</h3>
-          
-          <div className="space-y-4 max-w-2xl mx-auto">
-            <details className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 group">
-              <summary className="font-semibold cursor-pointer text-white group-hover:text-gray-300 flex items-center justify-between">
-                How does the free trial work?
-                <ArrowRight className="w-4 h-4 transition-transform group-open:rotate-90" />
-              </summary>
-              <p className="text-gray-400 mt-3 text-sm leading-relaxed">
-                Your 7-day free trial gives you full access to all premium features. No credit card required to start. You'll only be charged after the trial ends if you decide to continue.
-              </p>
-            </details>
-
-            <details className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 group">
-              <summary className="font-semibold cursor-pointer text-white group-hover:text-gray-300 flex items-center justify-between">
-                Can I cancel anytime?
-                <ArrowRight className="w-4 h-4 transition-transform group-open:rotate-90" />
-              </summary>
-              <p className="text-gray-400 mt-3 text-sm leading-relaxed">
-                Yes! You can cancel your subscription at any time. You'll continue to have access to premium features until the end of your billing period.
-              </p>
-            </details>
-
-            <details className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 group">
-              <summary className="font-semibold cursor-pointer text-white group-hover:text-gray-300 flex items-center justify-between">
-                What payment methods do you accept?
-                <ArrowRight className="w-4 h-4 transition-transform group-open:rotate-90" />
-              </summary>
-              <p className="text-gray-400 mt-3 text-sm leading-relaxed">
-                We accept all major credit cards (Visa, Mastercard, American Express), PayPal, and other secure payment methods through our encrypted payment processor.
-              </p>
-            </details>
-
-            <details className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 group">
-              <summary className="font-semibold cursor-pointer text-white group-hover:text-gray-300 flex items-center justify-between">
-                How accurate are the AI suggestions?
-                <ArrowRight className="w-4 h-4 transition-transform group-open:rotate-90" />
-              </summary>
-              <p className="text-gray-400 mt-3 text-sm leading-relaxed">
-                Our AI model has shown an 73% success rate in testing, analyzing market trends, player performance, and historical data to suggest profitable opportunities. Results may vary based on market conditions.
-              </p>
-            </details>
-          </div>
-        </div>
-
-        {/* Trust Indicators */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-8 text-sm text-gray-400">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-green-400" />
-              <span>SSL Encrypted</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-400" />
-              <span>Instant Access</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-purple-400" />
-              <span>Money Back Guarantee</span>
-            </div>
-          </div>
-        </div>
-
         {/* Bottom CTA */}
         <div className="text-center pt-8 border-t border-gray-800">
           <p className="text-gray-400 mb-4">
@@ -346,7 +524,7 @@ export default function Billing() {
             </button>
             
             <button 
-              onClick={handleSubscribe}
+              onClick={createCheckoutSession}
               disabled={loading}
               className="px-8 py-3 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 rounded-xl text-white font-bold shadow-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
             >
