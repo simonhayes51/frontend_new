@@ -17,16 +17,20 @@ export default function Layout() {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-black">
+    <div className="flex min-h-screen">
       {/* Sidebar Navigation */}
       <DesktopSidebar />
       
-      {/* Main Content */}
+      {/* Main Content with PlayerCompare-style background */}
       <main 
-        className="flex-1 overflow-auto transition-all duration-200"
+        className="flex-1 overflow-auto transition-all duration-200 relative"
         style={{ marginLeft: "var(--sidebar-width, 16rem)" }}
       >
-        <div className="min-h-screen">
+        {/* Background gradient (same as PlayerCompare.jsx) */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-900 to-black" />
+        
+        {/* Content layer */}
+        <div className="relative z-10 min-h-screen">
           <Outlet />
         </div>
       </main>
