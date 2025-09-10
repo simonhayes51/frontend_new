@@ -103,12 +103,6 @@ const DesktopSidebar = () => {
       premium: false 
     },
     { 
-      path: "/pricecheck", 
-      label: "Price Check", 
-      icon: DollarSign, 
-      premium: false 
-    },
-    { 
       path: "/watchlist", 
       label: "Watchlist", 
       icon: Eye, 
@@ -133,19 +127,6 @@ const DesktopSidebar = () => {
       icon: Brain, 
       premium: true,
       feature: "smart_buy"
-    },
-    { 
-      path: "/trade-finder", 
-      label: "Trade Finder", 
-      icon: Zap, 
-      premium: true,
-      feature: "trade_finder"
-    },
-    { 
-      path: "/settings", 
-      label: "Settings", 
-      icon: Settings, 
-      premium: false 
     },
   ];
 
