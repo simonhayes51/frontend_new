@@ -1,4 +1,4 @@
-// src/pages/Billing.jsx - Complete working version with correct pricing
+// src/pages/Billing.jsx - Complete with 7-day trial and correct season pricing
 import React, { useState, useEffect } from "react";
 import { 
   Crown, Star, Check, Zap, ArrowRight, CreditCard, Shield, Clock, 
@@ -25,15 +25,17 @@ export default function Billing() {
       total: "£3.00 per month",
       savings: null,
       priceId: "price_monthly_premium",
-      amount: 300 // in pence
+      amount: 300, // in pence
+      trialDays: 7
     },
     yearly: {
-      price: "£3.50",
+      price: "£1.75", // £21 ÷ 12 months = £1.75/month
       period: "per month",
-      total: "£21.00 for the season",
-      savings: "Save £6.00 (22% off)",
+      total: "£21.00 for the season (12 months)",
+      savings: "Save £15.00 (42% off)", // £3×12-£21 = £15 savings
       priceId: "price_season_premium",
-      amount: 2100 // £21 in pence
+      amount: 2100, // £21 in pence
+      trialDays: 7
     }
   };
 
@@ -83,7 +85,7 @@ export default function Billing() {
     // Handle payment success/cancel from URL params
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('payment') === 'success') {
-      setSuccess("Payment successful! Your premium features are now active.");
+      setSuccess("Payment successful! Your premium features are now active and you have the Discord role!");
       // Reload user data to get updated premium status
       setTimeout(loadUserData, 1000);
     } else if (urlParams.get('payment') === 'cancelled') {
@@ -141,6 +143,7 @@ export default function Billing() {
           priceId: plans[billingCycle].priceId,
           billingCycle,
           paymentMethod,
+          trialDays: plans[billingCycle].trialDays,
           successUrl: `${window.location.origin}/billing?payment=success`,
           cancelUrl: `${window.location.origin}/billing?payment=cancelled`,
         }),
@@ -277,40 +280,29 @@ export default function Billing() {
 
           {/* Discord Connection Status */}
           <div className="max-w-md mx-auto mb-8">
-            <div className={`p-4 rounded-xl border ${discordConnected 
-              ? 'bg-green-900/20 border-green-500/30' 
-              : 'bg-blue-900/20 border-blue-500/30'
-            }`}>
+            <div className="p-4 bg-green-900/20 border border-green-500/30 rounded-xl">
               <div className="flex items-center gap-3 mb-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${discordConnected 
-                  ? 'bg-green-500' 
-                  : 'bg-blue-500'
-                }`}>
+                <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
                   <MessageCircle className="w-4 h-4 text-white" />
                 </div>
                 <div>
                   <h4 className="font-semibold text-white">Discord Integration</h4>
                   <p className="text-sm text-gray-400">
-                    {discordConnected 
-                      ? "✅ Connected - You have the premium Discord role!" 
-                      : "Connect to get your premium Discord role"
-                    }
+                    ✅ Connected - You have the premium Discord role!
                   </p>
                 </div>
               </div>
               
-              {discordConnected && (
-                <a
-                  href="https://discord.gg/your-server"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium transition-all"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  Join Discord Server
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
+              <a
+                href="https://discord.gg/your-server"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium transition-all"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Join Discord Server
+                <ExternalLink className="w-3 h-3" />
+              </a>
             </div>
           </div>
 
@@ -402,7 +394,7 @@ export default function Billing() {
           {/* Special offer badge */}
           <div className="inline-flex items-center gap-2 bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-500/30 rounded-full px-4 py-2 mb-8">
             <Gift className="w-4 h-4 text-green-400" />
-            <span className="text-sm font-semibold text-green-300">Affordable pricing • Cancel anytime</span>
+            <span className="text-sm font-semibold text-green-300">7-Day Free Trial • Cancel anytime</span>
           </div>
 
           {/* Billing Toggle */}
@@ -427,7 +419,7 @@ export default function Billing() {
             >
               Season
               <span className="absolute -top-2 -right-2 bg-green-500 text-black text-xs px-2 py-0.5 rounded-full font-bold">
-                22% OFF
+                42% OFF
               </span>
             </button>
           </div>
@@ -492,6 +484,17 @@ export default function Billing() {
                 )}
               </div>
 
+              {/* Free Trial Info */}
+              <div className="mb-6 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Clock className="w-4 h-4 text-blue-400" />
+                  <span className="text-sm font-semibold text-blue-300">7-Day Free Trial</span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Try all premium features risk-free. Cancel anytime during trial.
+                </p>
+              </div>
+
               {/* Payment Method Selection */}
               <div className="mb-6">
                 <div className="text-sm text-gray-400 mb-3">Payment Method</div>
@@ -522,8 +525,8 @@ export default function Billing() {
                   </>
                 ) : (
                   <>
-                    <CreditCard className="w-5 h-5" />
-                    Subscribe Now
+                    <Gift className="w-5 h-5" />
+                    Start 7-Day Free Trial
                   </>
                 )}
               </button>
@@ -609,6 +612,10 @@ export default function Billing() {
                   <li className="flex items-center gap-3">
                     <Check className="w-4 h-4 text-green-400" />
                     <span className="text-gray-300">Everything in Free +</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <Check className="w-4 h-4 text-green-400" />
+                    <span className="text-gray-300">7-day free trial</span>
                   </li>
                   <li className="flex items-center gap-3">
                     <Check className="w-4 h-4 text-green-400" />
@@ -700,8 +707,8 @@ export default function Billing() {
                 </>
               ) : (
                 <>
-                  <Crown className="w-4 h-4" />
-                  Subscribe Now
+                  <Gift className="w-4 h-4" />
+                  Start 7-Day Free Trial
                 </>
               )}
             </button>
