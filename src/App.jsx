@@ -1,4 +1,4 @@
-// Update to src/App.jsx - Add the new route
+// src/App.jsx
 
 import { lazy, Suspense } from "react";
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
@@ -9,24 +9,28 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
 import Loading from "./components/Loading";
 import PrivateRoute from "./components/PrivateRoute";
+import PremiumRoute from "./components/PremiumRoute"; // ⟵ premium route guard
+
+// Eager pages
 import Landing from "./pages/Landing";
 import Watchlist from "./pages/Watchlist";
 import SquadBuilder from "./pages/SquadBuilder";
 import PlayerSearch from "./pages/PlayerSearch";
 import TradeFinder from "./pages/TradeFinder";
 
-const Dashboard    = lazy(() => import("./pages/Dashboard"));
-const AddTrade     = lazy(() => import("./pages/AddTrade"));
-const Trades       = lazy(() => import("./pages/Trades"));
-const Profile      = lazy(() => import("./pages/Profile"));
-const Settings     = lazy(() => import("./pages/Settings"));
-const ProfitGraph  = lazy(() => import("./pages/ProfitGraph"));
-const PriceCheck   = lazy(() => import("./pages/PriceCheck"));
-const Trending     = lazy(() => import("./pages/Trending"));
-const SmartBuy     = lazy(() => import("./pages/SmartBuy")); // 👈 NEW
-const Login        = lazy(() => import("./pages/Login"));
-const AccessDenied = lazy(() => import("./pages/AccessDenied"));
-const NotFound     = lazy(() => import("./pages/NotFound"));
+// Lazy pages
+const Dashboard     = lazy(() => import("./pages/Dashboard"));
+const AddTrade      = lazy(() => import("./pages/AddTrade"));
+const Trades        = lazy(() => import("./pages/Trades"));
+const Profile       = lazy(() => import("./pages/Profile"));
+const Settings      = lazy(() => import("./pages/Settings"));
+const ProfitGraph   = lazy(() => import("./pages/ProfitGraph"));
+const PriceCheck    = lazy(() => import("./pages/PriceCheck"));
+const Trending      = lazy(() => import("./pages/Trending"));
+const SmartBuy      = lazy(() => import("./pages/SmartBuy")); // ⟵ premium page
+const Login         = lazy(() => import("./pages/Login"));
+const AccessDenied  = lazy(() => import("./pages/AccessDenied"));
+const NotFound      = lazy(() => import("./pages/NotFound"));
 const PlayerCompare = lazy(() => import("./pages/PlayerCompare"));
 
 function App() {
@@ -40,8 +44,10 @@ function App() {
                 {/* Public */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/access-denied" element={<AccessDenied />} />
+                {/* (Optional) Public landing page if you ever want one */}
+                <Route path="/landing" element={<Landing />} />
 
-                {/* Protected */}
+                {/* Protected shell */}
                 <Route
                   path="/"
                   element={
@@ -54,6 +60,7 @@ function App() {
                     </PrivateRoute>
                   }
                 >
+                  {/* Protected pages */}
                   <Route index element={<Dashboard />} />
                   <Route path="add-trade" element={<AddTrade />} />
                   <Route path="trades" element={<Trades />} />
@@ -67,7 +74,16 @@ function App() {
                   <Route path="squad" element={<SquadBuilder />} />
                   <Route path="trending" element={<Trending />} />
                   <Route path="trade-finder" element={<TradeFinder />} />
-                  <Route path="smart-buy" element={<SmartBuy />} /> {/* 👈 NEW */}
+
+                  {/* Premium-only route(s) */}
+                  <Route
+                    path="smart-buy"
+                    element={
+                      <PremiumRoute requiredFeature="smart_buy">
+                        <SmartBuy />
+                      </PremiumRoute>
+                    }
+                  />
                 </Route>
 
                 {/* 404 */}
