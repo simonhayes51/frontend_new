@@ -15,6 +15,7 @@ import {
 import { useSettings } from "../context/SettingsContext";
 import SettingsTrading from "./SettingsTrading.jsx";
 import { apiFetch } from "../api/http";
+import SimpleAddEvent from '../components/SimpleAddEvent';
 
 const ACCENT = "#91db32";
 const API_BASE = (import.meta?.env?.VITE_API_URL || "").replace(/\/$/, "");
@@ -222,6 +223,12 @@ export default function Settings() {
             <p className="text-gray-400 text-sm">Connect Discord and the Chrome extension (configure later).</p>
           </section>
         )}
+
+        {/* Event Management Section */}
+        <section className="bg-gray-900/70 border border-gray-800 rounded-2xl p-4">
+          <h2 className="text-lg font-semibold mb-4">Event Management</h2>
+          <SimpleAddEvent />
+        </section>
       </div>
     </div>
   );
