@@ -1,5 +1,5 @@
 // Enhanced src/pages/SmartBuy.jsx with performance optimizations and better UX
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, createContext, useContext } from "react";
 import { 
   Brain, 
   TrendingUp, 
@@ -20,19 +20,221 @@ import {
   Info,
   X
 } from "lucide-react";
-import { 
-  fetchSmartBuyData, 
-  fetchMarketIntelligence, 
-  submitSuggestionFeedback,
-  fetchSuggestionStats,
-  MARKET_STATES,
-  BUY_CATEGORIES 
-} from "../api/smartBuy";
-import { addWatch } from "../api/watchlist";
-import { useSettings } from "../context/SettingsContext";
+
+// ========================================
+// CONSTANTS
+// ========================================
+
+export const MARKET_STATES = {
+  NORMAL: 'normal',
+  PRE_CRASH: 'pre_crash', 
+  CRASH_ACTIVE: 'crash_active',
+  RECOVERY: 'recovery',
+  PROMO_HYPE: 'promo_hype'
+};
+
+export const BUY_CATEGORIES = {
+  CRASH_OPPORTUNITY: 'crash_opportunity',
+  PROMO_INVESTMENT: 'promo_investment', 
+  UNDERVALUED: 'undervalued',
+  RISING_STAR: 'rising_star',
+  QUICK_FLIP: 'quick_flip',
+  LONG_TERM_HOLD: 'long_term_hold',
+  EVENT_DRIVEN: 'event_driven',
+  MARKET_CORRECTION: 'market_correction'
+};
+
+// ========================================
+// API FUNCTIONS - CONNECT TO YOUR BACKEND
+// ========================================
+
+// Replace these with your actual API endpoints
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
+export async function fetchSmartBuyData(filters = {}) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/smart-buy`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(filters)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch smart buy data:', error);
+    throw new Error(`Failed to fetch smart buy data: ${error.message}`);
+  }
+}
+
+export async function fetchMarketIntelligence() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/market-intelligence`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch market intelligence:', error);
+    throw new Error(`Failed to fetch market intelligence: ${error.message}`);
+  }
+}
+
+export async function fetchSuggestionStats() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/suggestion-stats`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch suggestion stats:', error);
+    throw new Error(`Failed to fetch suggestion stats: ${error.message}`);
+  }
+}
+
+export async function submitSuggestionFeedback(cardId, action) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/suggestion-feedback`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        card_id: cardId,
+        action: action,
+        timestamp: new Date().toISOString()
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Failed to submit feedback:', error);
+    throw new Error(`Failed to submit feedback: ${error.message}`);
+  }
+}
+
+export async function addWatch(watchData) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/watchlist`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(watchData)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Failed to add to watchlist:', error);
+    throw new Error(`Failed to add to watchlist: ${error.message}`);
+  }
+}
+
+// ========================================
+// SETTINGS CONTEXT
+// ========================================
+
+const SettingsContext = createContext();
+
+export function useSettings() {
+  const context = useContext(SettingsContext);
+  if (!context) {
+    throw new Error('useSettings must be used within a SettingsProvider');
+  }
+  return context;
+}
+
+function SettingsProvider({ children }) {
+  const [settings, setSettings] = useState({
+    currency: 'coins',
+    platform: 'ps',
+    notifications: {
+      price_alerts: true,
+      market_updates: true
+    },
+    trading: {
+      default_profit_margin: 5,
+      risk_tolerance: 'moderate'
+    }
+  });
+
+  const formatCurrency = (amount, options = {}) => {
+    const { showSymbol = true, abbreviated = true, precision = 0 } = options;
+    
+    if (typeof amount !== 'number') return showSymbol ? '0 coins' : '0';
+
+    let formattedAmount;
+    if (abbreviated && amount >= 1000000) {
+      formattedAmount = (amount / 1000000).toFixed(1) + 'M';
+    } else if (abbreviated && amount >= 1000) {
+      formattedAmount = (amount / 1000).toFixed(1) + 'K';
+    } else {
+      formattedAmount = amount.toLocaleString('en-US', {
+        minimumFractionDigits: precision,
+        maximumFractionDigits: precision
+      });
+    }
+
+    return showSymbol ? `${formattedAmount} coins` : formattedAmount;
+  };
+
+  const updateSetting = (path, value) => {
+    setSettings(prev => {
+      const newSettings = { ...prev };
+      const keys = path.split('.');
+      let current = newSettings;
+      
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!current[keys[i]]) {
+          current[keys[i]] = {};
+        }
+        current = current[keys[i]];
+      }
+      
+      current[keys[keys.length - 1]] = value;
+      return newSettings;
+    });
+  };
+
+  return (
+    <SettingsContext.Provider value={{ 
+      settings, 
+      formatCurrency, 
+      updateSetting 
+    }}>
+      {children}
+    </SettingsContext.Provider>
+  );
+}
+
+// ========================================
+// COMPONENTS
+// ========================================
 
 const ACCENT = "#91db32";
-
 const cardBase = "bg-gray-900/70 rounded-2xl p-4 border border-gray-800 hover:border-gray-700 transition-all duration-200";
 
 // Performance: Memoized market state indicator
@@ -424,6 +626,10 @@ function FilterPanel({ filters, onChange, onReset }) {
   );
 }
 
+// ========================================
+// MAIN COMPONENT
+// ========================================
+
 export default function SmartBuy() {
   const [suggestions, setSuggestions] = useState([]);
   const [marketState, setMarketState] = useState(MARKET_STATES.NORMAL);
@@ -530,163 +736,167 @@ export default function SmartBuy() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-800 rounded w-64" />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-48 bg-gray-800 rounded-2xl" />
-            ))}
+      <SettingsProvider>
+        <div className="p-6 max-w-7xl mx-auto bg-gray-950 min-h-screen">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-gray-800 rounded w-64" />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-48 bg-gray-800 rounded-2xl" />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      </SettingsProvider>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Enhanced Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <Brain size={32} style={{ color: ACCENT }} />
-            Smart Buy Suggestions
-            <span className="text-sm bg-green-500/20 text-green-300 px-2 py-1 rounded-full border border-green-500/30">
-              AI-Powered
-            </span>
-          </h1>
-          <p className="text-gray-400 mt-1 flex items-center gap-2">
-            AI-powered trading opportunities based on market analysis
-            {lastUpdated && (
-              <span className="text-xs text-gray-500">
-                • Last updated {lastUpdated.toLocaleTimeString()}
+    <SettingsProvider>
+      <div className="p-6 max-w-7xl mx-auto space-y-6 bg-gray-950 min-h-screen text-white">
+        {/* Enhanced Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+              <Brain size={32} style={{ color: ACCENT }} />
+              Smart Buy Suggestions
+              <span className="text-sm bg-green-500/20 text-green-300 px-2 py-1 rounded-full border border-green-500/30">
+                AI-Powered
               </span>
-            )}
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => loadData(true)}
-            disabled={refreshing}
-            className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white flex items-center gap-2 disabled:opacity-50 transition-all hover:shadow-lg"
-          >
-            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-            {refreshing ? "Updating..." : "Refresh"}
-          </button>
-        </div>
-      </div>
-
-      {/* Enhanced Market State & Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MarketStateIndicator 
-          state={marketState} 
-          confidence={marketIntelligence?.current_state_confidence || 0}
-          intelligence={marketIntelligence}
-        />
-        
-        {stats && (
-          <>
-            <div className={`${cardBase} bg-green-400/10 hover:bg-green-400/15 transition-colors`}>
-              <div className="flex items-center gap-3">
-                <Star className="text-green-400" size={16} />
-                <div>
-                  <div className="font-semibold text-green-400">{stats.success_rate}%</div>
-                  <div className="text-xs text-gray-400">Success Rate</div>
-                </div>
-              </div>
-            </div>
-            
-            <div className={`${cardBase} bg-blue-400/10 hover:bg-blue-400/15 transition-colors`}>
-              <div className="flex items-center gap-3">
-                <DollarSign className="text-blue-400" size={16} />
-                <div>
-                  <div className="font-semibold text-blue-400">{stats.avg_profit.toLocaleString()}</div>
-                  <div className="text-xs text-gray-400">Avg Profit</div>
-                </div>
-              </div>
-            </div>
-            
-            <div className={`${cardBase} bg-purple-400/10 hover:bg-purple-400/15 transition-colors`}>
-              <div className="flex items-center gap-3">
-                <Target className="text-purple-400" size={16} />
-                <div>
-                  <div className="font-semibold text-purple-400">{stats.suggestions_taken}/{stats.total_suggestions}</div>
-                  <div className="text-xs text-gray-400">Suggestions Taken</div>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Enhanced Filters */}
-      <FilterPanel 
-        filters={filters} 
-        onChange={setFilters}
-        onReset={resetFilters}
-      />
-
-      {/* Error with retry */}
-      {error && (
-        <div className="p-4 rounded-lg bg-red-900/20 border border-red-500/30 text-red-300">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={16} />
-              {error}
-            </div>
+            </h1>
+            <p className="text-gray-400 mt-1 flex items-center gap-2">
+              AI-powered trading opportunities based on market analysis
+              {lastUpdated && (
+                <span className="text-xs text-gray-500">
+                  • Last updated {lastUpdated.toLocaleTimeString()}
+                </span>
+              )}
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => loadData()}
-              className="px-3 py-1 rounded bg-red-500/20 hover:bg-red-500/30 text-sm"
+              onClick={() => loadData(true)}
+              disabled={refreshing}
+              className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white flex items-center gap-2 disabled:opacity-50 transition-all hover:shadow-lg"
             >
-              Retry
+              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+              {refreshing ? "Updating..." : "Refresh"}
             </button>
           </div>
         </div>
-      )}
 
-      {/* Enhanced Suggestions */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-white">
-            Buy Recommendations ({suggestions.length})
-          </h2>
-          {suggestions.length > 0 && (
-            <div className="text-sm text-gray-400 flex items-center gap-2">
-              <Target size={14} />
-              Sorted by priority score
-            </div>
+        {/* Enhanced Market State & Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MarketStateIndicator 
+            state={marketState} 
+            confidence={marketIntelligence?.current_state_confidence || 0}
+            intelligence={marketIntelligence}
+          />
+          
+          {stats && (
+            <>
+              <div className={`${cardBase} bg-green-400/10 hover:bg-green-400/15 transition-colors`}>
+                <div className="flex items-center gap-3">
+                  <Star className="text-green-400" size={16} />
+                  <div>
+                    <div className="font-semibold text-green-400">{stats.success_rate}%</div>
+                    <div className="text-xs text-gray-400">Success Rate</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className={`${cardBase} bg-blue-400/10 hover:bg-blue-400/15 transition-colors`}>
+                <div className="flex items-center gap-3">
+                  <DollarSign className="text-blue-400" size={16} />
+                  <div>
+                    <div className="font-semibold text-blue-400">{stats.avg_profit.toLocaleString()}</div>
+                    <div className="text-xs text-gray-400">Avg Profit</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className={`${cardBase} bg-purple-400/10 hover:bg-purple-400/15 transition-colors`}>
+                <div className="flex items-center gap-3">
+                  <Target className="text-purple-400" size={16} />
+                  <div>
+                    <div className="font-semibold text-purple-400">{stats.suggestions_taken}/{stats.total_suggestions}</div>
+                    <div className="text-xs text-gray-400">Suggestions Taken</div>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
-        {suggestions.length === 0 ? (
-          <div className={`${cardBase} text-center py-12`}>
-            <Brain size={48} className="mx-auto mb-4 text-gray-500" />
-            <h3 className="text-lg font-semibold text-gray-400 mb-2">No suggestions available</h3>
-            <p className="text-gray-500 mb-4">
-              Try adjusting your filters or check back later for new opportunities.
-            </p>
-            <button
-              onClick={() => loadData()}
-              className="px-4 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30"
-            >
-              Refresh Suggestions
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {suggestions.map((suggestion) => (
-              <SuggestionCard
-                key={suggestion.card_id}
-                suggestion={suggestion}
-                onBuy={handleBuyAction}
-                onWatchlist={handleWatchlistAction}
-                onIgnore={handleIgnoreAction}
-              />
-            ))}
+        {/* Enhanced Filters */}
+        <FilterPanel 
+          filters={filters} 
+          onChange={setFilters}
+          onReset={resetFilters}
+        />
+
+        {/* Error with retry */}
+        {error && (
+          <div className="p-4 rounded-lg bg-red-900/20 border border-red-500/30 text-red-300">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={16} />
+                {error}
+              </div>
+              <button
+                onClick={() => loadData()}
+                className="px-3 py-1 rounded bg-red-500/20 hover:bg-red-500/30 text-sm"
+              >
+                Retry
+              </button>
+            </div>
           </div>
         )}
+
+        {/* Enhanced Suggestions */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-white">
+              Buy Recommendations ({suggestions.length})
+            </h2>
+            {suggestions.length > 0 && (
+              <div className="text-sm text-gray-400 flex items-center gap-2">
+                <Target size={14} />
+                Sorted by priority score
+              </div>
+            )}
+          </div>
+
+          {suggestions.length === 0 ? (
+            <div className={`${cardBase} text-center py-12`}>
+              <Brain size={48} className="mx-auto mb-4 text-gray-500" />
+              <h3 className="text-lg font-semibold text-gray-400 mb-2">No suggestions available</h3>
+              <p className="text-gray-500 mb-4">
+                Try adjusting your filters or check back later for new opportunities.
+              </p>
+              <button
+                onClick={() => loadData()}
+                className="px-4 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30"
+              >
+                Refresh Suggestions
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {suggestions.map((suggestion) => (
+                <SuggestionCard
+                  key={suggestion.card_id}
+                  suggestion={suggestion}
+                  onBuy={handleBuyAction}
+                  onWatchlist={handleWatchlistAction}
+                  onIgnore={handleIgnoreAction}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </SettingsProvider>
   );
 }
