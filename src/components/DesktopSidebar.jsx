@@ -1,12 +1,35 @@
+// src/components/DesktopSidebar.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { ChevronDown, ChevronUp, LayoutDashboard, PlusSquare, ListChecks, Search, GitCompare, Brain, Bell, TrendingUp, Users, HelpCircle } from "lucide-react";
+import { useEntitlements } from "../context/EntitlementsContext";
+import { 
+  ChevronDown, 
+  ChevronUp, 
+  LayoutDashboard, 
+  PlusSquare, 
+  ListChecks, 
+  Search, 
+  GitCompare, 
+  Brain, 
+  Bell, 
+  TrendingUp, 
+  Users, 
+  HelpCircle,
+  Settings,
+  BarChart3,
+  DollarSign,
+  Eye,
+  Zap,
+  Crown,
+  Star
+} from "lucide-react";
 
 const DesktopSidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { isPremium, features } = useEntitlements();
 
   // collapsed state (persisted)
   const [collapsed, setCollapsed] = useState(() => {
@@ -41,18 +64,97 @@ const DesktopSidebar = () => {
     setUserMenuOpen(false);
   }, [location.pathname]);
 
-  // Nav config (now with icons)
+  // Enhanced Nav config with premium features and access checking
   const navItems = [
-    { path: "/", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/add-trade", label: "Add Trade", icon: PlusSquare },
-    { path: "/trades", label: "Trades", icon: ListChecks },
-    { path: "/player-search", label: "Player Search", icon: Search },
-    { path: "/player-compare", label: "Compare", icon: GitCompare },
-    { path: "/smart-buy", label: "Smart Buy", icon: Brain }, // 👈 NEW
-    { path: "/watchlist", label: "Watchlist", icon: Bell },
-    { path: "/trending", label: "Trending", icon: TrendingUp },
-    { path: "/squad", label: "Squad Builder", icon: Users },
+    { 
+      path: "/", 
+      label: "Dashboard", 
+      icon: LayoutDashboard, 
+      premium: false 
+    },
+    { 
+      path: "/add-trade", 
+      label: "Add Trade", 
+      icon: PlusSquare, 
+      premium: false 
+    },
+    { 
+      path: "/trades", 
+      label: "Trades", 
+      icon: ListChecks, 
+      premium: false 
+    },
+    { 
+      path: "/player-search", 
+      label: "Player Search", 
+      icon: Search, 
+      premium: false 
+    },
+    { 
+      path: "/player-compare", 
+      label: "Compare", 
+      icon: GitCompare, 
+      premium: false 
+    },
+    { 
+      path: "/analytics", 
+      label: "Analytics", 
+      icon: BarChart3, 
+      premium: false 
+    },
+    { 
+      path: "/pricecheck", 
+      label: "Price Check", 
+      icon: DollarSign, 
+      premium: false 
+    },
+    { 
+      path: "/watchlist", 
+      label: "Watchlist", 
+      icon: Eye, 
+      premium: false 
+    },
+    { 
+      path: "/trending", 
+      label: "Trending", 
+      icon: TrendingUp, 
+      premium: false 
+    },
+    { 
+      path: "/squad", 
+      label: "Squad Builder", 
+      icon: Users, 
+      premium: false 
+    },
+    // Premium features
+    { 
+      path: "/smart-buy", 
+      label: "Smart Buy", 
+      icon: Brain, 
+      premium: true,
+      feature: "smart_buy"
+    },
+    { 
+      path: "/trade-finder", 
+      label: "Trade Finder", 
+      icon: Zap, 
+      premium: true,
+      feature: "trade_finder"
+    },
+    { 
+      path: "/settings", 
+      label: "Settings", 
+      icon: Settings, 
+      premium: false 
+    },
   ];
+
+  // Check if user has access to a feature
+  const hasAccess = (item) => {
+    if (!item.premium) return true;
+    if (item.feature) return features.includes(item.feature);
+    return isPremium;
+  };
 
   const isActive = (p) => location.pathname === p;
 
@@ -132,13 +234,16 @@ const DesktopSidebar = () => {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-white truncate flex items-center gap-1">
                 {user?.global_name || user?.username}
+                {isPremium && <Crown className="w-3 h-3 text-yellow-400" />}
                 {userMenuOpen ? (
-                  <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" />
+                  <ChevronUp className="w-4 h-4 text-gray-400 shrink-0 ml-auto" />
                 ) : (
-                  <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                  <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 ml-auto" />
                 )}
               </p>
-              <p className="text-xs text-gray-400">Trader</p>
+              <p className="text-xs text-gray-400">
+                {isPremium ? "Premium Trader" : "Free Trader"}
+              </p>
             </div>
           )}
         </button>
@@ -164,6 +269,17 @@ const DesktopSidebar = () => {
               >
                 Settings
               </Link>
+              {!isPremium && (
+                <Link
+                  to="/billing"
+                  className="block px-3 py-2 text-sm text-purple-400 hover:bg-purple-500/10 font-medium"
+                >
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-3 h-3" />
+                    Upgrade to Premium
+                  </div>
+                </Link>
+              )}
               <button
                 onClick={async () => {
                   try {
@@ -193,6 +309,8 @@ const DesktopSidebar = () => {
           {navItems.map((item) => {
             const Active = isActive(item.path);
             const Icon = item.icon;
+            const userHasAccess = hasAccess(item);
+            
             return (
               <Link
                 key={item.path}
@@ -205,12 +323,32 @@ const DesktopSidebar = () => {
                               Active
                                 ? "bg-purple-600/20 text-purple-300 border-r-2 border-purple-500"
                                 : "text-gray-300 hover:text-white hover:bg-gray-800/60"
-                            }`}
+                            }
+                            ${!userHasAccess ? "opacity-75" : ""}`}
               >
                 <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+                
                 {/* Hide the text when collapsed to avoid truncation */}
                 {!collapsed && (
-                  <span className="text-sm font-medium truncate">{item.label}</span>
+                  <span className="text-sm font-medium truncate flex-1">{item.label}</span>
+                )}
+
+                {/* Premium indicators */}
+                {item.premium && !collapsed && (
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {userHasAccess ? (
+                      // User has access - show subtle premium badge
+                      <div className="w-2 h-2 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full" />
+                    ) : (
+                      // User doesn't have access - show lock emoji and PRO badge
+                      <div className="flex items-center gap-1">
+                        <span className="text-yellow-400 text-xs">🔒</span>
+                        <div className="text-[10px] text-gray-500 font-medium bg-gray-700/50 px-1 py-0.5 rounded">
+                          PRO
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Tooltip on hover (collapsed) */}
@@ -219,9 +357,13 @@ const DesktopSidebar = () => {
                     role="tooltip"
                     className="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 
                                whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs text-white 
-                               opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100"
+                               opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 z-50
+                               flex items-center gap-2"
                   >
                     {item.label}
+                    {item.premium && !userHasAccess && (
+                      <span className="text-yellow-400">🔒</span>
+                    )}
                   </span>
                 )}
               </Link>
@@ -230,8 +372,67 @@ const DesktopSidebar = () => {
         </nav>
       </div>
 
+      {/* Premium Upgrade CTA (only show if user is not premium) */}
+      {!isPremium && (
+        <div className={`mt-4 shrink-0 ${collapsed ? "px-2" : "px-2"}`}>
+          <div className={`bg-gradient-to-br from-purple-900/50 to-blue-900/50 border border-purple-500/30 rounded-xl ${collapsed ? "p-2" : "p-4"}`}>
+            {collapsed ? (
+              <Link
+                to="/billing"
+                className="w-full flex justify-center"
+                title="Upgrade to Premium"
+              >
+                <Crown className="w-6 h-6 text-yellow-400" />
+              </Link>
+            ) : (
+              <div className="text-center">
+                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Crown size={16} className="text-white" />
+                </div>
+                <h3 className="font-semibold text-white mb-1">Go Premium</h3>
+                <p className="text-xs text-gray-300 mb-3">
+                  Unlock Smart Buy AI, advanced analytics, and more!
+                </p>
+                <Link
+                  to="/billing"
+                  className="w-full block py-2 px-4 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white text-sm font-medium rounded-lg transition-all duration-200 text-center"
+                >
+                  Upgrade Now
+                </Link>
+                <p className="text-xs text-gray-400 mt-2">Starting at £9.99/month</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* User Premium Status */}
+      {isPremium && (
+        <div className={`mt-4 shrink-0 ${collapsed ? "px-2" : "px-2"}`}>
+          <div className={`bg-gradient-to-br from-green-900/50 to-blue-900/50 border border-green-500/30 rounded-xl ${collapsed ? "p-2" : "p-4"}`}>
+            {collapsed ? (
+              <div className="flex justify-center" title="Premium Active">
+                <div className="w-6 h-6 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+                  <Crown size={12} className="text-black" />
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+                  <Crown size={12} className="text-black" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-green-400">Premium Active</div>
+                  <div className="text-xs text-gray-400">All features unlocked</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
-      <div className={`${collapsed ? "px-2 py-2" : "px-2 py-3"} border-t border-gray-700/50 shrink-0`}>
+      <div className={`${collapsed ? "px-2 py-2" : "px-2 py-3"} border-t border-gray-700/50 shrink-0 mt-4`}>
         <div className="space-y-1">
           <Link
             to="/help"
