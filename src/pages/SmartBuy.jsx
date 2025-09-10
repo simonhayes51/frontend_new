@@ -48,8 +48,8 @@ export const BUY_CATEGORIES = {
 // API FUNCTIONS - CONNECT TO YOUR BACKEND
 // ========================================
 
-// Replace these with your actual API endpoints
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+// Use your actual API URL from environment variables
+const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'https://api.futhub.co.uk';
 
 export async function fetchSmartBuyData(filters = {}) {
   try {
