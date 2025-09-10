@@ -1,4 +1,4 @@
-// src/pages/Dashboard.jsx - Enhanced with premium widget examples
+// src/pages/Dashboard.jsx - Fixed version with complete widget rendering
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -94,7 +94,7 @@ export default function Dashboard() {
   useEffect(() => { saveLayoutToStorage({ widget_order: localWidgetOrder }); }, [localWidgetOrder]);
   useEffect(() => { saveWidgetSettingsToStorage({ visible_widgets: localVisibleWidgets }); }, [localVisibleWidgets]);
 
-  // Rest of your existing dashboard logic...
+  // Process trades data
   const trades = Array.isArray(rawTrades) ? rawTrades : [];
   const vis = Array.isArray(localVisibleWidgets) ? localVisibleWidgets : [];
   const order = Array.isArray(localWidgetOrder) ? localWidgetOrder : [];
@@ -102,7 +102,27 @@ export default function Dashboard() {
 
   const hiddenWidgets = ALL_WIDGET_KEYS.filter((k) => !vis.includes(k));
 
-  // ... (include all your existing dashboard logic here - filterByTimeframe, totals, etc.)
+  // Calculate metrics from trades
+  const { totalTrades, winRate, avgProfit, bestTrade, totalVolume, roi } = useMemo(() => {
+    if (!trades.length) return { totalTrades: 0, winRate: 0, avgProfit: 0, bestTrade: 0, totalVolume: 0, roi: 0 };
+    
+    const totalTrades = trades.length;
+    const wins = trades.filter(t => (t.profit || 0) > 0).length;
+    const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
+    const avgProfit = totalTrades > 0 ? trades.reduce((sum, t) => sum + (t.profit || 0), 0) / totalTrades : 0;
+    const bestTrade = trades.length > 0 ? Math.max(...trades.map(t => t.profit || 0)) : 0;
+    const totalVolume = trades.reduce((sum, t) => sum + (t.volume || 0), 0);
+    const roi = startingBalance > 0 ? ((netProfit || 0) / startingBalance) * 100 : 0;
+    
+    return { totalTrades, winRate, avgProfit, bestTrade, totalVolume, roi };
+  }, [trades, netProfit, startingBalance]);
+
+  // Get recent trades for display
+  const recentTrades = useMemo(() => {
+    return trades
+      .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+      .slice(0, previewLimit);
+  }, [trades, previewLimit]);
 
   /* -------------------- Premium Widgets -------------------- */
   
@@ -188,12 +208,128 @@ export default function Dashboard() {
       case "advanced_analytics": return <AdvancedAnalyticsCard />;
       case "market_predictions": return <MarketPredictionsCard />;
       
-      // Your existing widgets (profit, tax, trades, etc.)
+      // Core widgets
       case "profit": return (
         <div className={cardBase}>
           <div className={cardTitle}>Net Profit</div>
           <div className="text-green-400"><span className={cardBig}>{formatCurrency(netProfit ?? 0)} coins</span></div>
-          <div className={subText}></div>
+          <div className={subText}>Total earnings after costs</div>
+        </div>
+      );
+
+      case "tax": return (
+        <div className={cardBase}>
+          <div className={cardTitle}>EA Tax Paid</div>
+          <div className="text-red-400"><span className={cardBig}>{formatCurrency(taxPaid ?? 0)} coins</span></div>
+          <div className={subText}>Transaction fees</div>
+        </div>
+      );
+
+      case "trades": return (
+        <div className={cardBase}>
+          <div className={cardTitle}>Total Trades</div>
+          <div className="text-blue-400"><span className={cardHuge}>{totalTrades}</span></div>
+          <div className={subText}>Completed transactions</div>
+        </div>
+      );
+
+      case "winrate": return (
+        <div className={cardBase}>
+          <div className={cardTitle}>Win Rate</div>
+          <div className="text-green-400">
+            <span className={cardHuge}>{winRate.toFixed(1)}%</span>
+          </div>
+          <div className={subText}>Profitable trades</div>
+        </div>
+      );
+
+      case "avg_profit": return (
+        <div className={cardBase}>
+          <div className={cardTitle}>Average Profit / Trade</div>
+          <div className="text-yellow-400">
+            <span className={cardBig}>{formatCurrency(avgProfit)} coins</span>
+          </div>
+          <div className={subText}>Per transaction</div>
+        </div>
+      );
+
+      case "best_trade": return (
+        <div className={cardBase}>
+          <div className={cardTitle}>Best Trade</div>
+          <div className="text-green-400">
+            <span className={cardBig}>{formatCurrency(bestTrade)} coins</span>
+          </div>
+          <div className={subText}>Highest single profit</div>
+        </div>
+      );
+
+      case "volume": return (
+        <div className={cardBase}>
+          <div className={cardTitle}>Coin Volume</div>
+          <div className="text-purple-400">
+            <span className={cardBig}>{formatCurrency(totalVolume)} coins</span>
+          </div>
+          <div className={subText}>Total traded value</div>
+        </div>
+      );
+
+      case "balance": return (
+        <div className={cardBase}>
+          <div className={cardTitle}>Starting Balance</div>
+          <div className="text-gray-300">
+            <span className={cardBig}>{formatCurrency(startingBalance ?? 0)} coins</span>
+          </div>
+          <div className={subText}>Initial investment</div>
+        </div>
+      );
+
+      case "roi": return (
+        <div className={cardBase}>
+          <div className={cardTitle}>ROI</div>
+          <div className={roi >= 0 ? "text-green-400" : "text-red-400"}>
+            <span className={cardHuge}>{roi.toFixed(1)}%</span>
+          </div>
+          <div className={subText}>Return on investment</div>
+        </div>
+      );
+
+      case "latest_trade": return (
+        <div className={cardBase}>
+          <div className={cardTitle}>Latest Trade</div>
+          {recentTrades.length > 0 ? (
+            <div className="flex-1 flex flex-col justify-center">
+              <div className="text-sm font-semibold text-white">{recentTrades[0].player_name || 'Unknown Player'}</div>
+              <div className={`text-lg font-bold ${(recentTrades[0].profit || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {formatCurrency(recentTrades[0].profit || 0)} coins
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">No trades yet</div>
+          )}
+          <div className={subText}>Most recent transaction</div>
+        </div>
+      );
+
+      case "daily_target": return (
+        <div className={cardBase}>
+          <div className={cardTitle}>Daily Target</div>
+          <div className="flex-1 flex items-center">
+            <div className="w-full">
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-300">{formatCurrency(netProfit ?? 0)} coins</span>
+                <span className="text-gray-400">{formatCurrency(daily_target ?? 10000)} coins</span>
+              </div>
+              <div className="w-full bg-gray-800 rounded-full h-2">
+                <div 
+                  className="bg-green-500 h-2 rounded-full transition-all"
+                  style={{ width: `${Math.min(((netProfit ?? 0) / (daily_target ?? 10000)) * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+          <div className={subText}>
+            {((netProfit ?? 0) / (daily_target ?? 10000) * 100).toFixed(0)}% complete
+          </div>
         </div>
       );
       
@@ -226,8 +362,35 @@ export default function Dashboard() {
         </div>
       );
 
-      // Add all your other existing widgets here...
-      default: return null;
+      case "alerts": return (
+        <div className={cardBase}>
+          <div className="flex items-center justify-between">
+            <div className={cardTitle}>Watchlist Alerts</div>
+            <span className={chip}><Bell size={10} /> live</span>
+          </div>
+          <div className="flex-1 flex items-center">
+            {alerts && alerts.length > 0 ? (
+              <div className="text-sm text-orange-300">
+                {alerts.length} active alert{alerts.length !== 1 ? 's' : ''}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500">No active alerts</div>
+            )}
+          </div>
+          <div className={subText}>Price notifications</div>
+        </div>
+      );
+
+      // Add more widget cases as needed...
+      default: return (
+        <div className={cardBase}>
+          <div className={cardTitle}>{ALL_WIDGET_LABELS[key] || key}</div>
+          <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+            Widget not implemented
+          </div>
+          <div className={subText}>Coming soon</div>
+        </div>
+      );
     }
   };
 
@@ -310,6 +473,16 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Debug info (remove in production) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mb-4 p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg text-xs text-yellow-200">
+          <div>Visible widgets: {vis.length} ({vis.join(', ')})</div>
+          <div>Total trades: {trades.length}</div>
+          <div>Net profit: {netProfit}</div>
+          <div>Loading: {isLoading ? 'yes' : 'no'}</div>
+        </div>
+      )}
+
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {vis.map((key, idx) => (
@@ -332,7 +505,55 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Recent Trades section remains the same... */}
+      {/* Recent Trades */}
+      {recentTrades.length > 0 && (
+        <div className="bg-gray-900/70 rounded-2xl p-4 border border-gray-800">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Recent Trades</h2>
+            <Link to="/trades" className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
+              View all <TrendingUp size={12} />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {recentTrades.map((trade, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gray-700 rounded-lg flex items-center justify-center text-xs font-semibold">
+                    {(trade.player_name || 'UK')[0]}
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-white">{trade.player_name || 'Unknown Player'}</div>
+                    <div className="text-xs text-gray-400">{formatDate(new Date(trade.date || Date.now()))}</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`text-sm font-semibold ${(trade.profit || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {formatCurrency(trade.profit || 0)} coins
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {trade.buy_price && trade.sell_price ? 
+                      `${formatCurrency(trade.buy_price)} → ${formatCurrency(trade.sell_price)}` : 
+                      'No price data'
+                    }
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* No trades message */}
+      {trades.length === 0 && !isLoading && (
+        <div className="bg-gray-900/70 rounded-2xl p-8 border border-gray-800 text-center">
+          <div className="text-gray-400 mb-2">No trades yet</div>
+          <div className="text-sm text-gray-500 mb-4">Start by adding your first trade to see your dashboard populate with data.</div>
+          <Link to="/add-trade" className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+            <Plus size={16} />
+            Add Your First Trade
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
