@@ -111,7 +111,7 @@ export async function fetchMarketIntelligence() {
       upcoming_events: [
         {
           name: "Daily Content Drop",
-          date: new Date(Date.now() + 6 * 60 * 60 * 1000).isoString(),
+          date: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
           impact: "medium",
           description: "Daily 6PM content release"
         }
