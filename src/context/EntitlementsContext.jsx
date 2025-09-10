@@ -1,46 +1,71 @@
 // src/context/EntitlementsContext.jsx
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 const EntitlementsContext = createContext({
   isPremium: false,
-  limits: { watchlist_max: 5 },
+  features: [],
+  limits: { watchlist_max: 3, trending: { timeframes: ["24h"], limit: 5, smart: false } },
+  roles: [],
+  plan: null,
   loading: true,
   error: null,
+  hasFeature: () => false,
+  refreshEntitlements: () => {},
 });
 
 export function EntitlementsProvider({ children }) {
   const API = import.meta.env.VITE_API_URL || "";
-  const res = await fetch(`${API}/api/entitlements`, { credentials: "include" });
+
   const [state, setState] = useState({
     isPremium: false,
-    limits: { watchlist_max: 5 },
+    features: [],
+    limits: { watchlist_max: 3, trending: { timeframes: ["24h"], limit: 5, smart: false } },
+    roles: [],
+    plan: null,
     loading: true,
     error: null,
   });
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        // Prefer a dedicated entitlements endpoint if you have one.
-        // Fallback to /api/auth/me (expected to include { is_premium, limits }).
-        const res = await fetch(`${API}/api/auth/me`, { credentials: "include" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const js = await res.json();
-        const isPremium = !!js?.is_premium;
-        const limits = js?.limits || (isPremium ? { watchlist_max: 100 } : { watchlist_max: 5 });
-
-        if (!cancelled) {
-          setState({ isPremium, limits, loading: false, error: null });
-        }
-      } catch (e) {
-        if (!cancelled) setState(s => ({ ...s, loading: false, error: String(e?.message || e) }));
-      }
-    })();
-    return () => { cancelled = true; };
+  const load = useCallback(async () => {
+    setState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const res = await fetch(`${API}/api/entitlements`, { credentials: "include" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const js = await res.json();
+      setState({
+        isPremium: Boolean(js.is_premium),
+        features: Array.isArray(js.features) ? js.features : [],
+        limits: js.limits || { watchlist_max: 3, trending: { timeframes: ["24h"], limit: 5, smart: false } },
+        roles: Array.isArray(js.roles) ? js.roles : [],
+        plan: js.plan || null,
+        loading: false,
+        error: null,
+      });
+    } catch (e) {
+      setState((s) => ({ ...s, loading: false, error: e?.message || "Failed to load entitlements" }));
+    }
   }, [API]);
 
-  const value = useMemo(() => state, [state]);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const value = useMemo(
+    () => ({
+      ...state,
+      hasFeature: (key) => state.isPremium || (state.features || []).includes(key),
+      refreshEntitlements: load,
+    }),
+    [state, load]
+  );
+
   return <EntitlementsContext.Provider value={value}>{children}</EntitlementsContext.Provider>;
 }
 
