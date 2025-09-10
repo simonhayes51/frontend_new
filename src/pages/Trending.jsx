@@ -1,3 +1,4 @@
+// Trending.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   RefreshCcw,
@@ -12,11 +13,12 @@ import {
 const ACCENT = "#91db32";
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-function pctString(x) {
+/* ------------------------- small utils ------------------------- */
+function pctString(x, digits = 2) {
   if (x === null || x === undefined || isNaN(x)) return "N/A";
   const n = Number(x);
   const sign = n > 0 ? "+" : "";
-  return `${sign}${n.toFixed(2)}%`;
+  return `${sign}${n.toFixed(digits)}%`;
 }
 
 function chunkTop10(list) {
@@ -51,7 +53,7 @@ function RankBadge({ rank }) {
   );
 }
 
-/* ------- normaliser to match backend payload ------- */
+/* ------- normaliser to match backend payload (risers/fallers) ------- */
 function normaliseItem(p) {
   return {
     name: p.name ?? "Unknown",
@@ -75,6 +77,18 @@ function normaliseItem(p) {
   };
 }
 
+/* ------- normaliser for Smart Movers (needs 6h & 24h) ------- */
+function normaliseSmart(it) {
+  return {
+    name: it.name ?? "Unknown",
+    rating: it.rating ?? null,
+    pid: it.pid ?? it.card_id ?? it.id,
+    image: it.image ?? it.image_url ?? null,
+    percent6: it.percent_6h ?? it.percent ?? null,
+    percent24: it.percent_24h ?? null,
+  };
+}
+
 /** Extract [timestamp(ms), price] pairs (or prices) from various shapes */
 function extractPricesFromHistory(data) {
   let points = [];
@@ -83,11 +97,9 @@ function extractPricesFromHistory(data) {
   else if (Array.isArray(data?.series)) points = data.series;
   else if (Array.isArray(data?.data)) points = data.data;
 
-  // Normalise to arrays of [t, v] or [v]
   const out = [];
   for (const p of points) {
     if (Array.isArray(p)) {
-      // [t, v] or [v]
       if (p.length >= 2) out.push([Number(p[0]), Number(p[1])]);
       else if (p.length === 1) out.push([NaN, Number(p[0])]);
     } else if (p && typeof p === "object") {
@@ -108,32 +120,7 @@ function mean(nums) {
   return sum / nums.length;
 }
 
-/** simple heuristic flags */
-function computeSmartFlags(p, avg) {
-  // Only if we have both prices
-  if (!(typeof p.price_console === "number" && typeof avg === "number")) {
-    return { tag: null, reason: "" };
-  }
-  const diff = avg - p.price_console;
-  const diffPct = (diff / p.price_console) * 100;
-
-  // Undervalued: price fell recently but avg > current by 5%+
-  if (Number(p.percent ?? 0) < 0 && diffPct >= 5) {
-    return {
-      tag: "Undervalued",
-      reason: `Avg ≈ ${Math.round(avg).toLocaleString()} vs now ${p.price_console.toLocaleString()} (+${diffPct.toFixed(1)}%)`,
-    };
-  }
-  // Overheated: price spiked but avg < current by 5%+
-  if (Number(p.percent ?? 0) > 0 && diffPct <= -5) {
-    return {
-      tag: "Overheated",
-      reason: `Avg ≈ ${Math.round(avg).toLocaleString()} vs now ${p.price_console.toLocaleString()} (${diffPct.toFixed(1)}%)`,
-    };
-  }
-  return { tag: null, reason: "" };
-}
-
+/* ============================== Component ============================== */
 export default function Trending() {
   const [trendType, setTrendType] = useState("fallers"); // "risers" | "fallers"
   const [timeframe, setTimeframe] = useState("24");      // "6" | "12" | "24"
@@ -142,11 +129,18 @@ export default function Trending() {
   const [err, setErr] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  // Track which items were added (to disable the button)
-  const [added, setAdded] = useState({}); // { [pid]: true }
-  // Average price map (by pid)
+  // averages for visible items (for your Console vs Avg display)
   const [avgMap, setAvgMap] = useState({}); // { [pid]: number|null }
 
+  // Smart Movers (divergence) state
+  const [smartItems, setSmartItems] = useState([]); // [{pid,name,rating,image,percent6,percent24}]
+  const [smartLoading, setSmartLoading] = useState(true);
+  const [smartErr, setSmartErr] = useState("");
+
+  // Track watchlist adds
+  const [added, setAdded] = useState({}); // { [pid]: true }
+
+  /* ------- Fetch risers/fallers list ------- */
   const fetchTrending = useCallback(async () => {
     setLoading(true);
     setErr("");
@@ -168,7 +162,30 @@ export default function Trending() {
     fetchTrending();
   }, [fetchTrending]);
 
-  // Fetch averages for visible items when list or timeframe changes
+  /* ------- Fetch Smart Movers (6h vs 24h divergence) ------- */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setSmartLoading(true);
+      setSmartErr("");
+      try {
+        const r = await fetch(`${API_BASE}/api/trending?type=smart&limit=10`, {
+          credentials: "include",
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        const list = (data.items || []).map(normaliseSmart);
+        if (!cancelled) setSmartItems(list);
+      } catch (e) {
+        if (!cancelled) setSmartErr(`Failed to load Smart Movers: ${e.message}`);
+      } finally {
+        if (!cancelled) setSmartLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []); // independent of timeframe/type — it’s always 6h vs 24h
+
+  /* ------- Compute averages for the visible 10 ------- */
   useEffect(() => {
     if (!items.length) {
       setAvgMap({});
@@ -192,10 +209,7 @@ export default function Trending() {
             const data = await r.json();
 
             const pts = extractPricesFromHistory(data);
-            // Slice by cutoff if timestamps are present; else use all today's points
-            const slice = pts.filter(
-              ([t, v]) => !Number.isFinite(t) || t >= cutoff
-            );
+            const slice = pts.filter(([t]) => !Number.isFinite(t) || t >= cutoff);
             const prices = slice.map(([_, v]) => v).filter((v) => Number.isFinite(v));
             const avg = mean(prices);
 
@@ -213,25 +227,13 @@ export default function Trending() {
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [items, timeframe]);
 
+  /* ------- Layout helpers ------- */
   const [left, right] = useMemo(() => chunkTop10(items), [items]);
 
-  // Smart movers derived from items + avgMap
-  const smartMovers = useMemo(() => {
-    const enriched = items.map((p) => {
-      const avg = avgMap[p.pid];
-      const { tag, reason } = computeSmartFlags(p, avg);
-      return { ...p, avg, tag, reason };
-    });
-    // pick up to 4 with a tag
-    return enriched.filter((x) => x.tag).slice(0, 4);
-  }, [items, avgMap]);
-
-  // Add to watchlist (store as PS under the hood; UI shows "Console")
+  /* ------- Watchlist ------- */
   async function addToWatchlist(p) {
     try {
       const payload = {
@@ -350,29 +352,34 @@ export default function Trending() {
         </div>
       )}
 
-      {/* Smart Movers */}
+      {/* Smart Movers (6h vs 24h divergence) */}
       <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-gray-300">
             <Lightbulb size={16} style={{ color: ACCENT }} />
             <span className="font-semibold">Smart Movers</span>
-            <span className="text-xs text-gray-500">(heuristic)</span>
+            <span className="text-xs text-gray-500">(6h vs 24h divergence)</span>
           </div>
-          <div className="text-xs text-gray-500 inline-flex items-center gap-1">
-            <Info size={12} /> Uses {timeframe}h average vs current price
-          </div>
+          {smartErr ? (
+            <div className="text-xs text-red-300">{smartErr}</div>
+          ) : (
+            <div className="text-xs text-gray-500 inline-flex items-center gap-1">
+              <Info size={12} /> Short-term vs long-term trend check
+            </div>
+          )}
         </div>
+
         <div className="mt-2 flex flex-wrap gap-2">
-          {loading ? (
+          {smartLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-7 w-40 bg-gray-800/80 border border-gray-800 rounded-full animate-pulse" />
             ))
-          ) : smartMovers.length ? (
-            smartMovers.map((p) => (
+          ) : smartItems.length ? (
+            smartItems.slice(0, 10).map((p) => (
               <div
                 key={`smart-${p.pid}`}
                 className="flex items-center gap-2 px-3 py-1 rounded-full border border-gray-800 bg-gray-900/70"
-                title={p.reason}
+                title={`6h: ${pctString(p.percent6)}  •  24h: ${pctString(p.percent24)}`}
               >
                 {p.image ? (
                   <img src={p.image} alt={p.name} className="h-5 w-4 object-contain rounded bg-gray-800/60" />
@@ -383,20 +390,13 @@ export default function Trending() {
                   <span className="font-semibold">{p.name}</span>{" "}
                   {p.rating ? <span className="text-gray-400">• {p.rating}</span> : null}
                 </span>
-                <span
-                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                  style={{
-                    background: p.tag === "Undervalued" ? "rgba(145,219,50,0.12)" : "rgba(248,113,113,0.12)",
-                    color: p.tag === "Undervalued" ? ACCENT : "#f87171",
-                    border: `1px solid ${p.tag === "Undervalued" ? ACCENT : "#f87171"}22`,
-                  }}
-                >
-                  {p.tag}
+                <span className="text-[10px] text-gray-300 ml-1">
+                  🔁 6h: {pctString(p.percent6, 0)} • 🔁 24h: {pctString(p.percent24, 0)}
                 </span>
               </div>
             ))
           ) : (
-            <div className="text-xs text-gray-500">No obvious movers right now.</div>
+            <div className="text-xs text-gray-500">No smart movers detected right now.</div>
           )}
         </div>
       </div>
