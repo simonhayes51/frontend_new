@@ -34,6 +34,7 @@ const AccessDenied  = lazy(() => import("./pages/AccessDenied"));
 const NotFound      = lazy(() => import("./pages/NotFound"));
 const PlayerCompare = lazy(() => import("./pages/PlayerCompare"));
 const Billing       = lazy(() => import("./pages/Billing")); // ← Add this import
+const Events        = lazy(() => import("./pages/Events")); // ← Add events import
 
 function App() {
   return (
@@ -75,6 +76,7 @@ function App() {
                     <Route path="watchlist" element={<Watchlist />} />
                     <Route path="squad" element={<SquadBuilder />} />
                     <Route path="billing" element={<Billing />} /> {/* ← Add this route */}
+                    <Route path="events" element={<Events />} /> {/* ← Add events route */}
 
                     {/* Basic trending (free tier gets limited access) */}
                     <Route path="trending" element={<Trending />} />
