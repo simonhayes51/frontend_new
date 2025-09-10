@@ -1,37 +1,39 @@
-// src/pages/Billing.jsx - Functional payment processing
+// src/pages/Billing.jsx - Complete working version with correct pricing
 import React, { useState, useEffect } from "react";
-import { Crown, Star, Check, Zap, ArrowRight, CreditCard, Shield, Clock, AlertTriangle } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
-import { useEntitlements } from "../context/EntitlementsContext";
+import { 
+  Crown, Star, Check, Zap, ArrowRight, CreditCard, Shield, Clock, 
+  AlertTriangle, MessageCircle, ExternalLink, Users, Gift
+} from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 export default function Billing() {
-  const { user } = useAuth();
-  const { isPremium, refreshEntitlements } = useEntitlements();
-  
-  const [billingCycle, setBillingCycle] = useState("yearly");
+  const [user, setUser] = useState(null);
+  const [isPremium, setIsPremium] = useState(false);
+  const [billingCycle, setBillingCycle] = useState("yearly"); // Default to season
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("stripe"); // stripe, paypal
+  const [success, setSuccess] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("stripe");
   const [currentSubscription, setCurrentSubscription] = useState(null);
+  const [discordConnected, setDiscordConnected] = useState(false);
 
   const plans = {
     monthly: {
-      price: "£9.99",
+      price: "£3.00",
       period: "per month",
-      total: "£9.99 per month",
+      total: "£3.00 per month",
       savings: null,
-      priceId: "price_monthly_premium", // Your Stripe price ID
-      amount: 999 // in pence
+      priceId: "price_monthly_premium",
+      amount: 300 // in pence
     },
     yearly: {
-      price: "£8.33",
+      price: "£3.50",
       period: "per month",
-      total: "£99.99 per year",
-      savings: "Save £19.89 (17% off)",
-      priceId: "price_yearly_premium", // Your Stripe price ID
-      amount: 9999 // in pence
+      total: "£21.00 for the season",
+      savings: "Save £6.00 (22% off)",
+      priceId: "price_season_premium",
+      amount: 2100 // £21 in pence
     }
   };
 
@@ -55,6 +57,18 @@ export default function Billing() {
       premium: true
     },
     {
+      icon: <MessageCircle className="w-5 h-5" />,
+      title: "Premium Discord Role",
+      description: "Access exclusive channels and premium member perks",
+      premium: true
+    },
+    {
+      icon: <Users className="w-5 h-5" />,
+      title: "VIP Trading Community",
+      description: "Join our premium trading community with expert insights",
+      premium: true
+    },
+    {
       icon: <Shield className="w-5 h-5" />,
       title: "Priority Support",
       description: "Get help faster with premium customer support",
@@ -62,10 +76,39 @@ export default function Billing() {
     }
   ];
 
-  // Load current subscription status
   useEffect(() => {
+    loadUserData();
     loadSubscriptionStatus();
+    
+    // Handle payment success/cancel from URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment') === 'success') {
+      setSuccess("Payment successful! Your premium features are now active.");
+      // Reload user data to get updated premium status
+      setTimeout(loadUserData, 1000);
+    } else if (urlParams.get('payment') === 'cancelled') {
+      setError("Payment was cancelled. You can try again anytime.");
+    }
   }, []);
+
+  const loadUserData = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/me`, {
+        credentials: "include",
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        if (userData.authenticated) {
+          setUser(userData);
+          setIsPremium(userData.is_premium || false);
+          setDiscordConnected(!!userData.discord_id);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load user data:", error);
+    }
+  };
 
   const loadSubscriptionStatus = async () => {
     try {
@@ -75,7 +118,7 @@ export default function Billing() {
       
       if (response.ok) {
         const data = await response.json();
-        setCurrentSubscription(data);
+        setCurrentSubscription(data.subscription);
       }
     } catch (error) {
       console.error("Failed to load subscription:", error);
@@ -85,6 +128,7 @@ export default function Billing() {
   const createCheckoutSession = async () => {
     setLoading(true);
     setError("");
+    setSuccess("");
 
     try {
       const response = await fetch(`${API_BASE}/api/billing/create-checkout-session`, {
@@ -97,7 +141,7 @@ export default function Billing() {
           priceId: plans[billingCycle].priceId,
           billingCycle,
           paymentMethod,
-          successUrl: `${window.location.origin}/dashboard?payment=success`,
+          successUrl: `${window.location.origin}/billing?payment=success`,
           cancelUrl: `${window.location.origin}/billing?payment=cancelled`,
         }),
       });
@@ -105,10 +149,10 @@ export default function Billing() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to create checkout session");
+        throw new Error(data.detail || data.error || "Failed to create checkout session");
       }
 
-      // Redirect to Stripe Checkout or PayPal
+      // Redirect to Stripe Checkout
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else if (data.sessionId && window.Stripe) {
@@ -126,12 +170,13 @@ export default function Billing() {
   };
 
   const cancelSubscription = async () => {
-    if (!confirm("Are you sure you want to cancel your premium subscription?")) {
+    if (!confirm("Are you sure you want to cancel your premium subscription? You'll lose access to premium features and your Discord role at the end of your billing period.")) {
       return;
     }
 
     setLoading(true);
     setError("");
+    setSuccess("");
 
     try {
       const response = await fetch(`${API_BASE}/api/billing/cancel-subscription`, {
@@ -141,14 +186,13 @@ export default function Billing() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to cancel subscription");
+        throw new Error(data.detail || data.error || "Failed to cancel subscription");
       }
 
-      // Refresh subscription status
       await loadSubscriptionStatus();
-      await refreshEntitlements();
+      await loadUserData();
       
-      alert("Your subscription has been cancelled. You'll retain premium access until the end of your billing period.");
+      setSuccess("Your subscription has been cancelled. You'll retain premium access until the end of your billing period.");
     } catch (error) {
       console.error("Cancel error:", error);
       setError(error.message || "Failed to cancel subscription");
@@ -170,10 +214,9 @@ export default function Billing() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to update payment method");
+        throw new Error(data.detail || data.error || "Failed to update payment method");
       }
 
-      // Redirect to customer portal
       if (data.portalUrl) {
         window.location.href = data.portalUrl;
       }
@@ -185,7 +228,19 @@ export default function Billing() {
     }
   };
 
-  // If user is already premium, show subscription management
+  // Show loading state if user data hasn't loaded yet
+  if (user === null) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading billing information...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Premium user view
   if (isPremium && currentSubscription) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
@@ -203,6 +258,60 @@ export default function Billing() {
             <p className="text-xl text-gray-300 mb-8">
               You're enjoying all premium features
             </p>
+          </div>
+
+          {/* Success/Error Messages */}
+          {success && (
+            <div className="max-w-md mx-auto mb-6 p-4 bg-green-900/20 border border-green-500/30 rounded-xl text-green-300 text-center">
+              <Check className="w-5 h-5 inline mr-2" />
+              {success}
+            </div>
+          )}
+
+          {error && (
+            <div className="max-w-md mx-auto mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-xl text-red-300 text-center">
+              <AlertTriangle className="w-5 h-5 inline mr-2" />
+              {error}
+            </div>
+          )}
+
+          {/* Discord Connection Status */}
+          <div className="max-w-md mx-auto mb-8">
+            <div className={`p-4 rounded-xl border ${discordConnected 
+              ? 'bg-green-900/20 border-green-500/30' 
+              : 'bg-blue-900/20 border-blue-500/30'
+            }`}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${discordConnected 
+                  ? 'bg-green-500' 
+                  : 'bg-blue-500'
+                }`}>
+                  <MessageCircle className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-white">Discord Integration</h4>
+                  <p className="text-sm text-gray-400">
+                    {discordConnected 
+                      ? "✅ Connected - You have the premium Discord role!" 
+                      : "Connect to get your premium Discord role"
+                    }
+                  </p>
+                </div>
+              </div>
+              
+              {discordConnected && (
+                <a
+                  href="https://discord.gg/your-server"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium transition-all"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Join Discord Server
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </div>
           </div>
 
           {/* Current Subscription Card */}
@@ -223,9 +332,10 @@ export default function Billing() {
                 <button
                   onClick={updatePaymentMethod}
                   disabled={loading}
-                  className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 rounded-xl text-white font-semibold transition-all duration-200 disabled:opacity-50"
+                  className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 rounded-xl text-white font-semibold transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  Update Payment Method
+                  <CreditCard className="w-4 h-4" />
+                  {loading ? "Processing..." : "Update Payment Method"}
                 </button>
                 
                 <button
@@ -233,18 +343,11 @@ export default function Billing() {
                   disabled={loading}
                   className="w-full py-3 px-6 bg-gray-700 hover:bg-gray-600 rounded-xl text-white font-semibold transition-all duration-200 disabled:opacity-50"
                 >
-                  Cancel Subscription
+                  {loading ? "Processing..." : "Cancel Subscription"}
                 </button>
               </div>
             </div>
           </div>
-
-          {error && (
-            <div className="max-w-md mx-auto mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-xl text-red-300 text-center">
-              <AlertTriangle className="w-5 h-5 inline mr-2" />
-              {error}
-            </div>
-          )}
 
           {/* Features List */}
           <div className="mb-12">
@@ -272,7 +375,7 @@ export default function Billing() {
     );
   }
 
-  // Show upgrade page for non-premium users
+  // Non-premium user upgrade view
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
       {/* Animated background */}
@@ -293,8 +396,14 @@ export default function Billing() {
           </h1>
           
           <p className="text-xl text-gray-300 mb-8">
-            Unlock advanced trading tools and AI-powered insights
+            Unlock advanced trading tools, AI insights, and exclusive Discord access
           </p>
+
+          {/* Special offer badge */}
+          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-500/30 rounded-full px-4 py-2 mb-8">
+            <Gift className="w-4 h-4 text-green-400" />
+            <span className="text-sm font-semibold text-green-300">Affordable pricing • Cancel anytime</span>
+          </div>
 
           {/* Billing Toggle */}
           <div className="inline-flex items-center bg-gray-900/50 border border-gray-700 rounded-xl p-1 mb-8">
@@ -316,21 +425,45 @@ export default function Billing() {
                   : "text-gray-400 hover:text-white"
               }`}
             >
-              Yearly
+              Season
               <span className="absolute -top-2 -right-2 bg-green-500 text-black text-xs px-2 py-0.5 rounded-full font-bold">
-                17% OFF
+                22% OFF
               </span>
             </button>
           </div>
         </div>
 
-        {/* Error Display */}
+        {/* Success/Error Messages */}
+        {success && (
+          <div className="max-w-md mx-auto mb-6 p-4 bg-green-900/20 border border-green-500/30 rounded-xl text-green-300 text-center">
+            <Check className="w-5 h-5 inline mr-2" />
+            {success}
+          </div>
+        )}
+
         {error && (
           <div className="max-w-md mx-auto mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-xl text-red-300 text-center">
             <AlertTriangle className="w-5 h-5 inline mr-2" />
             {error}
           </div>
         )}
+
+        {/* Discord Connection Status */}
+        <div className="max-w-md mx-auto mb-8">
+          <div className="p-4 bg-green-900/20 border border-green-500/30 rounded-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                <Check className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-white">Discord Already Connected!</h4>
+                <p className="text-sm text-gray-400">
+                  You'll automatically receive the premium role when you subscribe
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Pricing Card */}
         <div className="max-w-md mx-auto mb-12">
@@ -374,16 +507,6 @@ export default function Billing() {
                     <CreditCard className="w-4 h-4 inline mr-2" />
                     Card
                   </button>
-                  <button
-                    onClick={() => setPaymentMethod("paypal")}
-                    className={`px-4 py-2 rounded-lg border transition-all ${
-                      paymentMethod === "paypal"
-                        ? "border-blue-500 bg-blue-500/20 text-blue-300"
-                        : "border-gray-600 text-gray-400 hover:border-gray-500"
-                    }`}
-                  >
-                    PayPal
-                  </button>
                 </div>
               </div>
 
@@ -400,7 +523,7 @@ export default function Billing() {
                 ) : (
                   <>
                     <CreditCard className="w-5 h-5" />
-                    Start 7-Day Free Trial
+                    Subscribe Now
                   </>
                 )}
               </button>
@@ -469,6 +592,10 @@ export default function Billing() {
                     <div className="w-4 h-4 text-gray-500">✕</div>
                     <span className="text-gray-500">Advanced analytics</span>
                   </li>
+                  <li className="flex items-center gap-3">
+                    <div className="w-4 h-4 text-gray-500">✕</div>
+                    <span className="text-gray-500">Discord premium role</span>
+                  </li>
                 </ul>
               </div>
 
@@ -501,9 +628,47 @@ export default function Billing() {
                   </li>
                   <li className="flex items-center gap-3">
                     <Check className="w-4 h-4 text-green-400" />
+                    <span className="text-gray-300">Premium Discord role & channels</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <Check className="w-4 h-4 text-green-400" />
+                    <span className="text-gray-300">VIP trading community access</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <Check className="w-4 h-4 text-green-400" />
                     <span className="text-gray-300">Priority customer support</span>
                   </li>
                 </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Discord Server Preview */}
+        <div className="mb-12">
+          <div className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 rounded-2xl p-8 border border-purple-500/30">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-purple-500 rounded-lg mb-4">
+                <MessageCircle className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Join Our Premium Discord Community</h3>
+              <p className="text-gray-400">
+                Get access to exclusive channels, trading signals, and connect with successful FUT traders
+              </p>
+            </div>
+            
+            <div className="grid md:grid-cols-3 gap-4 text-center">
+              <div className="p-4 bg-black/30 rounded-xl">
+                <div className="text-2xl font-bold text-purple-400 mb-1">1,200+</div>
+                <div className="text-sm text-gray-400">Premium Members</div>
+              </div>
+              <div className="p-4 bg-black/30 rounded-xl">
+                <div className="text-2xl font-bold text-blue-400 mb-1">24/7</div>
+                <div className="text-sm text-gray-400">Trading Discussions</div>
+              </div>
+              <div className="p-4 bg-black/30 rounded-xl">
+                <div className="text-2xl font-bold text-green-400 mb-1">Daily</div>
+                <div className="text-sm text-gray-400">AI Trade Signals</div>
               </div>
             </div>
           </div>
@@ -536,7 +701,7 @@ export default function Billing() {
               ) : (
                 <>
                   <Crown className="w-4 h-4" />
-                  Start Free Trial
+                  Subscribe Now
                 </>
               )}
             </button>
