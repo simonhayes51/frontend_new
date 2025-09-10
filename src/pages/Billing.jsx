@@ -29,12 +29,12 @@ export default function Billing() {
       trialDays: 7
     },
     yearly: {
-      price: "£1.75", // £21 ÷ 12 months = £1.75/month
+      price: "£3.08", // £25 ÷ 12 months = £2.08/month
       period: "per month",
-      total: "£21.00 for the season (12 months)",
-      savings: "Save £15.00 (42% off)", // £3×12-£21 = £15 savings
+      total: "£25.00 for the season (12 months)",
+      savings: "Save £11.00 (30% off)", // £3×12-£25 = £11 savings
       priceId: "price_season_premium",
-      amount: 2100, // £21 in pence
+      amount: 2500, // £25 in pence
       trialDays: 7
     }
   };
@@ -44,6 +44,12 @@ export default function Billing() {
       icon: <Zap className="w-5 h-5" />,
       title: "Smart Buy AI Suggestions",
       description: "Get AI-powered recommendations for profitable trades",
+      premium: true
+    },
+    {
+      icon: <Users className="w-5 h-5" />,
+      title: "Add Trade Chrome Extension",
+      description: "Automatically add all of your trades from the Fut Web App",
       premium: true
     },
     {
@@ -62,12 +68,6 @@ export default function Billing() {
       icon: <MessageCircle className="w-5 h-5" />,
       title: "Premium Discord Role",
       description: "Access exclusive channels and premium member perks",
-      premium: true
-    },
-    {
-      icon: <Users className="w-5 h-5" />,
-      title: "VIP Trading Community",
-      description: "Join our premium trading community with expert insights",
       premium: true
     },
     {
@@ -666,7 +666,7 @@ export default function Billing() {
             
             <div className="grid md:grid-cols-3 gap-4 text-center">
               <div className="p-4 bg-black/30 rounded-xl">
-                <div className="text-2xl font-bold text-purple-400 mb-1">1,200+</div>
+                <div className="text-2xl font-bold text-purple-400 mb-1">30+</div>
                 <div className="text-sm text-gray-400">Premium Members</div>
               </div>
               <div className="p-4 bg-black/30 rounded-xl">
