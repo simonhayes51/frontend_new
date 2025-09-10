@@ -45,10 +45,9 @@ export const BUY_CATEGORIES = {
 };
 
 // ========================================
-// API FUNCTIONS - CONNECT TO YOUR BACKEND
+// API FUNCTIONS - YOUR BACKEND ENDPOINTS
 // ========================================
 
-// Use your actual API URL from environment variables
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'https://api.futhub.co.uk';
 
 export async function fetchSmartBuyData(filters = {}) {
@@ -154,7 +153,7 @@ export async function addWatch(watchData) {
 }
 
 // ========================================
-// SETTINGS CONTEXT
+// SETTINGS CONTEXT (minimal for currency formatting)
 // ========================================
 
 const SettingsContext = createContext();
@@ -162,25 +161,20 @@ const SettingsContext = createContext();
 export function useSettings() {
   const context = useContext(SettingsContext);
   if (!context) {
-    throw new Error('useSettings must be used within a SettingsProvider');
+    // Fallback if context not available
+    return {
+      formatCurrency: (amount) => {
+        if (typeof amount !== 'number') return '0 coins';
+        if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M coins`;
+        if (amount >= 1000) return `${(amount / 1000).toFixed(1)}K coins`;
+        return `${amount.toLocaleString()} coins`;
+      }
+    };
   }
   return context;
 }
 
 function SettingsProvider({ children }) {
-  const [settings, setSettings] = useState({
-    currency: 'coins',
-    platform: 'ps',
-    notifications: {
-      price_alerts: true,
-      market_updates: true
-    },
-    trading: {
-      default_profit_margin: 5,
-      risk_tolerance: 'moderate'
-    }
-  });
-
   const formatCurrency = (amount, options = {}) => {
     const { showSymbol = true, abbreviated = true, precision = 0 } = options;
     
@@ -201,37 +195,15 @@ function SettingsProvider({ children }) {
     return showSymbol ? `${formattedAmount} coins` : formattedAmount;
   };
 
-  const updateSetting = (path, value) => {
-    setSettings(prev => {
-      const newSettings = { ...prev };
-      const keys = path.split('.');
-      let current = newSettings;
-      
-      for (let i = 0; i < keys.length - 1; i++) {
-        if (!current[keys[i]]) {
-          current[keys[i]] = {};
-        }
-        current = current[keys[i]];
-      }
-      
-      current[keys[keys.length - 1]] = value;
-      return newSettings;
-    });
-  };
-
   return (
-    <SettingsContext.Provider value={{ 
-      settings, 
-      formatCurrency, 
-      updateSetting 
-    }}>
+    <SettingsContext.Provider value={{ formatCurrency }}>
       {children}
     </SettingsContext.Provider>
   );
 }
 
 // ========================================
-// COMPONENTS
+// COMPONENTS (YOUR ORIGINAL CODE)
 // ========================================
 
 const ACCENT = "#91db32";
@@ -626,10 +598,6 @@ function FilterPanel({ filters, onChange, onReset }) {
   );
 }
 
-// ========================================
-// MAIN COMPONENT
-// ========================================
-
 export default function SmartBuy() {
   const [suggestions, setSuggestions] = useState([]);
   const [marketState, setMarketState] = useState(MARKET_STATES.NORMAL);
@@ -736,24 +704,22 @@ export default function SmartBuy() {
 
   if (loading) {
     return (
-      <SettingsProvider>
-        <div className="p-6 max-w-7xl mx-auto bg-gray-950 min-h-screen">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-800 rounded w-64" />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-48 bg-gray-800 rounded-2xl" />
-              ))}
-            </div>
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-800 rounded w-64" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-48 bg-gray-800 rounded-2xl" />
+            ))}
           </div>
         </div>
-      </SettingsProvider>
+      </div>
     );
   }
 
   return (
     <SettingsProvider>
-      <div className="p-6 max-w-7xl mx-auto space-y-6 bg-gray-950 min-h-screen text-white">
+      <div className="p-6 max-w-7xl mx-auto space-y-6">
         {/* Enhanced Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
