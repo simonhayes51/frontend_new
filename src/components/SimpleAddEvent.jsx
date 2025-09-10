@@ -19,7 +19,8 @@ export default function SimpleAddEvent() {
       setShow(false);
       alert('Event added!');
     } catch (err) {
-      alert('Failed to add event');
+      console.error('Event creation error:', err);
+      alert(`Failed to add event: ${err.message}`);
     }
     setLoading(false);
   };
