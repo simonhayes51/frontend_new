@@ -1,7 +1,10 @@
+// src/pages/Dashboard.jsx
+
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
 import { useSettings, ALL_WIDGET_KEYS } from "../context/SettingsContext";
+import PremiumGate from "../components/PremiumGate"; // ⟵ guard premium-only bits
 import {
   LineChart, PencilLine, RotateCcw, Plus, X, CalendarClock, TrendingUp, TrendingDown,
   Bell, Settings as Cog, Target, Zap, Trophy, Activity, BarChart3, Timer
@@ -76,7 +79,7 @@ export default function Dashboard() {
   const [localWidgetOrder, setLocalWidgetOrder] = useState(() => {
     const saved = loadLayoutFromStorage();
     return saved?.widget_order || widget_order || [...ALL_WIDGET_KEYS];
-  });
+    });
 
   const [localVisibleWidgets, setLocalVisibleWidgets] = useState(() => {
     const saved = loadWidgetSettingsFromStorage();
@@ -304,10 +307,12 @@ export default function Dashboard() {
 
   const QuickActionsCard = () => {
     const actions = [
-      { icon: Plus, label: "Add Trade", href: "/trades/new", color: "bg-green-600 hover:bg-green-700" },
+      { icon: Plus, label: "Add Trade", href: "/add-trade", color: "bg-green-600 hover:bg-green-700" },
       { icon: BarChart3, label: "Analytics", href: "/analytics", color: "bg-blue-600 hover:bg-blue-700" },
       { icon: Bell, label: "Alerts", href: "/settings#alerts", color: "bg-purple-600 hover:bg-purple-700" },
-      { icon: Cog, label: "Settings", href: "/settings", color: "bg-gray-600 hover:bg-gray-700" }
+      { icon: Cog, label: "Settings", href: "/settings", color: "bg-gray-600 hover:bg-gray-700" },
+      // Premium shortcut
+      { icon: Zap, label: "Smart Buy", href: "/smart-buy", color: "bg-amber-600 hover:bg-amber-700", premiumFeature: "smart_buy" },
     ];
     return (
       <div className={`${cardBase} bg-gradient-to-br from-blue-900/20 to-cyan-900/20`}>
@@ -316,12 +321,21 @@ export default function Dashboard() {
           <span className={chip}><Zap size={10} /> shortcuts</span>
         </div>
         <div className="grid grid-cols-2 gap-2 mt-2">
-          {actions.map((a, i) => (
-            <Link key={i} to={a.href} className={`${a.color} rounded-lg p-2 flex flex-col items-center gap-1 transition-all transform hover:scale-105`}>
-              <a.icon size={16} className="text-white" />
-              <span className="text-[10px] text-white font-medium">{a.label}</span>
-            </Link>
-          ))}
+          {actions.map((a, i) => {
+            const Btn = (
+              <Link key={a.label} to={a.href} className={`${a.color} rounded-lg p-2 flex flex-col items-center gap-1 transition-all transform hover:scale-105`}>
+                <a.icon size={16} className="text-white" />
+                <span className="text-[10px] text-white font-medium">{a.label}</span>
+              </Link>
+            );
+            return a.premiumFeature ? (
+              <PremiumGate key={i} requiredFeature={a.premiumFeature}>
+                {Btn}
+              </PremiumGate>
+            ) : (
+              <React.Fragment key={i}>{Btn}</React.Fragment>
+            );
+          })}
         </div>
       </div>
     );
@@ -534,6 +548,7 @@ export default function Dashboard() {
       (async () => {
         setLoading(true);
         try {
+          // Note: backend will coerce TF for free users; premium users can use 6/12 freely.
           const res = await fetch(`${API}/api/trending?type=${type}&tf=6`, { credentials: "include" });
           const js = await res.json();
           setItems(Array.isArray(js?.items) ? js.items.slice(0, 2) : []);
@@ -546,7 +561,16 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div className={cardTitle}>Trending (6h)</div>
           <div className="flex items-center gap-2">
-            <Link to="/trending?tab=smart&tf=24" className="text-[10px] text-gray-400 hover:text-gray-200 underline">See all →</Link>
+            {/* Smart tab is premium — gate the deep link */}
+            <PremiumGate requiredFeature="smart_buy" fallback={
+              <Link to="/trending" className="text-[10px] text-gray-400 hover:text-gray-200 underline">
+                See all →
+              </Link>
+            }>
+              <Link to="/trending?tab=smart&tf=24" className="text-[10px] text-gray-400 hover:text-gray-200 underline">
+                See all →
+              </Link>
+            </PremiumGate>
             <div className="flex items-center gap-1">
               <button onClick={() => setType("risers")} className={`text-[10px] px-2 py-0.5 rounded ${type==="risers" ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}><TrendingUp size={10}/>Risers</button>
               <button onClick={() => setType("fallers")} className={`text-[10px] px-2 py-0.5 rounded ${type==="fallers" ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}><TrendingDown size={10}/>Fallers</button>
