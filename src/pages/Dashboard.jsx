@@ -1,4 +1,4 @@
-// src/pages/Dashboard.jsx
+// src/pages/Dashboard.jsx - COMPLETE WITH WIDGET SIZING FIXES
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -22,7 +22,7 @@ const PREMIUM_WIDGETS = new Set([
 
 /* tiny helper so usage stays clean */
 const Gate = ({ name, children, fallback }) => (
-  <PremiumGate requiredFeature={name} fallback={fallback}>
+  <PremiumGate feature={name} fallback={fallback}>
     {children}
   </PremiumGate>
 );
@@ -319,20 +319,27 @@ export default function Dashboard() {
       { icon: BarChart3, label: "Analytics", href: "/analytics", color: "bg-blue-600 hover:bg-blue-700" },
       { icon: Bell, label: "Alerts", href: "/settings#alerts", color: "bg-purple-600 hover:bg-purple-700" },
       { icon: Cog, label: "Settings", href: "/settings", color: "bg-gray-600 hover:bg-gray-700" },
-      { icon: Zap, label: "Smart Buy", href: "/smart-buy", color: "bg-amber-600 hover:bg-amber-700", premiumFeature: "smart_buy" },
     ];
+    
     return (
       <div className={`${cardBase} bg-gradient-to-br from-blue-900/20 to-cyan-900/20`}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-2">
           <div className={cardTitle}>Quick Actions</div>
-          <span className={chip}><Zap size={10} /> shortcuts</span>
+          <span className="text-[9px] bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+            <Zap size={8} /> shortcuts
+          </span>
         </div>
-        <div className="grid grid-cols-2 gap-2 mt-2">
+        
+        <div className="grid grid-cols-2 gap-2 flex-1">
           {actions.map((a, i) => {
             const Btn = (
-              <Link key={a.label} to={a.href} className={`${a.color} rounded-lg p-2 flex flex-col items-center gap-1 transition-all transform hover:scale-105`}>
-                <a.icon size={16} className="text-white" />
-                <span className="text-[10px] text-white font-medium">{a.label}</span>
+              <Link 
+                key={a.label} 
+                to={a.href} 
+                className={`${a.color} rounded-lg p-2 flex flex-col items-center gap-1 transition-all transform hover:scale-105 min-h-[60px] justify-center`}
+              >
+                <a.icon size={14} className="text-white" />
+                <span className="text-[9px] text-white font-medium leading-tight text-center">{a.label}</span>
               </Link>
             );
             return a.premiumFeature ? (
@@ -406,7 +413,7 @@ export default function Dashboard() {
     );
   };
 
-  /* ---- Market Summary (with TF) ---- */
+  /* ---- Market Summary (FIXED VERSION) ---- */
   const MarketSummaryCard = () => {
     const API = import.meta.env.VITE_API_URL || "";
     const [tfLocal, setTfLocal] = useState("24");
@@ -441,21 +448,21 @@ export default function Dashboard() {
 
     const row = (label, value, cls) => (
       <div className="flex justify-between items-center">
-        <span className={`text-[11px] ${cls}`}>{label}</span>
-        <span className={`text-[12px] font-semibold ${cls}`}>{value}</span>
+        <span className={`text-[10px] ${cls}`}>{label}</span>
+        <span className={`text-[11px] font-semibold ${cls}`}>{value}</span>
       </div>
     );
 
     const body = (
       <div className={`${cardBase} bg-gradient-to-br from-teal-900/20 to-blue-900/20`}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-2">
           <div className={cardTitle}>Market Summary</div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             {["6","12","24"].map(v => (
               <button
                 key={v}
                 onClick={() => setTfLocal(v)}
-                className={`text-[10px] px-2 py-0.5 rounded ${tfLocal===v ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}
+                className={`text-[9px] px-1.5 py-0.5 rounded ${tfLocal===v ? "bg-gray-800 text-gray-100" : "text-gray-400 hover:text-gray-200"}`}
                 title={`${v}h`}
               >{v}h</button>
             ))}
@@ -463,28 +470,26 @@ export default function Dashboard() {
         </div>
 
         {loading ? (
-          <div className="space-y-2 mt-1">
-            {[...Array(3)].map((_,i)=><div key={i} className="h-4 bg-gray-800 rounded animate-pulse" />)}
+          <div className="space-y-1.5 mt-1">
+            {[...Array(3)].map((_,i)=><div key={i} className="h-3 bg-gray-800 rounded animate-pulse" />)}
           </div>
         ) : err ? (
-          <div className="text-[12px] text-red-400 mt-1">Error: {err}</div>
+          <div className="text-[10px] text-red-400 mt-1">Error loading</div>
         ) : (
-          <div className="space-y-2 mt-1">
-            {row(<span className="flex items-center gap-1"><TrendingUp size={10}/> Trending</span>, summary.trending, "text-green-400")}
-            {row(<span className="flex items-center gap-1"><TrendingDown size={10}/> Falling</span>, summary.falling, "text-red-400")}
-            {row(<span className="flex items-center gap-1"><Timer size={10}/> Stable</span>, summary.stable, "text-gray-400")}
-            <div className="text-[10px] text-gray-500 mt-1">Sample: {summary.sample} • Window: {summary.tf}</div>
+          <div className="space-y-1.5 mt-1 flex-1">
+            {row(<span className="flex items-center gap-1"><TrendingUp size={9}/> Up</span>, summary.trending, "text-green-400")}
+            {row(<span className="flex items-center gap-1"><TrendingDown size={9}/> Down</span>, summary.falling, "text-red-400")}
+            {row(<span className="flex items-center gap-1"><Timer size={9}/> Stable</span>, summary.stable, "text-gray-400")}
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-2">
-          <span className={chip}>auto-updated</span>
-          {updated && <span className="text-[10px] text-gray-500">Updated {updated.toLocaleTimeString()}</span>}
+        <div className="flex items-center justify-between mt-2 pt-1 border-t border-gray-800/50">
+          <span className="text-[9px] bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded-full">auto</span>
+          {updated && <span className="text-[9px] text-gray-500">{updated.toLocaleTimeString()}</span>}
         </div>
       </div>
     );
 
-    // If you want Market Summary to be free, remove the Gate wrapper here
     return <Gate name="market_summary" fallback={body}>{body}</Gate>;
   };
 
