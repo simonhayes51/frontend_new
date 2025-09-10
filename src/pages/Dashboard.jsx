@@ -7,7 +7,7 @@ import { useSettings, ALL_WIDGET_KEYS } from "../context/SettingsContext";
 import PremiumGate from "../components/PremiumGate";
 import {
   LineChart, PencilLine, RotateCcw, Plus, X, CalendarClock, TrendingUp, TrendingDown,
-  Bell, Settings as Cog, Target, Zap, Trophy, Activity, BarChart3, Timer
+  Bell, Settings as Cog, Target, Zap, Trophy, Activity, BarChart3, Timer, Download
 } from "lucide-react";
 
 const ACCENT = "#91db32";
@@ -18,6 +18,7 @@ const PREMIUM_WIDGETS = new Set([
   "profit_trend",
   "performance",
   "promo",
+  "quick_actions", // Chrome Extension card is premium
 ]);
 
 /* tiny helper so usage stays clean */
@@ -313,44 +314,45 @@ export default function Dashboard() {
     );
   };
 
+  // === Chrome Extension (Premium) ===
   const QuickActionsCard = () => {
-    const actions = [
-      { icon: Plus, label: "Add Trade", href: "/add-trade", color: "bg-green-600 hover:bg-green-700" },
-      { icon: BarChart3, label: "Analytics", href: "/analytics", color: "bg-blue-600 hover:bg-blue-700" },
-      { icon: Bell, label: "Alerts", href: "/settings#alerts", color: "bg-purple-600 hover:bg-purple-700" },
-      { icon: Cog, label: "Settings", href: "/settings", color: "bg-gray-600 hover:bg-gray-700" },
-    ];
-    
-    return (
-      <div className={`${cardBase} bg-gradient-to-br from-blue-900/20 to-cyan-900/20`}>
+    const body = (
+      <div className={`${cardBase} bg-gradient-to-br from-[#1A1130]/60 to-[#241142]/60`}>
         <div className="flex items-center justify-between mb-2">
-          <div className={cardTitle}>Quick Actions</div>
-          <span className="text-[9px] bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-            <Zap size={8} /> shortcuts
-          </span>
+          <div className={cardTitle}>Chrome Extension</div>
+          <span className="text-[9px] bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded-full">Premium</span>
         </div>
-        
-        <div className="grid grid-cols-2 gap-2 flex-1">
-          {actions.map((a, i) => {
-            const Btn = (
-              <Link 
-                key={a.label} 
-                to={a.href} 
-                className={`${a.color} rounded-lg p-2 flex flex-col items-center gap-1 transition-all transform hover:scale-105 min-h-[60px] justify-center`}
-              >
-                <a.icon size={14} className="text-white" />
-                <span className="text-[9px] text-white font-medium leading-tight text-center">{a.label}</span>
-              </Link>
-            );
-            return a.premiumFeature ? (
-              <Gate key={i} name={a.premiumFeature}>{Btn}</Gate>
-            ) : (
-              <React.Fragment key={i}>{Btn}</React.Fragment>
-            );
-          })}
+
+        <div className="flex items-center gap-3 flex-1">
+          {/* Tiny Chrome logo (inline SVG) */}
+          <svg viewBox="0 0 24 24" className="w-7 h-7 shrink-0" aria-hidden>
+            <circle cx="12" cy="12" r="10" fill="#DB4437"/>
+            <path d="M12 2a10 10 0 0 1 8.66 5H12a5 5 0 0 0-4.33 2.5L4.1 6.5A10 10 0 0 1 12 2z" fill="#FFCD40"/>
+            <path d="M21.9 12a10 10 0 0 1-3.58 7.66L15.5 14A5 5 0 0 0 12 7h8.66c.22.96.34 1.97.24 3z" fill="#0F9D58"/>
+            <circle cx="12" cy="12" r="4.2" fill="#fff"/>
+            <circle cx="12" cy="12" r="2.6" fill="#4285F4"/>
+          </svg>
+
+          <div className="flex-1">
+            <div className="text-[13px] text-gray-200/90 font-semibold">Install Chrome Extension</div>
+            <div className="text-[11px] text-gray-400">1-click trade logging & price checks</div>
+          </div>
+
+          <a
+            href="https://chrome.google.com/webstore/detail/your-extension-id" /* swap to your real link */
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm
+                       bg-white/10 hover:bg-white/20 text-white border border-white/10"
+          >
+            <Download size={14} />
+            Download
+          </a>
         </div>
       </div>
     );
+
+    return <Gate name="quick_actions" fallback={body}>{body}</Gate>;
   };
 
   const DailyTargetCard = () => (
@@ -981,9 +983,6 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold">Recent Trades</h2>
             <span className={chip}>Showing last {Math.min(filteredTrades.length, previewLimit)} ({tf})</span>
-          </div>
-          <div className="text-sm">
-            <Link to="/trades" className="text-gray-300 hover:text-white">View all trades →</Link>
           </div>
         </div>
 
