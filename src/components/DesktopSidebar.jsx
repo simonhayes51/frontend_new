@@ -18,7 +18,7 @@ import {
   Target,
   User,
   Settings,
-  Compare,
+  CompareArrows,
 } from "lucide-react";
 
 const DesktopSidebar = () => {
@@ -58,7 +58,7 @@ const DesktopSidebar = () => {
     { path: "/add-trade", label: "Add Trade", icon: Plus },
     { path: "/trades", label: "Recent Trades", icon: BarChart3 },
     { path: "/player-search", label: "Player Search", icon: Search },
-    { path: "/compare", label: "Compare", icon: Compare },
+    { path: "/compare", label: "Compare", icon: CompareArrows },
     { path: "/watchlist", label: "Watchlist", icon: Eye },
     { path: "/trending", label: "Trending", icon: Target },
     { path: "/smart-buy", label: "Smart Buy", icon: Zap, premium: true },
