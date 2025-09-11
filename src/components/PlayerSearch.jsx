@@ -7,38 +7,32 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 const buildProxy = (url) => `${API_BASE}/img?url=${encodeURIComponent(url)}`;
 const PLACEHOLDER = "/img/card-placeholder.png";
 
+// ------- text helpers (accent/diacritic-insensitive) -------
+// ADDITION: normalizeForSearch — "Mbappé" -> "mbappe"
+const normalizeForSearch = (s = "") =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
 // ------- backend helpers -------
 const searchPlayers = async (query) => {
-  const q = query.trim();
-  if (!q) return [];
+  if (!query.trim()) return [];
+  // ADDITION: compute normalized query and send alongside the raw query
+  const qNorm = normalizeForSearch(query);
 
-  const qNorm = normalizeForSearch(q);
-
-  const doFetch = async (url) => {
-    try {
-      const r = await fetch(url, { credentials: "include" });
-      if (!r.ok) return [];
-      const data = await r.json();
-      return data.players || [];
-    } catch (e) {
-      console.error("Search failed:", e);
-      return [];
-    }
-  };
-
-  // First try: send both raw & normalized (backend can pick which to use).
-  const url1 = `${API_BASE}/api/search-players?q=${encodeURIComponent(q)}&q_norm=${encodeURIComponent(qNorm)}`;
-  let results = await doFetch(url1);
-
-  // Fallback: if empty, try again forcing normalized query.
-  if ((!results || results.length === 0) && qNorm !== q) {
-    const url2 = `${API_BASE}/api/search-players?q=${encodeURIComponent(qNorm)}&force_norm=1`;
-    results = await doFetch(url2);
+  try {
+    const r = await fetch(
+      `${API_BASE}/api/search-players?q=${encodeURIComponent(query)}&q_norm=${encodeURIComponent(qNorm)}`,
+      {
+        credentials: "include",
+      }
+    );
+    if (!r.ok) return [];
+    const data = await r.json();
+    return data.players || [];
+  } catch (e) {
+    console.error("Search failed:", e);
+    return [];
   }
-
-  return results;
 };
-
 
 const addToWatchlist = async ({ player_name, card_id, version, platform, notes }) => {
   const r = await fetch(`${API_BASE}/api/watchlist`, {
