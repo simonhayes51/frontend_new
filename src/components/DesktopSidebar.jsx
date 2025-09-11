@@ -18,6 +18,7 @@ import {
   Target,
   User,
   Settings,
+  Compare,
 } from "lucide-react";
 
 const DesktopSidebar = () => {
@@ -55,12 +56,13 @@ const DesktopSidebar = () => {
   const navItems = [
     { path: "/", label: "Dashboard", icon: Home },
     { path: "/add-trade", label: "Add Trade", icon: Plus },
-    { path: "/trades", label: "Trades", icon: BarChart3 },
+    { path: "/trades", label: "Recent Trades", icon: BarChart3 },
     { path: "/player-search", label: "Player Search", icon: Search },
-    { path: "/squad", label: "Squad Builder", icon: Users },
+    { path: "/compare", label: "Compare", icon: Compare },
     { path: "/watchlist", label: "Watchlist", icon: Eye },
     { path: "/trending", label: "Trending", icon: Target },
     { path: "/smart-buy", label: "Smart Buy", icon: Zap, premium: true },
+    { path: "/squad", label: "Squad Builder", icon: Users },
   ];
 
   const isActive = (p) => location.pathname === p;
