@@ -334,12 +334,12 @@ export default function Dashboard() {
           </svg>
 
           <div className="flex-1">
-            <div className="text-[13px] text-gray-200/90 font-semibold">Install Chrome Extension</div>
-            <div className="text-[11px] text-gray-400">1-click trade logging & price checks</div>
+            <div className="text-[13px] text-gray-200/90 font-semibold">Chrome Extension</div>
+            <div className="text-[11px] text-gray-400">One click trade logging</div>
           </div>
 
           <a
-            href="https://chrome.google.com/webstore/detail/your-extension-id" /* swap to your real link */
+            href="https://chromewebstore.google.com/detail/hodeeeeoldpdhhjpnkpblajifahcdkep?utm_source=item-share-cb" /* swap to your real link */
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm
