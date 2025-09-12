@@ -5,71 +5,78 @@ import {
   Download, 
   Upload, 
   Trash2, 
-  Settings as SettingsIcon,
   Save,
   RefreshCw,
   AlertTriangle,
-  Eye,
-  Moon,
-  Sun,
-  Calendar,
   DollarSign,
   Tag,
   BarChart3,
   Shield,
-  Smartphone,
   FileText,
-  CreditCard
+  CreditCard,
+  Bell,
+  Clock,
+  TrendingUp,
+  Target,
+  Calculator,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 const Settings = () => {
   const [settings, setSettings] = useState({
+    // Trading preferences
     default_platform: 'Console',
-    custom_tags: [],
-    currency_format: 'coins',
-    theme: 'dark',
-    timezone: 'UTC',
-    date_format: 'US',
-    include_tax_in_profit: true,
-    default_chart_range: '30d',
-    visible_widgets: ['profit', 'tax', 'balance', 'trades']
+    auto_calculate_tax: true,
+    tax_rate: 5,
+    profit_display_mode: 'after_tax', // 'before_tax', 'after_tax', 'both'
+    default_trade_tag: '',
+    quick_tags: ['Snipe', 'Investment', 'Flip', 'SBC'],
+    
+    // Notifications & Alerts
+    browser_notifications: false,
+    price_alert_threshold: 10, // % change
+    profit_milestone_alerts: true,
+    daily_summary_time: '18:00',
+    
+    // Display & Currency
+    currency_display: 'coins', // 'coins', 'k_format', 'millions'
+    number_separators: 'commas', // 'commas', 'spaces', 'none'
+    show_percentages: true,
+    highlight_profitable_trades: true,
+    
+    // Trading Analysis
+    target_profit_margin: 10, // %
+    risk_tolerance: 'medium', // 'low', 'medium', 'high'
+    investment_horizon: 'short', // 'short', 'medium', 'long'
+    track_player_performance: true,
+    
+    // Privacy & Data
+    data_retention_days: 365,
+    anonymous_analytics: true,
+    backup_frequency: 'weekly', // 'never', 'weekly', 'monthly'
+    
+    // Advanced Features
+    auto_price_updates: true,
+    price_update_interval: 5, // minutes
+    smart_suggestions: true,
+    market_trend_analysis: true
   });
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [newTag, setNewTag] = useState('');
-  const [activeTab, setActiveTab] = useState('general');
+  const [newQuickTag, setNewQuickTag] = useState('');
+  const [activeSection, setActiveSection] = useState('trading');
   const [hasChanges, setHasChanges] = useState(false);
   const [originalSettings, setOriginalSettings] = useState(null);
+  const [stats, setStats] = useState(null);
 
   useEffect(() => {
     loadSettings();
+    loadStats();
   }, []);
-
-  useEffect(() => {
-    if (settings.theme && typeof document !== 'undefined') {
-      const root = document.documentElement;
-      switch (settings.theme) {
-        case 'dark':
-          root.classList.add('dark');
-          break;
-        case 'light':
-          root.classList.remove('dark');
-          break;
-        case 'system':
-          if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            root.classList.add('dark');
-          } else {
-            root.classList.remove('dark');
-          }
-          break;
-        default:
-          break;
-      }
-    }
-  }, [settings.theme]);
 
   useEffect(() => {
     if (originalSettings) {
@@ -81,13 +88,21 @@ const Settings = () => {
     try {
       setLoading(true);
       const data = await apiFetch('/api/settings');
-      setSettings(data);
-      setOriginalSettings(data);
+      setSettings(prev => ({ ...prev, ...data }));
+      setOriginalSettings({ ...settings, ...data });
     } catch (error) {
       toast.error('Failed to load settings');
-      console.error('Load settings error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const data = await apiFetch('/api/data/summary');
+      setStats(data);
+    } catch (error) {
+      console.error('Failed to load stats');
     }
   };
 
@@ -99,10 +114,10 @@ const Settings = () => {
         body: settings
       });
       setOriginalSettings(settings);
+      setHasChanges(false);
       toast.success('Settings saved successfully!');
     } catch (error) {
       toast.error('Failed to save settings');
-      console.error('Save settings error:', error);
     } finally {
       setSaving(false);
     }
@@ -112,29 +127,20 @@ const Settings = () => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
-  const addCustomTag = () => {
-    if (newTag.trim() && !settings.custom_tags.includes(newTag.trim())) {
+  const addQuickTag = () => {
+    if (newQuickTag.trim() && !settings.quick_tags.includes(newQuickTag.trim())) {
       setSettings(prev => ({
         ...prev,
-        custom_tags: [...prev.custom_tags, newTag.trim()]
+        quick_tags: [...prev.quick_tags, newQuickTag.trim()]
       }));
-      setNewTag('');
+      setNewQuickTag('');
     }
   };
 
-  const removeCustomTag = (tagToRemove) => {
+  const removeQuickTag = (tagToRemove) => {
     setSettings(prev => ({
       ...prev,
-      custom_tags: prev.custom_tags.filter(tag => tag !== tagToRemove)
-    }));
-  };
-
-  const toggleWidget = (widget) => {
-    setSettings(prev => ({
-      ...prev,
-      visible_widgets: prev.visible_widgets.includes(widget)
-        ? prev.visible_widgets.filter(w => w !== widget)
-        : [...prev.visible_widgets, widget]
+      quick_tags: prev.quick_tags.filter(tag => tag !== tagToRemove)
     }));
   };
 
@@ -151,13 +157,13 @@ const Settings = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `fut-trades-export.${format}`;
+      a.download = `fut-trades-${new Date().toISOString().split('T')[0]}.${format}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
-      toast.success(`Data exported as ${format.toUpperCase()}`);
+      toast.success(`${stats?.trades_count || 0} trades exported as ${format.toUpperCase()}`);
     } catch (error) {
       toast.error('Export failed');
     } finally {
@@ -176,12 +182,13 @@ const Settings = () => {
         body: formData
       });
       
-      toast.success(`${result.imported_count} trades imported!`);
+      toast.success(`${result.imported_count} trades imported successfully!`);
       if (result.errors?.length > 0) {
-        toast.error(`${result.errors.length} errors occurred`);
+        toast.error(`${result.errors.length} errors occurred during import`);
       }
+      loadStats(); // Refresh stats
     } catch (error) {
-      toast.error('Import failed');
+      toast.error('Import failed: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -203,372 +210,701 @@ const Settings = () => {
       toast.success(`All data deleted (${result.details?.trades_deleted || 0} trades removed)`);
       setShowDeleteModal(false);
       setDeleteConfirm('');
+      loadStats(); // Refresh stats
     } catch (error) {
-      toast.error('Failed to delete data');
+      toast.error('Failed to delete data: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const tabs = [
-    { id: 'general', label: 'General', icon: SettingsIcon },
-    { id: 'trading', label: 'Trading', icon: BarChart3 },
-    { id: 'display', label: 'Display', icon: Eye },
-    { id: 'data', label: 'Data', icon: Shield }
+  const formatCurrency = (amount) => {
+    if (!amount) return '0';
+    const num = parseInt(amount);
+    
+    switch (settings.currency_display) {
+      case 'k_format':
+        if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+        if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
+        return num.toLocaleString();
+      case 'millions':
+        return `${(num / 1000000).toFixed(2)}M`;
+      default:
+        return num.toLocaleString();
+    }
+  };
+
+  const sections = [
+    { id: 'trading', label: 'Trading Preferences', icon: BarChart3 },
+    { id: 'alerts', label: 'Notifications & Alerts', icon: Bell },
+    { id: 'display', label: 'Display & Format', icon: Eye },
+    { id: 'analysis', label: 'Trading Analysis', icon: TrendingUp },
+    { id: 'data', label: 'Data Management', icon: Shield }
   ];
 
-  if (loading && !settings.default_platform) {
+  if (loading && !originalSettings) {
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-center py-12">
-          <RefreshCw className="animate-spin h-8 w-8 text-blue-500" />
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-center py-20">
+            <RefreshCw className="animate-spin h-8 w-8 text-blue-500" />
+            <span className="ml-3 text-gray-600">Loading settings...</span>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Settings</h1>
-        <p className="text-gray-600 dark:text-gray-400">Customize your FUT Dashboard experience</p>
-      </div>
-
-      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-        <nav className="-mb-px flex space-x-8">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
-                activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
-            >
-              <tab.icon className="h-4 w-4" />
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-        {activeTab === 'general' && (
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">General Settings</h3>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Default Platform</label>
-                <select
-                  value={settings.default_platform}
-                  onChange={(e) => updateSetting('default_platform', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                >
-                  <option value="Console">PlayStation/Console</option>
-                  <option value="Xbox">Xbox</option>
-                  <option value="PC">PC/Origin</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Currency Display</label>
-                <select
-                  value={settings.currency_format}
-                  onChange={(e) => updateSetting('currency_format', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                >
-                  <option value="coins">Coins (150,000)</option>
-                  <option value="abbreviated">Abbreviated (150K)</option>
-                  <option value="decimal">Decimal (150.0K)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Theme</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { value: 'dark', label: 'Dark', icon: Moon },
-                    { value: 'light', label: 'Light', icon: Sun },
-                    { value: 'system', label: 'System', icon: Smartphone }
-                  ].map((theme) => (
-                    <button
-                      key={theme.value}
-                      onClick={() => updateSetting('theme', theme.value)}
-                      className={`p-3 border rounded-lg flex flex-col items-center space-y-2 ${
-                        settings.theme === theme.value
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      <theme.icon className="h-5 w-5" />
-                      <span className="text-sm">{theme.label}</span>
-                    </button>
-                  ))}
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
+          <p className="text-gray-600">Configure your FUT trading dashboard experience</p>
+          
+          {stats && (
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-lg p-4 shadow-sm border">
+                <div className="flex items-center">
+                  <BarChart3 className="h-8 w-8 text-blue-500" />
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-500">Total Trades</p>
+                    <p className="text-2xl font-semibold text-gray-900">{stats.trades_count}</p>
+                  </div>
                 </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date Format</label>
-                <select
-                  value={settings.date_format}
-                  onChange={(e) => updateSetting('date_format', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                >
-                  <option value="US">US (MM/DD/YYYY)</option>
-                  <option value="EU">EU (DD/MM/YYYY)</option>
-                  <option value="ISO">ISO (YYYY-MM-DD)</option>
-                </select>
+              <div className="bg-white rounded-lg p-4 shadow-sm border">
+                <div className="flex items-center">
+                  <DollarSign className="h-8 w-8 text-green-500" />
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-500">Net Profit</p>
+                    <p className={`text-2xl font-semibold ${stats.total_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatCurrency(stats.total_profit)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm border">
+                <div className="flex items-center">
+                  <FileText className="h-8 w-8 text-orange-500" />
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-500">EA Tax Paid</p>
+                    <p className="text-2xl font-semibold text-gray-900">{formatCurrency(stats.total_tax)}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm border">
+                <div className="flex items-center">
+                  <Target className="h-8 w-8 text-purple-500" />
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-500">Trading Goals</p>
+                    <p className="text-2xl font-semibold text-gray-900">{stats.goals_count}</p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {activeTab === 'trading' && (
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Trading Settings</h3>
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 dark:text-white">Include EA Tax in Profit Calculations</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Automatically deduct 5% EA tax from profit calculations</p>
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Sidebar Navigation */}
+          <div className="lg:col-span-1">
+            <nav className="space-y-1">
+              {sections.map((section) => (
                 <button
-                  onClick={() => updateSetting('include_tax_in_profit', !settings.include_tax_in_profit)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    settings.include_tax_in_profit ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
+                  key={section.id}
+                  onClick={() => setActiveSection(section.id)}
+                  className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                    activeSection === section.id
+                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      settings.include_tax_in_profit ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
+                  <section.icon className="h-5 w-5 mr-3" />
+                  {section.label}
                 </button>
-              </div>
+              ))}
+            </nav>
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Custom Tags</label>
-                <div className="flex space-x-2 mb-3">
-                  <input
-                    type="text"
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && addCustomTag()}
-                    placeholder="Add a new tag..."
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                  <button
-                    onClick={addCustomTag}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <Tag className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {settings.custom_tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400"
-                    >
-                      {tag}
-                      <button
-                        onClick={() => removeCustomTag(tag)}
-                        className="ml-1.5 h-3 w-3 hover:text-blue-600"
+          {/* Main Content */}
+          <div className="lg:col-span-3">
+            <div className="bg-white shadow-sm rounded-lg">
+              {/* Trading Preferences */}
+              {activeSection === 'trading' && (
+                <div className="p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-6">Trading Preferences</h3>
+                  
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Default Platform</label>
+                      <select
+                        value={settings.default_platform}
+                        onChange={(e) => updateSetting('default_platform', e.target.value)}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       >
-                        ×
+                        <option value="Console">PlayStation (Console)</option>
+                        <option value="Xbox">Xbox</option>
+                        <option value="PC">PC/Origin</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700">Auto-calculate EA Tax</label>
+                        <p className="text-sm text-gray-500">Automatically deduct EA tax from profit calculations</p>
+                      </div>
+                      <button
+                        onClick={() => updateSetting('auto_calculate_tax', !settings.auto_calculate_tax)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          settings.auto_calculate_tax ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          settings.auto_calculate_tax ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
                       </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Default Chart Range</label>
-                <select
-                  value={settings.default_chart_range}
-                  onChange={(e) => updateSetting('default_chart_range', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                >
-                  <option value="7d">7 Days</option>
-                  <option value="30d">30 Days</option>
-                  <option value="90d">90 Days</option>
-                  <option value="1y">1 Year</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'display' && (
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Display Settings</h3>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Dashboard Widgets</label>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Choose which widgets to display on your dashboard</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { id: 'profit', label: 'Net Profit', icon: DollarSign },
-                    { id: 'tax', label: 'EA Tax', icon: FileText },
-                    { id: 'balance', label: 'Balance', icon: CreditCard },
-                    { id: 'trades', label: 'Recent Trades', icon: BarChart3 }
-                  ].map((widget) => (
-                    <label
-                      key={widget.id}
-                      className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600"
-                    >
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">EA Tax Rate (%)</label>
                       <input
-                        type="checkbox"
-                        checked={settings.visible_widgets.includes(widget.id)}
-                        onChange={() => toggleWidget(widget.id)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        type="number"
+                        min="0"
+                        max="10"
+                        step="0.1"
+                        value={settings.tax_rate}
+                        onChange={(e) => updateSetting('tax_rate', parseFloat(e.target.value) || 5)}
+                        className="block w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       />
-                      <widget.icon className="h-5 w-5 ml-3 mr-2 text-gray-400" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {widget.label}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Profit Display Mode</label>
+                      <select
+                        value={settings.profit_display_mode}
+                        onChange={(e) => updateSetting('profit_display_mode', e.target.value)}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="after_tax">After Tax (Default)</option>
+                        <option value="before_tax">Before Tax</option>
+                        <option value="both">Show Both</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Target Profit Margin (%)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={settings.target_profit_margin}
+                        onChange={(e) => updateSetting('target_profit_margin', parseInt(e.target.value) || 10)}
+                        className="block w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <p className="text-sm text-gray-500 mt-1">Used for trade suggestions and analysis</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Quick Tags</label>
+                      <div className="flex space-x-2 mb-3">
+                        <input
+                          type="text"
+                          value={newQuickTag}
+                          onChange={(e) => setNewQuickTag(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && addQuickTag()}
+                          placeholder="Add a quick tag..."
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <button
+                          onClick={addQuickTag}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <Tag className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {settings.quick_tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
+                          >
+                            {tag}
+                            <button
+                              onClick={() => removeQuickTag(tag)}
+                              className="ml-2 h-4 w-4 hover:text-blue-600"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Notifications & Alerts */}
+              {activeSection === 'alerts' && (
+                <div className="p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-6">Notifications & Alerts</h3>
+                  
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700">Browser Notifications</label>
+                        <p className="text-sm text-gray-500">Get desktop notifications for important events</p>
+                      </div>
+                      <button
+                        onClick={() => updateSetting('browser_notifications', !settings.browser_notifications)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          settings.browser_notifications ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          settings.browser_notifications ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Price Alert Threshold (%)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={settings.price_alert_threshold}
+                        onChange={(e) => updateSetting('price_alert_threshold', parseInt(e.target.value) || 10)}
+                        className="block w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <p className="text-sm text-gray-500 mt-1">Alert when player prices change by this percentage</p>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700">Profit Milestone Alerts</label>
+                        <p className="text-sm text-gray-500">Get notified when you reach profit milestones</p>
+                      </div>
+                      <button
+                        onClick={() => updateSetting('profit_milestone_alerts', !settings.profit_milestone_alerts)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          settings.profit_milestone_alerts ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          settings.profit_milestone_alerts ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Daily Summary Time</label>
+                      <input
+                        type="time"
+                        value={settings.daily_summary_time}
+                        onChange={(e) => updateSetting('daily_summary_time', e.target.value)}
+                        className="block w-40 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <p className="text-sm text-gray-500 mt-1">When to send daily trading summary</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Display & Format */}
+              {activeSection === 'display' && (
+                <div className="p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-6">Display & Format</h3>
+                  
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Currency Display Format</label>
+                      <select
+                        value={settings.currency_display}
+                        onChange={(e) => updateSetting('currency_display', e.target.value)}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="coins">Full Coins (1,250,000)</option>
+                        <option value="k_format">K Format (1.25M, 250K)</option>
+                        <option value="millions">Millions (1.25M)</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700">Show Percentages</label>
+                        <p className="text-sm text-gray-500">Display profit/loss as percentages</p>
+                      </div>
+                      <button
+                        onClick={() => updateSetting('show_percentages', !settings.show_percentages)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          settings.show_percentages ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          settings.show_percentages ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700">Highlight Profitable Trades</label>
+                        <p className="text-sm text-gray-500">Use color coding for profitable vs losing trades</p>
+                      </div>
+                      <button
+                        onClick={() => updateSetting('highlight_profitable_trades', !settings.highlight_profitable_trades)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          settings.highlight_profitable_trades ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          settings.highlight_profitable_trades ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Trading Analysis */}
+              {activeSection === 'analysis' && (
+                <div className="p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-6">Trading Analysis</h3>
+                  
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Risk Tolerance</label>
+                      <select
+                        value={settings.risk_tolerance}
+                        onChange={(e) => updateSetting('risk_tolerance', e.target.value)}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="low">Low - Conservative trading</option>
+                        <option value="medium">Medium - Balanced approach</option>
+                        <option value="high">High - Aggressive trading</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Investment Horizon</label>
+                      <select
+                        value={settings.investment_horizon}
+                        onChange={(e) => updateSetting('investment_horizon', e.target.value)}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="short">Short-term (Hours to Days)</option>
+                        <option value="medium">Medium-term (Days to Weeks)</option>
+                        <option value="long">Long-term (Weeks to Months)</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700">Smart Suggestions</label>
+                        <p className="text-sm text-gray-500">Get AI-powered trading suggestions</p>
+                      </div>
+                      <button
+                        onClick={() => updateSetting('smart_suggestions', !settings.smart_suggestions)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          settings.smart_suggestions ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          settings.smart_suggestions ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700">Market Trend Analysis</label>
+                        <p className="text-sm text-gray-500">Enable advanced market trend detection</p>
+                      </div>
+                      <button
+                        onClick={() => updateSetting('market_trend_analysis', !settings.market_trend_analysis)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          settings.market_trend_analysis ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          settings.market_trend_analysis ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Auto Price Updates (Minutes)</label>
+                      <select
+                        value={settings.price_update_interval}
+                        onChange={(e) => updateSetting('price_update_interval', parseInt(e.target.value))}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value={1}>1 minute</option>
+                        <option value={5}>5 minutes</option>
+                        <option value={10}>10 minutes</option>
+                        <option value={30}>30 minutes</option>
+                        <option value={60}>1 hour</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Data Management */}
+              {activeSection === 'data' && (
+                <div className="p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-6">Data Management</h3>
+                  
+                  <div className="space-y-6">
+                    {/* Data Overview */}
+                    {stats && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">Your Trading Data</h4>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-500">Total Trades:</span>
+                            <span className="ml-2 font-medium">{stats.trades_count}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Trading Goals:</span>
+                            <span className="ml-2 font-medium">{stats.goals_count}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Net Profit:</span>
+                            <span className={`ml-2 font-medium ${stats.total_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatCurrency(stats.total_profit)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">EA Tax Paid:</span>
+                            <span className="ml-2 font-medium">{formatCurrency(stats.total_tax)}</span>
+                          </div>
+                        </div>
+                        {stats.earliest_trade && (
+                          <p className="text-xs text-gray-500 mt-3">
+                            Trading since: {new Date(stats.earliest_trade).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Export Data */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center mb-3">
+                        <Download className="h-5 w-5 text-gray-400 mr-2" />
+                        <h4 className="text-sm font-medium text-gray-900">Export Trading Data</h4>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Download your complete trading history for backup or analysis
+                      </p>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          onClick={() => exportData('csv')}
+                          disabled={loading}
+                          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Export CSV
+                        </button>
+                        <button
+                          onClick={() => exportData('json')}
+                          disabled={loading}
+                          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Export JSON
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Import Data */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center mb-3">
+                        <Upload className="h-5 w-5 text-gray-400 mr-2" />
+                        <h4 className="text-sm font-medium text-gray-900">Import Trading Data</h4>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Upload a CSV or JSON file to import your trading history
+                      </p>
+                      <input
+                        type="file"
+                        accept=".json,.csv"
+                        onChange={(e) => e.target.files[0] && importData(e.target.files[0])}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        Supports CSV and JSON formats. Duplicate trades will be skipped.
+                      </p>
+                    </div>
+
+                    {/* Data Retention */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Data Retention Period</label>
+                      <select
+                        value={settings.data_retention_days}
+                        onChange={(e) => updateSetting('data_retention_days', parseInt(e.target.value))}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value={90}>90 days</option>
+                        <option value={180}>6 months</option>
+                        <option value={365}>1 year</option>
+                        <option value={730}>2 years</option>
+                        <option value={-1}>Keep forever</option>
+                      </select>
+                      <p className="text-sm text-gray-500 mt-1">
+                        How long to keep your trading data before automatic cleanup
+                      </p>
+                    </div>
+
+                    {/* Privacy Settings */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700">Anonymous Analytics</label>
+                        <p className="text-sm text-gray-500">Help improve the platform with anonymous usage data</p>
+                      </div>
+                      <button
+                        onClick={() => updateSetting('anonymous_analytics', !settings.anonymous_analytics)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          settings.anonymous_analytics ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          settings.anonymous_analytics ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* Backup Frequency */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Automatic Backup Frequency</label>
+                      <select
+                        value={settings.backup_frequency}
+                        onChange={(e) => updateSetting('backup_frequency', e.target.value)}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="never">Never</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                      </select>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Automatically create backups of your data
+                      </p>
+                    </div>
+
+                    {/* Danger Zone */}
+                    <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+                      <div className="flex items-center mb-3">
+                        <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
+                        <h4 className="text-sm font-medium text-red-900">Danger Zone</h4>
+                      </div>
+                      <p className="text-sm text-red-700 mb-4">
+                        Permanently delete all your trading data. This action cannot be undone.
+                      </p>
+                      <button
+                        onClick={() => setShowDeleteModal(true)}
+                        className="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm bg-white text-sm font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete All Data
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Save Button - Always visible at bottom */}
+              <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 rounded-b-lg">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={loadSettings}
+                      disabled={loading}
+                      className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                      Reset Changes
+                    </button>
+                    {hasChanges && (
+                      <span className="text-sm text-amber-600 font-medium">
+                        You have unsaved changes
                       </span>
-                    </label>
-                  ))}
+                    )}
+                  </div>
+                  <button
+                    onClick={saveSettings}
+                    disabled={saving || loading || !hasChanges}
+                    className="inline-flex items-center px-6 py-2 border border-transparent rounded-md shadow-sm bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {saving ? (
+                      <RefreshCw className="animate-spin h-4 w-4 mr-2" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    {hasChanges ? 'Save Settings' : 'No Changes'}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-        )}
+        </div>
 
-        {activeTab === 'data' && (
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Data Management</h3>
-            <div className="space-y-6">
-              <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Export Data</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Download all your trading data in JSON or CSV format</p>
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => exportData('json')}
-                    disabled={loading}
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 disabled:opacity-50"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export JSON
-                  </button>
-                  <button
-                    onClick={() => exportData('csv')}
-                    disabled={loading}
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 disabled:opacity-50"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export CSV
-                  </button>
-                </div>
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-md w-full p-6">
+              <div className="flex items-center mb-4">
+                <AlertTriangle className="h-6 w-6 text-red-500 mr-3" />
+                <h3 className="text-lg font-medium text-gray-900">Delete All Trading Data</h3>
               </div>
-
-              <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Import Data</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Upload a JSON or CSV file to import trading data</p>
-                <input
-                  type="file"
-                  accept=".json,.csv"
-                  onChange={(e) => e.target.files[0] && importData(e.target.files[0])}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/20 dark:file:text-blue-400"
-                />
-              </div>
-
-              <div className="border border-red-200 dark:border-red-800 rounded-lg p-4 bg-red-50 dark:bg-red-900/10">
-                <h4 className="text-sm font-medium text-red-900 dark:text-red-400 mb-2">Danger Zone</h4>
-                <p className="text-sm text-red-700 dark:text-red-300 mb-4">
-                  Permanently delete all your trading data. This action cannot be undone.
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  This will permanently delete:
                 </p>
+                <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+                  <li>All {stats?.trades_count || 0} trades</li>
+                  <li>All {stats?.goals_count || 0} trading goals</li>
+                  <li>Portfolio balance and settings</li>
+                  <li>All historical data and analytics</li>
+                </ul>
+              </div>
+              <p className="text-sm text-gray-700 mb-4">
+                Type <span className="font-mono font-bold bg-gray-100 px-2 py-1 rounded">DELETE</span> to confirm:
+              </p>
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 mb-4"
+                placeholder="Type DELETE"
+              />
+              <div className="flex space-x-3">
                 <button
-                  onClick={() => setShowDeleteModal(true)}
-                  className="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/30"
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setDeleteConfirm('');
+                  }}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete All Data
+                  Cancel
+                </button>
+                <button
+                  onClick={deleteAllData}
+                  disabled={loading || deleteConfirm !== 'DELETE'}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <RefreshCw className="animate-spin h-4 w-4 mx-auto" />
+                  ) : (
+                    'Delete All Data'
+                  )}
                 </button>
               </div>
             </div>
           </div>
         )}
-
-        <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={loadSettings}
-                disabled={loading}
-                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-500 dark:text-gray-300 dark:hover:text-gray-400 disabled:opacity-50"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Reset Changes
-              </button>
-              {hasChanges && (
-                <span className="text-sm text-amber-600 dark:text-amber-400">
-                  You have unsaved changes
-                </span>
-              )}
-            </div>
-            <button
-              onClick={saveSettings}
-              disabled={saving || loading || !hasChanges}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {saving ? (
-                <RefreshCw className="animate-spin h-4 w-4 mr-2" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              {hasChanges ? 'Save Settings' : 'No Changes'}
-            </button>
-          </div>
-        </div>
       </div>
-
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
-            <div className="flex items-center mb-4">
-              <AlertTriangle className="h-6 w-6 text-red-500 mr-3" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Delete All Data</h3>
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              This will permanently delete all your trades, goals, and settings. This action cannot be undone.
-            </p>
-            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
-              Type <span className="font-mono font-bold">DELETE</span> to confirm:
-            </p>
-            <input
-              type="text"
-              value={deleteConfirm}
-              onChange={(e) => setDeleteConfirm(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4"
-              placeholder="Type DELETE"
-            />
-            <div className="flex space-x-3">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeleteConfirm('');
-                }}
-                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={deleteAllData}
-                disabled={loading || deleteConfirm !== 'DELETE'}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
-              >
-                {loading ? (
-                  <RefreshCw className="animate-spin h-4 w-4 mx-auto" />
-                ) : (
-                  'Delete All Data'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
