@@ -575,17 +575,24 @@ const Settings = () => {
         {/* Save Button */}
         <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
           <div className="flex justify-between items-center">
-            <button
-              onClick={loadSettings}
-              disabled={loading}
-              className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-500 dark:text-gray-300 dark:hover:text-gray-400 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Reset Changes
-            </button>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={loadSettings}
+                disabled={loading}
+                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-500 dark:text-gray-300 dark:hover:text-gray-400 disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Reset Changes
+              </button>
+              {hasChanges && (
+                <span className="text-sm text-amber-600 dark:text-amber-400">
+                  You have unsaved changes
+                </span>
+              )}
+            </div>
             <button
               onClick={saveSettings}
-              disabled={saving || loading}
+              disabled={saving || loading || !hasChanges}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             >
               {saving ? (
@@ -593,7 +600,7 @@ const Settings = () => {
               ) : (
                 <Save className="h-4 w-4 mr-2" />
               )}
-              Save Settings
+              {hasChanges ? 'Save Settings' : 'No Changes'}
             </button>
           </div>
         </div>
