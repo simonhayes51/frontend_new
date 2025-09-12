@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { apiFetch } from '../api/http';
 import { 
-  User, 
   Download, 
   Upload, 
   Trash2, 
@@ -10,19 +9,17 @@ import {
   Save,
   RefreshCw,
   AlertTriangle,
-  CheckCircle,
   Eye,
-  EyeOff,
   Moon,
   Sun,
-  Globe,
   Calendar,
   DollarSign,
   Tag,
   BarChart3,
   Shield,
-  Bell,
-  Smartphone
+  Smartphone,
+  FileText,
+  CreditCard
 } from 'lucide-react';
 
 const Settings = () => {
@@ -46,17 +43,51 @@ const Settings = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [newTag, setNewTag] = useState('');
   const [activeTab, setActiveTab] = useState('general');
+  const [hasChanges, setHasChanges] = useState(false);
+  const [originalSettings, setOriginalSettings] = useState(null);
 
   // Load settings on mount
   useEffect(() => {
     loadSettings();
   }, []);
 
+  // Apply theme changes immediately
+  useEffect(() => {
+    if (settings.theme && typeof document !== 'undefined') {
+      const root = document.documentElement;
+      switch (settings.theme) {
+        case 'dark':
+          root.classList.add('dark');
+          break;
+        case 'light':
+          root.classList.remove('dark');
+          break;
+        case 'system':
+          if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            root.classList.add('dark');
+          } else {
+            root.classList.remove('dark');
+          }
+          break;
+        default:
+          break;
+      }
+    }
+  }, [settings.theme]);
+
+  // Check for changes when settings update
+  useEffect(() => {
+    if (originalSettings) {
+      setHasChanges(JSON.stringify(settings) !== JSON.stringify(originalSettings));
+    }
+  }, [settings, originalSettings]);
+
   const loadSettings = async () => {
     try {
       setLoading(true);
       const data = await apiFetch('/api/settings');
       setSettings(data);
+      setOriginalSettings(data);
     } catch (error) {
       toast.error('Failed to load settings');
       console.error('Load settings error:', error);
@@ -72,6 +103,7 @@ const Settings = () => {
         method: 'POST',
         body: settings
       });
+      setOriginalSettings(settings);
       toast.success('Settings saved successfully!');
     } catch (error) {
       toast.error('Failed to save settings');
@@ -115,7 +147,6 @@ const Settings = () => {
     try {
       setLoading(true);
       
-      // Create a blob URL and trigger download
       const response = await fetch(`/api/export/trades?format=${format}`, {
         credentials: 'include'
       });
@@ -180,7 +211,7 @@ const Settings = () => {
         query: { confirm: true }
       });
       
-      toast.success(`All data deleted (${result.trades_deleted} trades removed)`);
+      toast.success(`All data deleted (${result.details?.trades_deleted || 0} trades removed)`);
       setShowDeleteModal(false);
       setDeleteConfirm('');
     } catch (error) {
@@ -239,8 +270,8 @@ const Settings = () => {
 
   const availableWidgets = [
     { id: 'profit', label: 'Net Profit', icon: DollarSign },
-    { id: 'tax', label: 'EA Tax', icon: Receipt },
-    { id: 'balance', label: 'Balance', icon: Wallet },
+    { id: 'tax', label: 'EA Tax', icon: FileText },
+    { id: 'balance', label: 'Balance', icon: CreditCard },
     { id: 'trades', label: 'Recent Trades', icon: BarChart3 }
   ];
 
@@ -577,7 +608,25 @@ const Settings = () => {
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               <button
-                onClick={loadSettings}
+                onClick={deleteAllData}
+                disabled={loading || deleteConfirm !== 'DELETE'}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+              >
+                {loading ? (
+                  <RefreshCw className="animate-spin h-4 w-4 mx-auto" />
+                ) : (
+                  'Delete All Data'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Settings;={loadSettings}
                 disabled={loading}
                 className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-500 dark:text-gray-300 dark:hover:text-gray-400 disabled:opacity-50"
               >
@@ -640,22 +689,4 @@ const Settings = () => {
                 Cancel
               </button>
               <button
-                onClick={deleteAllData}
-                disabled={loading || deleteConfirm !== 'DELETE'}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
-              >
-                {loading ? (
-                  <RefreshCw className="animate-spin h-4 w-4 mx-auto" />
-                ) : (
-                  'Delete All Data'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default Settings;
+                onClick
