@@ -33,9 +33,11 @@ const Login         = lazy(() => import("./pages/Login"));
 const AccessDenied  = lazy(() => import("./pages/AccessDenied"));
 const NotFound      = lazy(() => import("./pages/NotFound"));
 const PlayerCompare = lazy(() => import("./pages/PlayerCompare"));
-const Billing       = lazy(() => import("./pages/Billing")); // ← existing
-// NEW: AI chart page
-const SmartBuyerAI  = lazy(() => import("./pages/SmartBuyerAI")); // ← add this line
+const Billing       = lazy(() => import("./pages/Billing"));
+
+// NEW pages (add these two)
+const SmartBuyerAI  = lazy(() => import("./pages/SmartBuyerAI"));
+const BestBuys      = lazy(() => import("./pages/BestBuys"));
 
 function App() {
   return (
@@ -76,19 +78,16 @@ function App() {
                     <Route path="pricecheck" element={<PriceCheck />} />
                     <Route path="watchlist" element={<Watchlist />} />
                     <Route path="squad" element={<SquadBuilder />} />
-                    <Route path="billing" element={<Billing />} /> {/* ← existing */}
+                    <Route path="billing" element={<Billing />} />
 
                     {/* Basic trending (free tier gets limited access) */}
                     <Route path="trending" element={<Trending />} />
 
-                    {/* Premium-only routes with full page protection */}
+                    {/* Premium-only routes */}
                     <Route
                       path="smart-buy"
                       element={
-                        <PremiumRoute
-                          feature="smart_buy"
-                          featureName="Smart Buy AI"
-                        >
+                        <PremiumRoute feature="smart_buy" featureName="Smart Buy AI">
                           <SmartBuy />
                         </PremiumRoute>
                       }
@@ -97,36 +96,37 @@ function App() {
                     <Route
                       path="trade-finder"
                       element={
-                        <PremiumRoute
-                          feature="trade_finder"
-                          featureName="Advanced Trade Finder"
-                        >
+                        <PremiumRoute feature="trade_finder" featureName="Advanced Trade Finder">
                           <TradeFinder />
                         </PremiumRoute>
                       }
                     />
 
-                    {/* NEW: Smart Buyer AI Chart page (premium) */}
+                    {/* NEW: Smart Buyer (Simple) with name search + Place Buy */}
                     <Route
                       path="smart-buyer-ai"
                       element={
-                        <PremiumRoute
-                          feature="smart_buy"
-                          featureName="Smart Buyer AI"
-                        >
+                        <PremiumRoute feature="smart_buy" featureName="Smart Buyer AI">
                           <SmartBuyerAI />
                         </PremiumRoute>
                       }
                     />
 
-                    {/* You can add more premium routes here */}
+                    {/* NEW: Best Buys overview with risk rating */}
+                    <Route
+                      path="best-buys"
+                      element={
+                        <PremiumRoute feature="smart_buy" featureName="Smart Buy AI">
+                          <BestBuys />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    {/* Optional: more premium analytics */}
                     <Route
                       path="advanced-analytics"
                       element={
-                        <PremiumRoute
-                          feature="advanced_analytics"
-                          featureName="Advanced Analytics"
-                        >
+                        <PremiumRoute feature="advanced_analytics" featureName="Advanced Analytics">
                           <ProfitGraph />
                         </PremiumRoute>
                       }
