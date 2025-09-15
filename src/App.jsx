@@ -35,9 +35,10 @@ const NotFound      = lazy(() => import("./pages/NotFound"));
 const PlayerCompare = lazy(() => import("./pages/PlayerCompare"));
 const Billing       = lazy(() => import("./pages/Billing"));
 
-// NEW pages (add these two)
+// NEW pages
 const SmartBuyerAI  = lazy(() => import("./pages/SmartBuyerAI"));
 const BestBuys      = lazy(() => import("./pages/BestBuys"));
+const SBCHub        = lazy(() => import("./pages/SBCHub"));   // <-- add this
 
 function App() {
   return (
@@ -79,7 +80,7 @@ function App() {
                     <Route path="watchlist" element={<Watchlist />} />
                     <Route path="squad" element={<SquadBuilder />} />
                     <Route path="billing" element={<Billing />} />
-                    <Route path="/sbc" element={<SBCHub/>} />
+                    <Route path="sbc" element={<SBCHub />} />   {/* <-- FIXED route */}
 
                     {/* Basic trending (free tier gets limited access) */}
                     <Route path="trending" element={<Trending />} />
