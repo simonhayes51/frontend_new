@@ -33,7 +33,9 @@ const Login         = lazy(() => import("./pages/Login"));
 const AccessDenied  = lazy(() => import("./pages/AccessDenied"));
 const NotFound      = lazy(() => import("./pages/NotFound"));
 const PlayerCompare = lazy(() => import("./pages/PlayerCompare"));
-const Billing       = lazy(() => import("./pages/Billing")); // ← Add this import
+const Billing       = lazy(() => import("./pages/Billing")); // ← existing
+// NEW: AI chart page
+const SmartBuyerAI  = lazy(() => import("./pages/SmartBuyerAI")); // ← add this line
 
 function App() {
   return (
@@ -74,7 +76,7 @@ function App() {
                     <Route path="pricecheck" element={<PriceCheck />} />
                     <Route path="watchlist" element={<Watchlist />} />
                     <Route path="squad" element={<SquadBuilder />} />
-                    <Route path="billing" element={<Billing />} /> {/* ← Add this route */}
+                    <Route path="billing" element={<Billing />} /> {/* ← existing */}
 
                     {/* Basic trending (free tier gets limited access) */}
                     <Route path="trending" element={<Trending />} />
@@ -83,7 +85,7 @@ function App() {
                     <Route
                       path="smart-buy"
                       element={
-                        <PremiumRoute 
+                        <PremiumRoute
                           feature="smart_buy"
                           featureName="Smart Buy AI"
                         >
@@ -95,7 +97,7 @@ function App() {
                     <Route
                       path="trade-finder"
                       element={
-                        <PremiumRoute 
+                        <PremiumRoute
                           feature="trade_finder"
                           featureName="Advanced Trade Finder"
                         >
@@ -104,11 +106,24 @@ function App() {
                       }
                     />
 
+                    {/* NEW: Smart Buyer AI Chart page (premium) */}
+                    <Route
+                      path="smart-buyer-ai"
+                      element={
+                        <PremiumRoute
+                          feature="smart_buy"
+                          featureName="Smart Buyer AI"
+                        >
+                          <SmartBuyerAI />
+                        </PremiumRoute>
+                      }
+                    />
+
                     {/* You can add more premium routes here */}
                     <Route
                       path="advanced-analytics"
                       element={
-                        <PremiumRoute 
+                        <PremiumRoute
                           feature="advanced_analytics"
                           featureName="Advanced Analytics"
                         >
