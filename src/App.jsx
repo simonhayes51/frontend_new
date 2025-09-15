@@ -79,6 +79,7 @@ function App() {
                     <Route path="watchlist" element={<Watchlist />} />
                     <Route path="squad" element={<SquadBuilder />} />
                     <Route path="billing" element={<Billing />} />
+                    <Route path="/sbc" element={<SBCHub/>} />
 
                     {/* Basic trending (free tier gets limited access) */}
                     <Route path="trending" element={<Trending />} />
