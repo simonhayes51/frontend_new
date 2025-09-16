@@ -1,3 +1,4 @@
+// src/pages/SmartBuyerAISimple.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, CrosshairMode } from "lightweight-charts";
 
@@ -23,7 +24,7 @@ const lineFrom = (candles, arr) => {
   return out;
 };
 
-// Simple banner logic
+// --------- simple signal (unchanged) ----------
 function computeSignal(candles, ind) {
   if (!candles?.length || !ind) return { label: "Loading…", tone: "neutral" };
   const price = candles[candles.length - 1]?.close;
@@ -78,6 +79,9 @@ function computeSignal(candles, ind) {
 
 const qp = new URLSearchParams(location.hash.includes("?") ? location.hash.split("?")[1] : "");
 
+// ===============================
+// Page
+// ===============================
 export default function SmartBuyerAISimple() {
   const [platform, setPlatform] = useState(qp.get("platform") || "ps");
   const [nameInput, setNameInput] = useState(qp.get("name") || "");
@@ -119,7 +123,7 @@ export default function SmartBuyerAISimple() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Build chart once
+  // Build chart once (unchanged logic)
   useEffect(() => {
     if (!wrapRef.current) return;
     const chart = createChart(wrapRef.current, {
@@ -137,9 +141,9 @@ export default function SmartBuyerAISimple() {
       wickDownColor: "#e74c3c",
       borderVisible: false,
     });
-    const ema20 = chart.addLineSeries({ lineWidth: 2 });
-    const bbU = chart.addLineSeries({ lineWidth: 1 });
-    const bbL = chart.addLineSeries({ lineWidth: 1 });
+    const ema20 = chart.addLineSeries({ lineWidth: 2, color: "#60a5fa" });
+    const bbU = chart.addLineSeries({ lineWidth: 1, color: "#00ffaa" });
+    const bbL = chart.addLineSeries({ lineWidth: 1, color: "#00ffaa" });
 
     chartRef.current = chart;
     candleSeriesRef.current = candles;
@@ -155,7 +159,7 @@ export default function SmartBuyerAISimple() {
     };
   }, []);
 
-  // Debounced name search → suggestions
+  // Debounced name search → suggestions (unchanged)
   useEffect(() => {
     const id = setTimeout(async () => {
       const q = nameInput.trim();
@@ -241,7 +245,7 @@ export default function SmartBuyerAISimple() {
     }
   }
 
-  // (Re)load when a player is selected or timeframe/platform changes
+  // Reload when player/timeframe/platform changes
   useEffect(() => {
     if (urls) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -256,7 +260,7 @@ export default function SmartBuyerAISimple() {
         player_card_id: player.card_id,
         platform,
         qty: 1,
-        max_price: now.price, // use current price; you can expose an input if you want a custom cap
+        max_price: now.price,
         agent: "SimpleAI",
       };
       const res = await fetch(urls.buy, {
@@ -276,127 +280,104 @@ export default function SmartBuyerAISimple() {
     }
   }
 
+  // ---------- styling helpers ----------
+  const pill = "inline-flex items-center px-2.5 py-1 rounded-full border text-xs border-white/10 bg-white/5";
   const toneCls =
     summary.tone === "good"
-      ? "bg-[#10351f] border-[#1f5a37] text-[#7cf3a1]"
+      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-200"
       : summary.tone === "bad"
-      ? "bg-[#3a1a1a] border-[#6a2b2b] text-[#ff9b9b]"
-      : "bg-[#101923] border-[#213247] text-[#e7edf3]";
-  const pill =
-    "inline-flex items-center px-2.5 py-1 rounded-full border text-sm border-[#213247] bg-[#101923]";
+      ? "bg-rose-500/10 border-rose-500/30 text-rose-200"
+      : "bg-white/5 border-white/10 text-white/90";
   const rsiCls =
     lastRsi == null
       ? ""
       : lastRsi < 40
-      ? "text-[#7cf3a1]"
+      ? "text-emerald-300"
       : lastRsi > 60
-      ? "text-[#ffba53]"
-      : "text-[#e7edf3]";
+      ? "text-amber-300"
+      : "text-white/90";
 
+  // ----------------- UI (restyled) -----------------
   return (
-    <div className="min-h-screen text-[#e7edf3] bg-[#0b0f14]">
-      <div className="max-w-6xl mx-auto p-4 space-y-4">
-        <h2 className="text-2xl font-semibold">Smart Buyer — SIMPLE Mode</h2>
+    <div className="min-h-screen bg-gradient-to-br from-[#140a2a] via-[#1b0f3a] to-[#22134a] text-white">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-8">
 
-        {/* Player search */}
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <label className="opacity-80">Player name</label>
-            <br />
-            <input
-              className="px-2 py-1 rounded border border-[#223146] bg-[#0f141b]"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              placeholder="Type a player (e.g., Kylian Mbappé)"
-              style={{ width: 260 }}
-            />
-          </div>
-          <div>
-            <label className="opacity-80">Platform</label>
-            <br />
-            <select
-              className="px-2 py-1 rounded border border-[#223146] bg-[#0f141b]"
-              value={platform}
-              onChange={(e) => setPlatform(e.target.value)}
-            >
-              <option value="ps">ps</option>
-              <option value="xbox">xbox</option>
-            </select>
-          </div>
-          <div>
-            <label className="opacity-80">Timeframe</label>
-            <br />
-            <select
-              className="px-2 py-1 rounded border border-[#223146] bg-[#0f141b]"
-              value={timeframe}
-              onChange={(e) => setTimeframe(e.target.value)}
-            >
-              <option value="5m">5m</option>
-              <option value="15m">15m</option>
-              <option value="1h">1h</option>
-            </select>
-          </div>
+        {/* Header */}
+        <header className="mb-5 sm:mb-6 flex items-center justify-between gap-3">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Smart Buyer — Simple</h1>
+          <span className="text-xs text-white/60">{status}</span>
+        </header>
+
+        {/* Controls */}
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr,120px,110px,120px] gap-3 items-center mb-5">
+          <input
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            placeholder="Search player"
+            className="h-11 rounded-xl bg-white/5 border border-white/10 px-3.5 placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
+          />
+          <select
+            value={timeframe}
+            onChange={(e) => setTimeframe(e.target.value)}
+            className="h-11 rounded-xl bg-white/5 border border-white/10 px-3 focus:ring-2 focus:ring-indigo-400/40"
+          >
+            <option value="5m">5m</option>
+            <option value="15m">15m</option>
+            <option value="1h">1h</option>
+          </select>
+          <select
+            value={platform}
+            onChange={(e) => setPlatform(e.target.value)}
+            className="h-11 rounded-xl bg-white/5 border border-white/10 px-3 focus:ring-2 focus:ring-indigo-400/40"
+          >
+            <option value="ps">PS</option>
+            <option value="xbox">Xbox</option>
+          </select>
           <button
             onClick={load}
-            className="px-3 py-1 rounded-full border border-[#213247] bg-[#101923]"
+            className="inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-black font-semibold"
           >
             Reload
           </button>
-          <span className={pill}>{status}</span>
-          {player && <span className={pill}>{player.name} (#{player.card_id})</span>}
         </div>
 
-        {/* Suggestions list */}
+        {/* Suggestions */}
         {suggestions.length > 0 && (
-          <div
-            className="p-2 rounded-lg border border-[#1c2633] bg-[#111821]"
-            style={{ maxWidth: 480 }}
-          >
+          <div className="mb-4 p-2 rounded-2xl bg-white/5 border border-white/10 max-w-xl">
             {suggestions.map((s) => (
-              <div
+              <button
                 key={s.card_id}
-                className="flex items-center gap-2 p-1 hover:bg-[#16202b] rounded cursor-pointer"
                 onClick={() => {
                   setPlayer(s);
                   setNameInput(s.name);
                   setSuggestions([]);
                 }}
+                className="w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/5"
               >
                 {s.image_url ? (
-                  <img
-                    src={s.image_url}
-                    alt=""
-                    className="w-8 h-8 rounded-md border border-[#1c2633]"
-                  />
+                  <img src={s.image_url} alt="" className="w-8 h-8 rounded-md border border-white/10" />
                 ) : (
-                  <div className="w-8 h-8 rounded-md bg-[#0f141b]" />
+                  <div className="w-8 h-8 rounded-md bg-white/10" />
                 )}
                 <div className="text-sm">
-                  {s.name}{" "}
-                  <span className="opacity-60">
-                    • {s.position || ""} • {s.version || ""} • {s.rating || ""}
-                  </span>
+                  <span className="font-medium">{s.name}</span>
+                  <span className="text-white/60"> • {s.position || ""} • {s.version || ""} • {s.rating || ""}</span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
 
         {/* Banner */}
-        <div className={`rounded-xl border p-4 ${toneCls}`}>
-          <div className="text-xl font-semibold">{summary.label}</div>
-          <div className="mt-1 opacity-80 text-sm">
-            {lastPrice ? `Latest sale: ${Number(lastPrice).toLocaleString()} coins` : "—"}
+        <div className={`mb-5 rounded-2xl border p-4 sm:p-5 ${toneCls}`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-lg sm:text-xl font-semibold">{summary.label}</div>
+            <div className="text-sm text-white/80">
+              Latest sale:&nbsp;
+              <span className="text-white">{lastPrice != null ? Number(lastPrice).toLocaleString() : "—"} c</span>
+            </div>
           </div>
-          {summary.tone !== "bad" && player && (
-            <button
-              onClick={placeBuy}
-              disabled={placing}
-              className="mt-3 px-3 py-1 rounded-full border border-[#2b6d43] bg-[#10351f] text-[#7cf3a1]"
-            >
-              {placing ? "Placing…" : "Place Buy"}
-            </button>
-          )}
+
           {summary.hints?.length ? (
             <ul className="mt-2 pl-5 list-disc opacity-85 text-sm">
               {summary.hints.map((h, i) => (
@@ -404,38 +385,31 @@ export default function SmartBuyerAISimple() {
               ))}
             </ul>
           ) : null}
+
+          {summary.tone !== "bad" && player && (
+            <div className="mt-3">
+              <button
+                onClick={placeBuy}
+                disabled={placing}
+                className="px-3 py-2 rounded-xl bg-emerald-400 text-black font-semibold hover:bg-emerald-300"
+              >
+                {placing ? "Placing…" : "Place Buy"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Chart */}
-        <div
-          ref={wrapRef}
-          style={{ height: 520 }}
-          className="rounded-xl border border-[#1c2633]"
-        />
+        <div ref={wrapRef} style={{ height: 520 }} className="rounded-2xl border border-white/10 bg-[#0b0f14]" />
 
-        {/* Readouts */}
-        <div className="flex flex-wrap gap-3">
-          <div className="px-3 py-2 rounded-lg border border-[#1c2633] bg-[#111821]">
-            <b>Average price</b> (blue line)
-          </div>
-          <div className="px-3 py-2 rounded-lg border border-[#1c2633] bg-[#111821]">
-            <b>Cheap zone</b> (bottom blue)
-          </div>
-          <div className="px-3 py-2 rounded-lg border border-[#1c2633] bg-[#111821]">
-            <b>Expensive zone</b> (top blue)
-          </div>
-          <div className="px-3 py-2 rounded-lg border border-[#1c2633] bg-[#111821]">
-            RSI (hype):{" "}
-            <span className={`${pill} ${rsiCls}`}>
-              {lastRsi == null ? "—" : Number(lastRsi).toFixed(1)}
-            </span>
-          </div>
-          <div className="px-3 py-2 rounded-lg border border-[#1c2633] bg-[#111821]">
-            ATR (how jumpy):{" "}
-            <span className={pill}>
-              {lastAtr == null ? "—" : Math.round(Number(lastAtr)).toLocaleString()}
-            </span>
-          </div>
+        {/* Legend / stats */}
+        <div className="mt-4 flex flex-wrap gap-3">
+          <span className={pill}><b>Average price</b> (blue line)</span>
+          <span className={pill}><b>Cheap zone</b> (bottom blue)</span>
+          <span className={pill}><b>Expensive zone</b> (top blue)</span>
+          <span className={`${pill} ${rsiCls}`}>RSI: {lastRsi == null ? "—" : Number(lastRsi).toFixed(1)}</span>
+          <span className={pill}>ATR: {lastAtr == null ? "—" : Math.round(Number(lastAtr)).toLocaleString()}</span>
+          {player && <span className={pill}>{player.name} (#{player.card_id})</span>}
         </div>
       </div>
     </div>
