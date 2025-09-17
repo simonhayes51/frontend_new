@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { createChart } from "lightweight-charts";
 import SmartBuyerSimpleRedesign from "../components/SmartBuyerSimpleRedesign";
 import { Search, Gamepad2 } from "lucide-react";
@@ -93,18 +94,9 @@ Profit: ${fmt(profit)} (${roi?.toFixed?.(1) ?? "—"}%)
         <h3 className="text-lg font-bold mb-2">🧮 Trade Plan (Targets) — {player?.name}</h3>
 
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span>Max buy</span>
-            <b>{fmt(maxBuy)}</b>
-          </div>
-          <div className="flex justify-between">
-            <span>List / sell</span>
-            <b>{fmt(sell)}</b>
-          </div>
-          <div className="flex justify-between text-white/70">
-            <span>EA tax (5%)</span>
-            <span>{fmt(tax)}</span>
-          </div>
+          <div className="flex justify-between"><span>Max buy</span><b>{fmt(maxBuy)}</b></div>
+          <div className="flex justify-between"><span>List / sell</span><b>{fmt(sell)}</b></div>
+          <div className="flex justify-between text-white/70"><span>EA tax (5%)</span><span>{fmt(tax)}</span></div>
           <div className="flex justify-between">
             <span>Profit (after tax)</span>
             <b className={profit > 0 ? "text-emerald-300" : "text-rose-300"}>
@@ -114,16 +106,10 @@ Profit: ${fmt(profit)} (${roi?.toFixed?.(1) ?? "—"}%)
         </div>
 
         <div className="mt-4 flex gap-2 justify-end">
-          <button
-            onClick={copy}
-            className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm"
-          >
+          <button onClick={copy} className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm">
             Copy targets
           </button>
-          <button
-            onClick={onClose}
-            className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm"
-          >
+          <button onClick={onClose} className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm">
             Done
           </button>
         </div>
@@ -138,7 +124,18 @@ Profit: ${fmt(profit)} (${roi?.toFixed?.(1) ?? "—"}%)
 
 /* ------------------------------------------------------------------------ */
 
+function normalizePlatform(p) {
+  const v = (p || "").toLowerCase();
+  if (["ps", "playstation", "console"].includes(v)) return "ps";
+  if (["xbox", "xb"].includes(v)) return "xbox";
+  if (["pc", "origin"].includes(v)) return "pc";
+  return "ps";
+}
+
 export default function SmartBuyerPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [q, setQ] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [showSug, setShowSug] = useState(false);
@@ -155,6 +152,9 @@ export default function SmartBuyerPage() {
   // Trade Plan modal state
   const [tpOpen, setTpOpen] = useState(false);
   const [tpValues, setTpValues] = useState(null);
+
+  // Avoid double-parsing on first mount
+  const bootRef = useRef(false);
 
   // --- autocomplete ---
   const fetchSuggestions = useMemo(
@@ -180,6 +180,61 @@ export default function SmartBuyerPage() {
     return () => {};
   }, [q, fetchSuggestions]);
 
+  // --- read URL params (name/card_id/platform) on mount or when hash query changes ---
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search || "");
+    const qsPlatform = sp.get("platform");
+    const qsName = sp.get("name");
+    const qsId = sp.get("card_id");
+
+    if (qsPlatform) setPlatform(normalizePlatform(qsPlatform));
+
+    // Only resolve once on first load if we don't already have a player
+    if (!bootRef.current && !player) {
+      bootRef.current = true;
+
+      if (qsId) {
+        // Fast path: load by id
+        (async () => {
+          try {
+            const meta = await api(`/api/players/${encodeURIComponent(qsId)}`);
+            setPlayer({
+              cardId: meta.card_id,
+              name: meta.name,
+              rating: meta.rating,
+              imageUrl: meta.image_url,
+              position: meta.position,
+            });
+            setQ(meta.name || "");
+          } catch {
+            if (qsName) {
+              setQ(qsName);
+              resolveByName(qsName);
+            }
+          }
+        })();
+      } else if (qsName) {
+        setQ(qsName);
+        resolveByName(qsName);
+      }
+    }
+  }, [location.search]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep URL in sync when platform or player changes
+  useEffect(() => {
+    if (!player) return;
+    const sp = new URLSearchParams(location.search || "");
+    const curName = sp.get("name") || "";
+    const curPlat = sp.get("platform") || "";
+    const desiredName = player.name || "";
+    const desiredPlat = platform || "";
+
+    if (curName !== desiredName || curPlat !== desiredPlat) {
+      navigate(`?name=${encodeURIComponent(desiredName)}&platform=${encodeURIComponent(desiredPlat)}`, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [player?.name, platform]);
+
   async function selectSuggestion(item) {
     setShowSug(false);
     setQ(item.name);
@@ -190,6 +245,7 @@ export default function SmartBuyerPage() {
       imageUrl: item.image_url,
       position: item.position,
     });
+    navigate(`?name=${encodeURIComponent(item.name)}&platform=${encodeURIComponent(platform)}`, { replace: true });
   }
 
   // --- resolve (with fallback to /search) ---
@@ -204,6 +260,7 @@ export default function SmartBuyerPage() {
         imageUrl: js.image_url,
         position: js.position,
       });
+      navigate(`?name=${encodeURIComponent(js.name)}&platform=${encodeURIComponent(platform)}`, { replace: true });
     } catch {
       const r = await api(`/api/players/search?q=${encodeURIComponent(name)}&limit=1`);
       const first = r?.players?.[0];
@@ -215,6 +272,7 @@ export default function SmartBuyerPage() {
           imageUrl: first.image_url,
           position: first.position,
         });
+        navigate(`?name=${encodeURIComponent(first.name)}&platform=${encodeURIComponent(platform)}`, { replace: true });
       }
     }
   }
@@ -226,11 +284,7 @@ export default function SmartBuyerPage() {
     try {
       const [p, h] = await Promise.all([
         api(`/api/players/${player.cardId}/price?platform=${platform}`),
-        api(
-          `/api/players/${player.cardId}/history?platform=${platform}&tf=${
-            TF_TO_SERVICE[timeframe] || "today"
-          }`
-        ),
+        api(`/api/players/${player.cardId}/history?platform=${platform}&tf=${TF_TO_SERVICE[timeframe] || "today"}`),
       ]);
 
       const hist = Array.isArray(h?.history) ? h.history : [];
@@ -240,7 +294,7 @@ export default function SmartBuyerPage() {
       let latest = hist.length ? Number(hist[hist.length - 1].close) : null;
       let source = hist.length ? "candles" : null;
 
-      // 2) else use /price (backend db-first logic)
+      // 2) else use /price
       if (latest == null && p?.price != null) {
         latest = p.price;
         source = p.source || "price";
@@ -252,9 +306,7 @@ export default function SmartBuyerPage() {
           const meta = await api(`/api/players/${player.cardId}`);
           latest = meta?.price_num ?? meta?.price ?? null;
           source = "players";
-        } catch {
-          /* ignore */
-        }
+        } catch { /* ignore */ }
       }
 
       setLatestPrice(latest);
@@ -271,12 +323,10 @@ export default function SmartBuyerPage() {
 
   // --- derive bands ---
   const { avgPrice, cheapZone, expensiveZone, rsi, atr } = useMemo(() => {
-    // If we have candle history, calculate from it
     if (history?.length) {
       const closes = history.map((c) => Number(c.close) || 0).filter(Boolean);
       if (closes.length) {
         const avg = Math.round(closes.reduce((a, b) => a + b, 0) / closes.length);
-
         const cheapLo = Math.round(avg * 0.97);
         const cheapHi = Math.round(avg * 0.99);
         const expLo = Math.round(avg * 1.01);
@@ -288,9 +338,8 @@ export default function SmartBuyerPage() {
         const rs = losses ? gains / losses : 1;
         const rsiVal = Math.max(0, Math.min(100, 100 - 100 / (1 + rs)));
         const atrVal = Math.round(
-          history
-            .map((c) => Math.abs((Number(c.high) || 0) - (Number(c.low) || 0)))
-            .reduce((a, b) => a + b, 0) / (history.length || 1)
+          history.map((c) => Math.abs((Number(c.high) || 0) - (Number(c.low) || 0))).reduce((a, b) => a + b, 0) /
+            (history.length || 1)
         );
 
         return {
@@ -303,7 +352,6 @@ export default function SmartBuyerPage() {
       }
     }
 
-    // No history? derive simple bands from latestPrice if we have it
     if (latestPrice != null) {
       const avg = latestPrice;
       return {
@@ -346,9 +394,7 @@ export default function SmartBuyerPage() {
               }}
             />
             <button
-              onClick={() =>
-                suggestions[0] ? selectSuggestion(suggestions[0]) : resolveByName(q)
-              }
+              onClick={() => (suggestions[0] ? selectSuggestion(suggestions[0]) : resolveByName(q))}
               className="rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-2"
             >
               Select
@@ -413,7 +459,7 @@ export default function SmartBuyerPage() {
         rsi={rsi}
         atr={atr}
         onReload={() => player && loadData()}
-        onTradePlan={openTradePlan}            // <— hook up Trade Plan
+        onTradePlan={openTradePlan}
         hideHeaderReload={true}
       >
         <Chart history={history} priceSource={priceSource} />
@@ -427,12 +473,7 @@ export default function SmartBuyerPage() {
       )}
 
       {/* Trade Plan modal */}
-      <TradePlanModal
-        open={tpOpen}
-        onClose={() => setTpOpen(false)}
-        player={player}
-        values={tpValues}
-      />
+      <TradePlanModal open={tpOpen} onClose={() => setTpOpen(false)} player={player} values={tpValues} />
     </div>
   );
 }
