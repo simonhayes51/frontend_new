@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { createChart } from "lightweight-charts";
 import SmartBuyerSimpleRedesign from "../components/SmartBuyerSimpleRedesign";
 import { Search, Gamepad2 } from "lucide-react";
@@ -19,7 +20,7 @@ async function api(path, opts = {}) {
   return res.json();
 }
 
-// tiny debounce util (no deps)
+// tiny debounce util
 function debounce(fn, wait = 200) {
   let t;
   return (...args) => {
@@ -28,9 +29,11 @@ function debounce(fn, wait = 200) {
   };
 }
 
-const TF_TO_SERVICE = { "15m": "today", "1h": "today", "4h": "today", "24h": "today" };
+const TF_TO_SERVICE = { "15m": "today", "1h": "today", "4h": "today", "24h": "today", all: "all" };
 
 export default function SmartBuyerPage() {
+  const [searchParams] = useSearchParams();
+
   const [q, setQ] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [showSug, setShowSug] = useState(false);
@@ -53,9 +56,7 @@ export default function SmartBuyerPage() {
           return;
         }
         try {
-          const js = await api(
-            `/api/players/autocomplete?q=${encodeURIComponent(term)}`
-          );
+          const js = await api(`/api/players/autocomplete?q=${encodeURIComponent(term)}`);
           setSuggestions(js?.items || []);
           setShowSug(true);
         } catch {
@@ -86,9 +87,7 @@ export default function SmartBuyerPage() {
   async function resolveByName(name) {
     if (!name?.trim()) return;
     try {
-      const js = await api(
-        `/api/players/resolve?name=${encodeURIComponent(name)}`
-      );
+      const js = await api(`/api/players/resolve?name=${encodeURIComponent(name)}`);
       setPlayer({
         cardId: js.card_id,
         name: js.name,
@@ -97,9 +96,7 @@ export default function SmartBuyerPage() {
         position: js.position,
       });
     } catch {
-      const r = await api(
-        `/api/players/search?q=${encodeURIComponent(name)}&limit=1`
-      );
+      const r = await api(`/api/players/search?q=${encodeURIComponent(name)}&limit=1`);
       const first = r?.players?.[0];
       if (first) {
         setPlayer({
@@ -113,28 +110,57 @@ export default function SmartBuyerPage() {
     }
   }
 
-  // --- data loaders ---
+  // ✅ read URL params and auto-load
+  useEffect(() => {
+    const nameParam = searchParams.get("name") || searchParams.get("q") || "";
+    const platParam = (searchParams.get("platform") || "").toLowerCase();
+    const tfParam = (searchParams.get("tf") || "").toLowerCase();
+
+    if (platParam) setPlatform(platParam);
+    if (tfParam && ["15m", "1h", "4h", "24h", "all"].includes(tfParam)) {
+      setTimeframe(tfParam);
+    }
+
+    if (nameParam.trim()) {
+      setQ(nameParam);
+      resolveByName(nameParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // --- data loaders (resilient) ---
   async function loadData() {
     if (!player?.cardId) return;
     setLoading(true);
     try {
-      const [p, h] = await Promise.all([
+      const tfKey = TF_TO_SERVICE[timeframe] || "today";
+
+      const results = await Promise.allSettled([
         api(`/api/players/${player.cardId}/price?platform=${platform}`),
-        api(
-          `/api/players/${player.cardId}/history?platform=${platform}&tf=${
-            TF_TO_SERVICE[timeframe] || "today"
-          }`
-        ),
+        api(`/api/players/${player.cardId}/history?platform=${platform}&tf=${tfKey}`),
       ]);
 
-      const hist = Array.isArray(h?.history) ? h.history : [];
+      const p = results[0].status === "fulfilled" ? results[0].value : null;
+      const h = results[1].status === "fulfilled" ? results[1].value : null;
+
+      let hist = Array.isArray(h?.history) ? h.history : [];
+
+      // If empty, retry with tf=all once (prevents blank chart on quiet days)
+      if (!hist.length) {
+        try {
+          const h2 = await api(`/api/players/${player.cardId}/history?platform=${platform}&tf=all`);
+          hist = Array.isArray(h2?.history) ? h2.history : [];
+        } catch {
+          /* ignore */
+        }
+      }
       setHistory(hist);
 
       // 1) prefer last candle close
       let latest = hist.length ? Number(hist[hist.length - 1].close) : null;
       let source = hist.length ? "candles" : null;
 
-      // 2) else use /price (backend now has DB/candle-first logic)
+      // 2) else use /price
       if (latest == null && p?.price != null) {
         latest = p.price;
         source = p.source || "price";
@@ -145,7 +171,7 @@ export default function SmartBuyerPage() {
         try {
           const meta = await api(`/api/players/${player.cardId}`);
           latest = meta?.price_num ?? meta?.price ?? null;
-          source = "players";
+          if (latest != null) source = "players";
         } catch {
           /* ignore */
         }
@@ -165,13 +191,10 @@ export default function SmartBuyerPage() {
 
   // --- derive bands ---
   const { avgPrice, cheapZone, expensiveZone, rsi, atr } = useMemo(() => {
-    // If we have candle history, calculate from it
     if (history?.length) {
       const closes = history.map((c) => Number(c.close) || 0).filter(Boolean);
       if (closes.length) {
-        const avg = Math.round(
-          closes.reduce((a, b) => a + b, 0) / closes.length
-        );
+        const avg = Math.round(closes.reduce((a, b) => a + b, 0) / closes.length);
 
         const cheapLo = Math.round(avg * 0.97);
         const cheapHi = Math.round(avg * 0.99);
@@ -179,25 +202,13 @@ export default function SmartBuyerPage() {
         const expHi = Math.round(avg * 1.04);
 
         const diffs = closes.slice(1).map((v, i) => v - closes[i]);
-        const gains =
-          diffs.filter((d) => d > 0).reduce((a, b) => a + b, 0) /
-          (diffs.length || 1);
-        const losses =
-          Math.abs(
-            diffs.filter((d) => d < 0).reduce((a, b) => a + b, 0)
-          ) / (diffs.length || 1);
+        const gains = diffs.filter((d) => d > 0).reduce((a, b) => a + b, 0) / (diffs.length || 1);
+        const losses = Math.abs(diffs.filter((d) => d < 0).reduce((a, b) => a + b, 0)) / (diffs.length || 1);
         const rs = losses ? gains / losses : 1;
-        const rsiVal = Math.max(
-          0,
-          Math.min(100, 100 - 100 / (1 + rs))
-        );
+        const rsiVal = Math.max(0, Math.min(100, 100 - 100 / (1 + rs)));
         const atrVal = Math.round(
-          history
-            .map(
-              (c) =>
-                Math.abs((Number(c.high) || 0) - (Number(c.low) || 0))
-            )
-            .reduce((a, b) => a + b, 0) / (history.length || 1)
+          history.map((c) => Math.abs((Number(c.high) || 0) - (Number(c.low) || 0))).reduce((a, b) => a + b, 0) /
+            (history.length || 1)
         );
 
         return {
@@ -210,7 +221,6 @@ export default function SmartBuyerPage() {
       }
     }
 
-    // No history? derive simple bands from latestPrice if we have it
     if (latestPrice != null) {
       const avg = latestPrice;
       return {
@@ -222,13 +232,7 @@ export default function SmartBuyerPage() {
       };
     }
 
-    return {
-      avgPrice: null,
-      cheapZone: null,
-      expensiveZone: null,
-      rsi: null,
-      atr: null,
-    };
+    return { avgPrice: null, cheapZone: null, expensiveZone: null, rsi: null, atr: null };
   }, [history, latestPrice]);
 
   return (
@@ -247,18 +251,12 @@ export default function SmartBuyerPage() {
               onFocus={() => suggestions.length && setShowSug(true)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  suggestions[0]
-                    ? selectSuggestion(suggestions[0])
-                    : resolveByName(q);
+                  suggestions[0] ? selectSuggestion(suggestions[0]) : resolveByName(q);
                 }
               }}
             />
             <button
-              onClick={() =>
-                suggestions[0]
-                  ? selectSuggestion(suggestions[0])
-                  : resolveByName(q)
-              }
+              onClick={() => (suggestions[0] ? selectSuggestion(suggestions[0]) : resolveByName(q))}
               className="rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-2"
             >
               Select
@@ -290,6 +288,7 @@ export default function SmartBuyerPage() {
           <option value="1h">1h</option>
           <option value="4h">4h</option>
           <option value="24h">24h</option>
+          <option value="all">All</option>
         </select>
 
         <select
@@ -325,16 +324,12 @@ export default function SmartBuyerPage() {
         onReload={() => player && loadData()}
         hideHeaderReload={true}
       >
-        <Chart history={history} priceSource={priceSource} />
+        <Chart history={history} />
       </SmartBuyerSimpleRedesign>
 
-      {/* Source pill */}
       {priceSource && (
         <div className="mt-4 text-xs text-zinc-400">
-          Price source:{" "}
-          <span className="px-2 py-1 rounded bg-white/10 text-white">
-            {priceSource}
-          </span>
+          Price source: <span className="px-2 py-1 rounded bg-white/10 text-white">{priceSource}</span>
         </div>
       )}
     </div>
@@ -362,10 +357,7 @@ function Chart({ history }) {
       seriesRef.current = chartRef.current.addAreaSeries({ lineWidth: 2 });
     }
     const onResize = () =>
-      chartRef.current?.applyOptions({
-        width: ref.current.clientWidth,
-        height: 360,
-      });
+      chartRef.current?.applyOptions({ width: ref.current.clientWidth, height: 360 });
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -390,6 +382,5 @@ function Chart({ history }) {
       </div>
     );
   }
-
   return <div ref={ref} className="h-[360px] w-full" />;
 }
