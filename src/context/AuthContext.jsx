@@ -1,4 +1,5 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../axios';
 
 const AuthContext = createContext();
@@ -44,14 +45,27 @@ const initialState = {
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
+  // Routes that should never trigger auth checks
+  const PUBLIC_ROUTES = ['/access-denied', '/login', '/landing'];
+
   const checkAuthStatus = async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await api.get('/api/me');
-      dispatch({ 
-        type: 'SET_AUTHENTICATED', 
-        payload: response.data 
-      });
+      
+      if (response.data.authenticated) {
+        dispatch({ 
+          type: 'SET_AUTHENTICATED', 
+          payload: response.data 
+        });
+      } else {
+        dispatch({ type: 'SET_UNAUTHENTICATED' });
+        
+        // Handle membership revoked case
+        if (response.data.error === 'membership_revoked') {
+          window.location.href = '/access-denied';
+        }
+      }
     } catch (error) {
       console.log('Auth check failed:', error.message);
       dispatch({ type: 'SET_UNAUTHENTICATED' });
@@ -73,6 +87,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    // Get current path
+    const currentPath = window.location.hash.replace('#', '') || window.location.pathname;
+    
+    // Don't check auth on public routes
+    if (PUBLIC_ROUTES.includes(currentPath)) {
+      dispatch({ type: 'SET_LOADING', payload: false });
+      return;
+    }
+    
+    // Only check auth for protected routes
     checkAuthStatus();
   }, []);
 
