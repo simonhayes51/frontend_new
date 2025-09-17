@@ -2,30 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowDownCircle, ArrowUpCircle, PauseCircle, Sparkles, Info, ChevronDown, RefreshCw } from "lucide-react";
 
-/**
- * SmartBuyerSimpleRedesign
- * ------------------------------------------------------------
- * A friendlier, clearer UI for 13-year-olds:
- *  - Big status banner (Buy / Hold / Sell) with emoji + colour
- *  - Giant last-price card
- *  - Simple "cheap ↔ expensive" price bar
- *  - Clean chart container (mount your TradingView widget here)
- *  - "Advanced Stats" collapsible (RSI / ATR / etc.) hidden by default
- *  - Plain English tips
- *
- * Props:
- *  - player: { name, rating, position, imageUrl, cardId }
- *  - platform: "ps" | "xbox" | "pc"
- *  - timeframe: string (e.g. "15m")
- *  - latestPrice: number | null (coins)
- *  - avgPrice: number | null (coins)
- *  - cheapZone: [number, number] | null
- *  - expensiveZone: [number, number] | null
- *  - rsi?: number | null
- *  - atr?: number | null
- *  - onReload?: () => Promise<void> | void
- *  - children?: React.ReactNode (mount your chart here)
- */
 export default function SmartBuyerSimpleRedesign({
   player,
   platform = "ps",
@@ -55,14 +31,13 @@ export default function SmartBuyerSimpleRedesign({
 
   const StatusIcon = status.icon;
 
-  // Cheap/expensive meter calculations
   const meter = useMemo(() => {
     const low = cheapZone ? Math.min(...cheapZone) : (avgPrice ?? 0);
     const high = expensiveZone ? Math.max(...expensiveZone) : (avgPrice ?? 1);
     let min = Math.min(low, avgPrice ?? low);
     let max = Math.max(high, avgPrice ?? high);
-    if (min === max) max = min + 1; // avoid div by zero
-    const value = latestPrice != null ? (latestPrice - min) / (max - min) : 0.5; // 0..1
+    if (min === max) max = min + 1;
+    const value = latestPrice != null ? (latestPrice - min) / (max - min) : 0.5;
     return { min, max, value: Math.max(0, Math.min(1, value)) };
   }, [cheapZone, expensiveZone, avgPrice, latestPrice]);
 
@@ -74,7 +49,6 @@ export default function SmartBuyerSimpleRedesign({
 
   return (
     <div className="w-full mx-auto max-w-6xl px-4 pb-16">
-      {/* Player header */}
       <div className="flex items-center gap-3 mb-4">
         {player?.imageUrl && (
           <img src={player.imageUrl} alt={player?.name ?? "Player"} className="w-10 h-10 rounded-lg object-cover" />
@@ -96,7 +70,6 @@ export default function SmartBuyerSimpleRedesign({
         </button>
       </div>
 
-      {/* Status banner */}
       <motion.div
         key={status.key}
         initial={{ opacity: 0, y: -8 }}
@@ -125,14 +98,12 @@ export default function SmartBuyerSimpleRedesign({
         </div>
       </motion.div>
 
-      {/* Cheap ↔ Expensive meter */}
       <div className="mt-6 rounded-3xl bg-white/5 border border-white/10 p-5">
         <div className="flex items-center justify-between text-xs uppercase tracking-wide text-zinc-300 mb-2">
           <span>Cheaper</span>
           <span>Expensive</span>
         </div>
         <div className="relative h-4 rounded-full bg-gradient-to-r from-emerald-500/40 via-yellow-400/40 to-rose-500/40 overflow-hidden">
-          {/* position dot */}
           <div
             className="absolute top-0 bottom-0 w-1.5 rounded-full bg-white shadow-[0_0_0_3px_rgba(255,255,255,0.35)]"
             style={{ left: `calc(${(meter.value * 100).toFixed(2)}% - 3px)` }}
@@ -145,11 +116,9 @@ export default function SmartBuyerSimpleRedesign({
         </div>
       </div>
 
-      {/* Chart + legend */}
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 rounded-3xl bg-white/5 border border-white/10 p-3 md:p-4">
           <div className="h-[360px] w-full rounded-2xl bg-black/30 overflow-hidden">
-            {/* Mount your TradingView or custom chart as children */}
             {children || (
               <div className="flex h-full items-center justify-center text-zinc-400">
                 <span className="text-sm">Chart goes here</span>
@@ -175,7 +144,6 @@ export default function SmartBuyerSimpleRedesign({
             ⚡ Quick Buy
           </button>
 
-          {/* Advanced stats collapsible */}
           <div className="mt-2">
             <button
               onClick={() => setShowAdvanced(v => !v)}
@@ -225,7 +193,6 @@ function Badge({ children }) {
   );
 }
 
-// Helpers
 function formatCoins(n) {
   if (n == null || Number.isNaN(n)) return "—";
   const x = Math.round(Number(n));
