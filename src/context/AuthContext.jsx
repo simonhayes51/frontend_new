@@ -59,20 +59,10 @@ export const AuthProvider = ({ children }) => {
       } else {
         console.log('❌ User not authenticated, reason:', response.data.error);
         dispatch({ type: 'SET_UNAUTHENTICATED' });
-        
-        // Handle membership revoked case
-        if (response.data.error === 'membership_revoked') {
-          console.log('🚫 Redirecting to access denied - membership revoked');
-          window.location.hash = '/access-denied';
-        } else {
-          console.log('🔄 Redirecting to login');
-          window.location.hash = '/login';
-        }
       }
     } catch (error) {
       console.log('❌ Auth check failed:', error.message);
       dispatch({ type: 'SET_UNAUTHENTICATED' });
-      window.location.hash = '/login';
     }
   };
 
@@ -84,27 +74,26 @@ export const AuthProvider = ({ children }) => {
     try {
       await api.get('/api/logout');
       dispatch({ type: 'SET_UNAUTHENTICATED' });
-      window.location.hash = '/login';
     } catch (error) {
       console.error('Logout error:', error);
       dispatch({ type: 'SET_UNAUTHENTICATED' });
-      window.location.hash = '/login';
     }
   };
 
   useEffect(() => {
-    console.log('🔍 AuthProvider mounted, current location:', window.location.pathname, window.location.hash);
+    console.log('🔍 AuthProvider mounted');
+    console.log('🔍 Current pathname:', window.location.pathname);
+    console.log('🔍 Current hash:', window.location.hash);
     
-    // DON'T check auth if we're on /access-denied
-    const isAccessDenied = window.location.pathname === '/access-denied' || 
-                          window.location.pathname.includes('access-denied');
-    
-    if (isAccessDenied) {
-      console.log('🔍 On access-denied page, skipping auth check');
+    // CRITICAL: Don't run auth checks if we're on /access-denied
+    if (window.location.pathname === '/access-denied' || 
+        window.location.pathname.includes('access-denied')) {
+      console.log('🔍 On access-denied page, skipping all auth checks');
       dispatch({ type: 'SET_LOADING', payload: false });
       return;
     }
     
+    // Only check auth for other routes
     checkAuthStatus();
   }, []);
 
