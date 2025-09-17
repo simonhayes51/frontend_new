@@ -1,4 +1,3 @@
-import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Loading from './Loading';
 
@@ -9,7 +8,12 @@ const PrivateRoute = ({ children }) => {
     return <Loading />;
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    window.location.href = '/login';
+    return null;
+  }
+
+  return children;
 };
 
 export default PrivateRoute;
