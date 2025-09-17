@@ -89,20 +89,30 @@ export default function SmartBuyerPage() {
   }
 
   // --- data loaders ---
-  async function loadData() {
-    if (!player?.cardId) return;
-    setLoading(true);
-    try {
-      const [p, h] = await Promise.all([
-        api(`/api/players/${player.cardId}/price?platform=${platform}`),
-        api(`/api/players/${player.cardId}/history?platform=${platform}&tf=${TF_TO_SERVICE[timeframe] || "today"}`),
-      ]);
-      setLatestPrice(p?.price ?? null);
-      setHistory(Array.isArray(h?.history) ? h.history : []);
-    } finally {
-      setLoading(false);
-    }
+async function loadData() {
+  if (!player?.cardId) return;
+  setLoading(true);
+  try {
+    const [p, h] = await Promise.all([
+      api(`/api/players/${player.cardId}/price?platform=${platform}`),
+      api(
+        `/api/players/${player.cardId}/history?platform=${platform}&tf=${
+          TF_TO_SERVICE[timeframe] || "today"
+        }`
+      ),
+    ]);
+
+    const hist = Array.isArray(h?.history) ? h.history : [];
+    setHistory(hist);
+
+    // ✅ prefer last candle close if available, otherwise fall back to /price
+    const lastClose =
+      hist.length > 0 ? Number(hist[hist.length - 1].close) : null;
+    setLatestPrice(lastClose ?? (p?.price ?? null));
+  } finally {
+    setLoading(false);
   }
+}
 
   useEffect(() => {
     if (player) loadData();
