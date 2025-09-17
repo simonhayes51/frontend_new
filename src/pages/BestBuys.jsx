@@ -1,27 +1,30 @@
 // src/pages/BestBuys.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
   RefreshCw,
   ArrowRight,
   TrendingUp,
-  Flame,
   SlidersHorizontal,
+  ChevronDown,
+  Check,
   Copy,
   ExternalLink,
+  Flame,
 } from "lucide-react";
 
 const API_BASE =
   (import.meta?.env?.VITE_API_URL?.replace(/\/$/, "")) || "https://api.futhub.co.uk";
 
+const PLATFORM = "ps"; // console only — keep it internal
+
 function formatCoins(n) {
   const x = Number(n || 0);
-  if (!Number.isFinite(x)) return "—";
-  return x.toLocaleString() + " c";
+  return Number.isFinite(x) ? `${x.toLocaleString()} c` : "—";
 }
 
-function classNames(...xs) {
+function cx(...xs) {
   return xs.filter(Boolean).join(" ");
 }
 
@@ -33,18 +36,9 @@ function RiskPill({ label = "Unknown" }) {
     Unknown: "bg-white/10 text-zinc-200 border-white/10",
   };
   return (
-    <span className={classNames("px-2.5 py-1 rounded-full border text-xs font-medium", map[label] || map.Unknown)}>
+    <span className={cx("px-2.5 py-1 rounded-full border text-xs font-medium", map[label] || map.Unknown)}>
       {label}
     </span>
-  );
-}
-
-function Stat({ label, value, accent }) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-white/70">{label}</span>
-      <span className={classNames("tabular-nums font-semibold", accent)}>{value}</span>
-    </div>
   );
 }
 
@@ -68,28 +62,19 @@ function SkeletonCard() {
   );
 }
 
-// Tiny, dependency-free sparkline (expects an array of numbers)
+// simple sparkline (no deps)
 function Sparkline({ data }) {
   if (!Array.isArray(data) || data.length < 2) return null;
-  const w = 120;
-  const h = 36;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const span = Math.max(max - min, 1);
+  const w = 120, h = 36;
+  const min = Math.min(...data), max = Math.max(...data), span = Math.max(max - min, 1);
   const step = w / (data.length - 1);
-  const pts = data.map((v, i) => {
-    const x = i * step;
-    const y = h - ((v - min) / span) * h;
-    return `${x},${y}`;
-  }).join(" ");
-  const last = data[data.length - 1];
-  const first = data[0];
-  const up = last >= first;
+  const pts = data.map((v, i) => `${i * step},${h - ((v - min) / span) * h}`).join(" ");
+  const up = data[data.length - 1] >= data[0];
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="block">
       <polyline
         fill="none"
-        stroke={up ? "rgb(110, 231, 183)" : "rgb(252, 165, 165)"} // emerald/rose
+        stroke={up ? "rgb(110, 231, 183)" : "rgb(252, 165, 165)"}
         strokeWidth="2"
         points={pts}
         strokeLinejoin="round"
@@ -99,12 +84,75 @@ function Sparkline({ data }) {
   );
 }
 
+/* ---------- Custom Glass Dropdown (matches theme) ---------- */
+function GlassDropdown({ value, onChange, options, label = "Sort" }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function onDoc(e) {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("click", onDoc);
+    return () => document.removeEventListener("click", onDoc);
+  }, []);
+
+  const current = options.find((o) => o.value === value) || options[0];
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-3 py-2 text-sm"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title={label}
+      >
+        <SlidersHorizontal className="w-4 h-4 text-zinc-300" />
+        <span className="text-white">{current.label}</span>
+        <ChevronDown className={cx("w-4 h-4 text-zinc-300 transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute z-30 mt-2 w-64 rounded-2xl bg-[#1b1030] border border-white/10 shadow-xl overflow-hidden"
+        >
+          {options.map((o) => {
+            const active = o.value === value;
+            return (
+              <button
+                key={o.value}
+                role="option"
+                aria-selected={active}
+                onClick={() => {
+                  onChange(o.value);
+                  setOpen(false);
+                }}
+                className={cx(
+                  "w-full text-left px-3 py-2 flex items-center gap-2 text-sm",
+                  active ? "bg-white/10 text-white" : "text-zinc-200 hover:bg-white/5"
+                )}
+              >
+                <Check className={cx("w-4 h-4", active ? "opacity-100" : "opacity-0")} />
+                <span>{o.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+/* ----------------------------------------------------------- */
+
 export default function BestBuys() {
   const [rows, setRows] = useState([]);
-  const [platform, setPlatform] = useState("ps");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [q, setQ] = useState("");
+
   const [risk, setRisk] = useState("All"); // All | Low | Medium | High
   const [sort, setSort] = useState("cheap"); // cheap | current | volume | rating | name
 
@@ -115,7 +163,7 @@ export default function BestBuys() {
     setError(null);
     try {
       const r = await fetch(
-        `${API_BASE}/api/ai/top-buys?platform=${encodeURIComponent(platform)}&limit=48`,
+        `${API_BASE}/api/ai/top-buys?platform=${encodeURIComponent(PLATFORM)}&limit=48`,
         { credentials: "include" }
       );
       if (!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
@@ -129,63 +177,35 @@ export default function BestBuys() {
       setLoading(false);
     }
   }
+  useEffect(() => { load(); }, []);
 
-  useEffect(() => { load(); }, [platform]);
-
-  // Derived filters + sorting
+  // filter + sort
   const filteredSorted = useMemo(() => {
     let arr = Array.isArray(rows) ? rows.slice() : [];
-
-    // text filter
     const term = q.trim().toLowerCase();
-    if (term) {
-      arr = arr.filter((r) => (r?.player?.name || "").toLowerCase().includes(term));
-    }
-
-    // risk filter
+    if (term) arr = arr.filter((r) => (r?.player?.name || "").toLowerCase().includes(term));
     if (["Low", "Medium", "High"].includes(risk)) {
       arr = arr.filter((r) => (r?.risk_label || "").toLowerCase() === risk.toLowerCase());
     }
-
-    // sorting
     arr.sort((a, b) => {
-      const cheapA = Number(a.cheap_pct || 0);
-      const cheapB = Number(b.cheap_pct || 0);
-      const curA = Number(a.current || 0);
-      const curB = Number(b.current || 0);
-      const volA = Number(a.vol24 || 0);
-      const volB = Number(b.vol24 || 0);
-      const ratA = Number(a?.player?.rating || 0);
-      const ratB = Number(b?.player?.rating || 0);
+      const cheapA = Number(a.cheap_pct || 0), cheapB = Number(b.cheap_pct || 0);
+      const curA = Number(a.current || 0),   curB = Number(b.current || 0);
+      const volA = Number(a.vol24 || 0),     volB = Number(b.vol24 || 0);
+      const ratA = Number(a?.player?.rating || 0), ratB = Number(b?.player?.rating || 0);
       const nameA = (a?.player?.name || "").localeCompare(b?.player?.name || "");
-
       switch (sort) {
-        case "cheap": return cheapA === cheapB ? volB - volA : cheapA - cheapB; // cheapest first
-        case "current": return curA - curB; // lowest price first
-        case "volume": return volB - volA; // highest volume first
-        case "rating": return ratB - ratA; // highest rating first
-        case "name": return nameA;
-        default: return cheapA - cheapB;
+        case "cheap":   return cheapA === cheapB ? volB - volA : cheapA - cheapB;
+        case "current": return curA - curB;
+        case "volume":  return volB - volA;
+        case "rating":  return ratB - ratA;
+        case "name":    return nameA;
+        default:        return cheapA - cheapB;
       }
     });
-
     return arr;
   }, [rows, q, risk, sort]);
 
-  function goToSmartBuyer(name) {
-    const nm = (name || q || "").trim();
-    if (!nm) return;
-    navigate(`/smart-buyer-ai?name=${encodeURIComponent(nm)}&platform=${platform}`);
-  }
-
-  function copyLink(name) {
-    const url = `${location.origin}${location.pathname}#/smart-buyer-ai?name=${encodeURIComponent(
-      name || ""
-    )}&platform=${platform}`;
-    navigator.clipboard?.writeText(url);
-  }
-
-  // Headline KPIs (use top of filtered set)
+  // KPIs
   const kpi = useMemo(() => {
     const list = filteredSorted.slice(0, 8);
     const avgCheap = list.length ? list.reduce((a, r) => a + Number(r.cheap_pct || 0), 0) / list.length : 0;
@@ -195,6 +215,17 @@ export default function BestBuys() {
       : 0;
     return { avgCheap, avgVol, medianPrice };
   }, [filteredSorted]);
+
+  function goToSmartBuyer(name) {
+    const nm = (name || q || "").trim();
+    if (!nm) return;
+    navigate(`/smart-buyer-ai?name=${encodeURIComponent(nm)}`); // platform defaults inside page
+  }
+
+  function copyLink(name) {
+    const url = `${location.origin}${location.pathname}#/smart-buyer-ai?name=${encodeURIComponent(name || "")}`;
+    navigator.clipboard?.writeText(url);
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#180a2e] to-[#0e0a19] text-white">
@@ -212,7 +243,7 @@ export default function BestBuys() {
           </div>
         </div>
 
-        {/* Controls */}
+        {/* Controls (no platform selector) */}
         <div className="flex flex-col md:flex-row gap-3">
           {/* search */}
           <div className="relative flex-1">
@@ -240,10 +271,7 @@ export default function BestBuys() {
               <button
                 key={r}
                 onClick={() => setRisk(r)}
-                className={classNames(
-                  "px-3 py-2 rounded-xl text-sm",
-                  risk === r ? "bg-white/15" : "hover:bg-white/10"
-                )}
+                className={cx("px-3 py-2 rounded-xl text-sm", risk === r ? "bg-white/15" : "hover:bg-white/10")}
                 title={`Show ${r.toLowerCase()} risk picks`}
               >
                 {r}
@@ -251,34 +279,19 @@ export default function BestBuys() {
             ))}
           </div>
 
-          {/* sort */}
-          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-3">
-            <SlidersHorizontal className="w-4 h-4 text-zinc-300" />
-            <select
-              className="bg-transparent py-2 pr-1 text-white focus:outline-none"
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-              title="Sort picks"
-            >
-              <option value="cheap">Cheapest vs usual</option>
-              <option value="volume">Highest volume</option>
-              <option value="current">Lowest current price</option>
-              <option value="rating">Highest rating</option>
-              <option value="name">Name A→Z</option>
-            </select>
-          </div>
-
-          {/* platform */}
-          <select
-            className="rounded-2xl bg-white/5 border border-white/10 px-3 py-2 text-white"
-            value={platform}
-            onChange={(e) => setPlatform(e.target.value)}
-            title="Platform"
-          >
-            <option value="ps">PS</option>
-            <option value="xbox">Xbox</option>
-            <option value="pc">PC</option>
-          </select>
+          {/* custom sort dropdown */}
+          <GlassDropdown
+            value={sort}
+            onChange={setSort}
+            options={[
+              { value: "cheap", label: "Cheapest vs usual" },
+              { value: "volume", label: "Highest volume" },
+              { value: "current", label: "Lowest current price" },
+              { value: "rating", label: "Highest rating" },
+              { value: "name", label: "Name A→Z" },
+            ]}
+            label="Sort"
+          />
 
           {/* reload */}
           <button
@@ -326,25 +339,19 @@ export default function BestBuys() {
 
         {/* Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {loading &&
-            Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={`s-${i}`} />)}
+          {loading && Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={`s-${i}`} />)}
 
           {!loading &&
             filteredSorted.map((r, i) => {
               const name = r.player?.name || r.player_card_id || "Unknown Player";
               const img = r.player?.image_url;
-              const metaLine =
-                [r.player?.position, r.player?.version, r.player?.rating]
-                  .filter(Boolean)
-                  .join(" • ") || "\u00A0";
-
-              // build a tiny sparkline from current/median if no series is present
+              const meta =
+                [r.player?.position, r.player?.version, r.player?.rating].filter(Boolean).join(" • ") || "\u00A0";
+              const cheapPct = Number(r.cheap_pct || 0);
               const sparkData =
                 Array.isArray(r.spark) && r.spark.length >= 2
                   ? r.spark
                   : [Number(r.median7 || r.current || 0), Number(r.current || r.median7 || 0)];
-
-              const cheapPct = Number(r.cheap_pct || 0);
 
               return (
                 <div
@@ -353,7 +360,6 @@ export default function BestBuys() {
                   onClick={() => goToSmartBuyer(name)}
                   title="Open in Smart Buyer"
                 >
-                  {/* Header row */}
                   <div className="flex items-center gap-3">
                     {img ? (
                       <img
@@ -367,28 +373,31 @@ export default function BestBuys() {
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold truncate">{name}</div>
-                      <div className="text-sm text-white/70 truncate">{metaLine}</div>
+                      <div className="text-sm text-white/70 truncate">{meta}</div>
                     </div>
                     <RiskPill label={r.risk_label || "Unknown"} />
                   </div>
 
-                  {/* Sparkline + stats */}
                   <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-2">
                     <Sparkline data={sparkData.map((x) => Number(x || 0))} />
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1">
-                    <Stat label="Current" value={formatCoins(r.current)} />
-                    <Stat label="Usual" value={formatCoins(r.median7)} />
-                    <Stat
-                      label="Cheap vs usual"
-                      value={`${(cheapPct * 100).toFixed(1)}%`}
-                      accent={cheapPct < 0 ? "text-emerald-300" : cheapPct > 0 ? "text-rose-300" : ""}
-                    />
-                    <Stat label="24h volume" value={Number(r.vol24 || 0).toLocaleString()} />
+                  <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                    <div className="text-white/70">Current</div>
+                    <div className="text-right tabular-nums font-semibold">{formatCoins(r.current)}</div>
+
+                    <div className="text-white/70">Usual</div>
+                    <div className="text-right tabular-nums font-semibold">{formatCoins(r.median7)}</div>
+
+                    <div className="text-white/70">Cheap vs usual</div>
+                    <div className={cx("text-right tabular-nums font-semibold", cheapPct < 0 ? "text-emerald-300" : "text-rose-300")}>
+                      {(cheapPct * 100).toFixed(1)}%
+                    </div>
+
+                    <div className="text-white/70">24h volume</div>
+                    <div className="text-right tabular-nums">{Number(r.vol24 || 0).toLocaleString()}</div>
                   </div>
 
-                  {/* Actions */}
                   <div className="mt-4 flex items-center justify-between">
                     <div className="flex gap-2">
                       {Math.abs(cheapPct) >= 0.08 ? (
@@ -398,7 +407,7 @@ export default function BestBuys() {
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-white/10 border border-white/10">
-                          {platform.toUpperCase()}
+                          Console
                         </span>
                       )}
                     </div>
@@ -414,7 +423,7 @@ export default function BestBuys() {
                         <Copy className="w-3.5 h-3.5" /> Copy Link
                       </button>
                       <a
-                        href={`#/smart-buyer-ai?name=${encodeURIComponent(name)}&platform=${platform}`}
+                        href={`#/smart-buyer-ai?name=${encodeURIComponent(name)}`}
                         className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 px-3 py-2 text-sm font-medium"
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -427,18 +436,15 @@ export default function BestBuys() {
             })}
         </div>
 
-        {/* Empty */}
         {!loading && !error && !filteredSorted.length && (
           <div className="text-center text-white/70 py-10">
             No signals right now — try different filters or check back soon.
           </div>
         )}
 
-        {/* Footer hint */}
         <div className="pt-2 text-xs text-white/60 flex items-center gap-2">
           <ExternalLink className="w-4 h-4" />
-          Tip: Click any card to open Smart Buyer. Sort by <em>Cheapest vs usual</em> for bargain hunting,
-          or by <em>Volume</em> to find liquid flips.
+          Tip: Click any card to open Smart Buyer. Sort by <em>Cheapest vs usual</em> for bargains, or by <em>Volume</em> for liquid flips.
         </div>
       </div>
     </div>
