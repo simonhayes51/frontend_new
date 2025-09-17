@@ -45,18 +45,6 @@ export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   const checkAuthStatus = async () => {
-    // Check if we're on a public route (HashRouter uses hash)
-    const hash = window.location.hash;
-    const isAccessDenied = hash.includes('/access-denied') || hash.includes('access-denied');
-    const isLogin = hash.includes('/login') || hash.includes('login');
-    const isLanding = hash.includes('/landing') || hash.includes('landing');
-    
-    if (isAccessDenied || isLogin || isLanding) {
-      console.log('🔍 On public route, skipping auth check:', hash);
-      dispatch({ type: 'SET_LOADING', payload: false });
-      return;
-    }
-
     try {
       console.log('🔍 Checking auth status...');
       dispatch({ type: 'SET_LOADING', payload: true });
@@ -84,12 +72,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.log('❌ Auth check failed:', error.message);
       dispatch({ type: 'SET_UNAUTHENTICATED' });
-      
-      // Only redirect if not already on public route
-      const hash = window.location.hash;
-      if (!hash.includes('/access-denied') && !hash.includes('/login') && !hash.includes('/landing')) {
-        window.location.hash = '/login';
-      }
+      window.location.hash = '/login';
     }
   };
 
@@ -110,22 +93,19 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    console.log('🔍 AuthProvider mounted, current hash:', window.location.hash);
+    console.log('🔍 AuthProvider mounted, current location:', window.location.pathname, window.location.hash);
+    
+    // DON'T check auth if we're on /access-denied
+    const isAccessDenied = window.location.pathname === '/access-denied' || 
+                          window.location.pathname.includes('access-denied');
+    
+    if (isAccessDenied) {
+      console.log('🔍 On access-denied page, skipping auth check');
+      dispatch({ type: 'SET_LOADING', payload: false });
+      return;
+    }
+    
     checkAuthStatus();
-
-    // Listen for hash changes
-    const handleHashChange = () => {
-      console.log('🔍 Hash changed to:', window.location.hash);
-      // Don't re-check auth when navigating to public routes
-      const hash = window.location.hash;
-      const isPublicRoute = hash.includes('/access-denied') || hash.includes('/login') || hash.includes('/landing');
-      if (!isPublicRoute && !state.isAuthenticated) {
-        checkAuthStatus();
-      }
-    };
-
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   const value = {
