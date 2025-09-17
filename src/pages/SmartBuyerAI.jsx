@@ -40,25 +40,34 @@ export default function SmartBuyerPage() {
 
   const [player, setPlayer] = useState(null);
   const [latestPrice, setLatestPrice] = useState(null);
+  const [priceSource, setPriceSource] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // --- autocomplete ---
   const fetchSuggestions = useMemo(
-    () => debounce(async (term) => {
-      if (!term?.trim()) { setSuggestions([]); return; }
-      try {
-        const js = await api(`/api/players/autocomplete?q=${encodeURIComponent(term)}`);
-        setSuggestions(js?.items || []);
-        setShowSug(true);
-      } catch { /* ignore */ }
-    }, 200),
+    () =>
+      debounce(async (term) => {
+        if (!term?.trim()) {
+          setSuggestions([]);
+          return;
+        }
+        try {
+          const js = await api(
+            `/api/players/autocomplete?q=${encodeURIComponent(term)}`
+          );
+          setSuggestions(js?.items || []);
+          setShowSug(true);
+        } catch {
+          /* ignore */
+        }
+      }, 200),
     []
   );
 
   useEffect(() => {
     fetchSuggestions(q);
-    return () => {}; // noop cleanup (our debounce has internal timer)
+    return () => {};
   }, [q, fetchSuggestions]);
 
   async function selectSuggestion(item) {
@@ -77,42 +86,77 @@ export default function SmartBuyerPage() {
   async function resolveByName(name) {
     if (!name?.trim()) return;
     try {
-      const js = await api(`/api/players/resolve?name=${encodeURIComponent(name)}`);
-      setPlayer({ cardId: js.card_id, name: js.name, rating: js.rating, imageUrl: js.image_url, position: js.position });
+      const js = await api(
+        `/api/players/resolve?name=${encodeURIComponent(name)}`
+      );
+      setPlayer({
+        cardId: js.card_id,
+        name: js.name,
+        rating: js.rating,
+        imageUrl: js.image_url,
+        position: js.position,
+      });
     } catch {
-      const r = await api(`/api/players/search?q=${encodeURIComponent(name)}&limit=1`);
+      const r = await api(
+        `/api/players/search?q=${encodeURIComponent(name)}&limit=1`
+      );
       const first = r?.players?.[0];
       if (first) {
-        setPlayer({ cardId: first.card_id, name: first.name, rating: first.rating, imageUrl: first.image_url, position: first.position });
+        setPlayer({
+          cardId: first.card_id,
+          name: first.name,
+          rating: first.rating,
+          imageUrl: first.image_url,
+          position: first.position,
+        });
       }
     }
   }
 
   // --- data loaders ---
-async function loadData() {
-  if (!player?.cardId) return;
-  setLoading(true);
-  try {
-    const [p, h] = await Promise.all([
-      api(`/api/players/${player.cardId}/price?platform=${platform}`),
-      api(
-        `/api/players/${player.cardId}/history?platform=${platform}&tf=${
-          TF_TO_SERVICE[timeframe] || "today"
-        }`
-      ),
-    ]);
+  async function loadData() {
+    if (!player?.cardId) return;
+    setLoading(true);
+    try {
+      const [p, h] = await Promise.all([
+        api(`/api/players/${player.cardId}/price?platform=${platform}`),
+        api(
+          `/api/players/${player.cardId}/history?platform=${platform}&tf=${
+            TF_TO_SERVICE[timeframe] || "today"
+          }`
+        ),
+      ]);
 
-    const hist = Array.isArray(h?.history) ? h.history : [];
-    setHistory(hist);
+      const hist = Array.isArray(h?.history) ? h.history : [];
+      setHistory(hist);
 
-    // ✅ prefer last candle close if available, otherwise fall back to /price
-    const lastClose =
-      hist.length > 0 ? Number(hist[hist.length - 1].close) : null;
-    setLatestPrice(lastClose ?? (p?.price ?? null));
-  } finally {
-    setLoading(false);
+      // 1) prefer last candle close
+      let latest = hist.length ? Number(hist[hist.length - 1].close) : null;
+      let source = hist.length ? "candles" : null;
+
+      // 2) else use /price (backend now has DB/candle-first logic)
+      if (latest == null && p?.price != null) {
+        latest = p.price;
+        source = p.source || "price";
+      }
+
+      // 3) fallback: player meta snapshot if still null
+      if (latest == null) {
+        try {
+          const meta = await api(`/api/players/${player.cardId}`);
+          latest = meta?.price_num ?? meta?.price ?? null;
+          source = "players";
+        } catch {
+          /* ignore */
+        }
+      }
+
+      setLatestPrice(latest);
+      setPriceSource(source);
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
   useEffect(() => {
     if (player) loadData();
@@ -121,34 +165,71 @@ async function loadData() {
 
   // --- derive bands ---
   const { avgPrice, cheapZone, expensiveZone, rsi, atr } = useMemo(() => {
-    if (!history?.length) return { avgPrice: null, cheapZone: null, expensiveZone: null, rsi: null, atr: null };
-    const closes = history.map((c) => Number(c.close) || 0).filter(Boolean);
-    if (!closes.length) return { avgPrice: null, cheapZone: null, expensiveZone: null, rsi: null, atr: null };
-    const avg = Math.round(closes.reduce((a, b) => a + b, 0) / closes.length);
+    // If we have candle history, calculate from it
+    if (history?.length) {
+      const closes = history.map((c) => Number(c.close) || 0).filter(Boolean);
+      if (closes.length) {
+        const avg = Math.round(
+          closes.reduce((a, b) => a + b, 0) / closes.length
+        );
 
-    const cheapLo = Math.round(avg * 0.97);
-    const cheapHi = Math.round(avg * 0.99);
-    const expLo = Math.round(avg * 1.01);
-    const expHi = Math.round(avg * 1.04);
+        const cheapLo = Math.round(avg * 0.97);
+        const cheapHi = Math.round(avg * 0.99);
+        const expLo = Math.round(avg * 1.01);
+        const expHi = Math.round(avg * 1.04);
 
-    const diffs = closes.slice(1).map((v, i) => v - closes[i]);
-    const gains = diffs.filter((d) => d > 0).reduce((a, b) => a + b, 0) / (diffs.length || 1);
-    const losses = Math.abs(diffs.filter((d) => d < 0).reduce((a, b) => a + b, 0)) / (diffs.length || 1);
-    const rs = losses ? gains / losses : 1;
-    const rsiVal = Math.max(0, Math.min(100, 100 - 100 / (1 + rs)));
-    const atrVal = Math.round(
-      history.map((c) => Math.abs((Number(c.high) || 0) - (Number(c.low) || 0))).reduce((a, b) => a + b, 0) /
-      (history.length || 1)
-    );
+        const diffs = closes.slice(1).map((v, i) => v - closes[i]);
+        const gains =
+          diffs.filter((d) => d > 0).reduce((a, b) => a + b, 0) /
+          (diffs.length || 1);
+        const losses =
+          Math.abs(
+            diffs.filter((d) => d < 0).reduce((a, b) => a + b, 0)
+          ) / (diffs.length || 1);
+        const rs = losses ? gains / losses : 1;
+        const rsiVal = Math.max(
+          0,
+          Math.min(100, 100 - 100 / (1 + rs))
+        );
+        const atrVal = Math.round(
+          history
+            .map(
+              (c) =>
+                Math.abs((Number(c.high) || 0) - (Number(c.low) || 0))
+            )
+            .reduce((a, b) => a + b, 0) / (history.length || 1)
+        );
+
+        return {
+          avgPrice: avg,
+          cheapZone: [cheapLo, cheapHi],
+          expensiveZone: [expLo, expHi],
+          rsi: Number.isFinite(rsiVal) ? rsiVal : null,
+          atr: Number.isFinite(atrVal) ? atrVal : null,
+        };
+      }
+    }
+
+    // No history? derive simple bands from latestPrice if we have it
+    if (latestPrice != null) {
+      const avg = latestPrice;
+      return {
+        avgPrice: avg,
+        cheapZone: [Math.round(avg * 0.97), Math.round(avg * 0.99)],
+        expensiveZone: [Math.round(avg * 1.01), Math.round(avg * 1.04)],
+        rsi: null,
+        atr: null,
+      };
+    }
 
     return {
-      avgPrice: avg,
-      cheapZone: [cheapLo, cheapHi],
-      expensiveZone: [expLo, expHi],
-      rsi: Number.isFinite(rsiVal) ? rsiVal : null,
-      atr: Number.isFinite(atrVal) ? atrVal : null,
+      avgPrice: null,
+      cheapZone: null,
+      expensiveZone: null,
+      rsi: null,
+      atr: null,
     };
-  }, [history]);
+  }, [history, latestPrice]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -164,10 +245,20 @@ async function loadData() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onFocus={() => suggestions.length && setShowSug(true)}
-              onKeyDown={(e) => { if (e.key === "Enter") (suggestions[0] ? selectSuggestion(suggestions[0]) : resolveByName(q)); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  suggestions[0]
+                    ? selectSuggestion(suggestions[0])
+                    : resolveByName(q);
+                }
+              }}
             />
             <button
-              onClick={() => (suggestions[0] ? selectSuggestion(suggestions[0]) : resolveByName(q))}
+              onClick={() =>
+                suggestions[0]
+                  ? selectSuggestion(suggestions[0])
+                  : resolveByName(q)
+              }
               className="rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-2"
             >
               Select
@@ -234,13 +325,23 @@ async function loadData() {
         onReload={() => player && loadData()}
         hideHeaderReload={true}
       >
-        <Chart history={history} />
+        <Chart history={history} priceSource={priceSource} />
       </SmartBuyerSimpleRedesign>
+
+      {/* Source pill */}
+      {priceSource && (
+        <div className="mt-4 text-xs text-zinc-400">
+          Price source:{" "}
+          <span className="px-2 py-1 rounded bg-white/10 text-white">
+            {priceSource}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
 
-/* Lightweight area chart */
+/* Lightweight chart */
 function Chart({ history }) {
   const ref = useRef(null);
   const chartRef = useRef(null);
@@ -260,7 +361,11 @@ function Chart({ history }) {
       });
       seriesRef.current = chartRef.current.addAreaSeries({ lineWidth: 2 });
     }
-    const onResize = () => chartRef.current?.applyOptions({ width: ref.current.clientWidth, height: 360 });
+    const onResize = () =>
+      chartRef.current?.applyOptions({
+        width: ref.current.clientWidth,
+        height: 360,
+      });
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -277,6 +382,14 @@ function Chart({ history }) {
     }));
     seriesRef.current.setData(data);
   }, [history]);
+
+  if (!history?.length) {
+    return (
+      <div className="flex h-[360px] w-full items-center justify-center text-zinc-400 bg-black/20 rounded-2xl">
+        <span>No chart data yet</span>
+      </div>
+    );
+  }
 
   return <div ref={ref} className="h-[360px] w-full" />;
 }
