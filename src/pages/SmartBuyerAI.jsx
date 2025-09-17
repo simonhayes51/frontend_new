@@ -1,417 +1,241 @@
-// src/pages/SmartBuyerAISimple.jsx
-import { useEffect, useMemo, useRef, useState } from "react";
-import { createChart, CrosshairMode } from "lightweight-charts";
+import React, { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowDownCircle, ArrowUpCircle, PauseCircle, Sparkles, Info, ChevronDown, RefreshCw } from "lucide-react";
 
-const API_BASE =
-  (import.meta?.env?.VITE_API_URL?.replace(/\/$/, "")) || "https://api.futhub.co.uk";
+/**
+ * SmartBuyerSimpleRedesign
+ * ------------------------------------------------------------
+ * A friendlier, clearer UI for 13-year-olds:
+ *  - Big status banner (Buy / Hold / Sell) with emoji + colour
+ *  - Giant last-price card
+ *  - Simple "cheap ↔ expensive" price bar
+ *  - Clean chart container (mount your TradingView widget here)
+ *  - "Advanced Stats" collapsible (RSI / ATR / etc.) hidden by default
+ *  - Plain English tips
+ *
+ * Props:
+ *  - player: { name, rating, position, imageUrl, cardId }
+ *  - platform: "ps" | "xbox" | "pc"
+ *  - timeframe: string (e.g. "15m")
+ *  - latestPrice: number | null (coins)
+ *  - avgPrice: number | null (coins)
+ *  - cheapZone: [number, number] | null
+ *  - expensiveZone: [number, number] | null
+ *  - rsi?: number | null
+ *  - atr?: number | null
+ *  - onReload?: () => Promise<void> | void
+ *  - children?: React.ReactNode (mount your chart here)
+ */
+export default function SmartBuyerSimpleRedesign({
+  player,
+  platform = "ps",
+  timeframe = "15m",
+  latestPrice,
+  avgPrice,
+  cheapZone,
+  expensiveZone,
+  rsi = null,
+  atr = null,
+  onReload,
+  children,
+}) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [reloading, setReloading] = useState(false);
 
-const toUnix = (ts) => Math.floor(new Date(ts).getTime() / 1000);
-const seriesFromCandles = (c) =>
-  c.map((x) => ({
-    time: toUnix(x.open_time),
-    open: x.open,
-    high: x.high,
-    low: x.low,
-    close: x.close,
-  }));
-const lineFrom = (candles, arr) => {
-  const out = [];
-  if (!Array.isArray(arr)) return out;
-  for (let i = 0; i < candles.length; i++) {
-    const v = arr[i];
-    if (v != null) out.push({ time: toUnix(candles[i].open_time), value: v });
-  }
-  return out;
-};
-
-// --------- simple signal (unchanged) ----------
-function computeSignal(candles, ind) {
-  if (!candles?.length || !ind) return { label: "Loading…", tone: "neutral" };
-  const price = candles[candles.length - 1]?.close;
-  const arr = (a) => (Array.isArray(a) ? a.filter((v) => v != null) : []);
-  const rsi = arr(ind.rsi14).slice(-1)[0];
-  const bbU = arr(ind.bb_upper).slice(-1)[0];
-  const bbL = arr(ind.bb_lower).slice(-1)[0];
-  const ema20 = arr(ind.ema20).slice(-1)[0];
-  if ([rsi, bbU, bbL, ema20].some((v) => v == null))
-    return {
-      label: "Not enough data yet — keep watching 👀",
-      tone: "neutral",
-      hints: ["Need a bit more history for tips."],
-    };
-
-  const near = (a, b, p = 0.015) => Math.abs(a - b) / b <= p;
-  const buy = price < bbL || near(price, bbL) || rsi < 40;
-  const sell = price > bbU || near(price, bbU) || rsi > 60;
-
-  if (buy && !sell) {
-    const target = Math.round(Math.max(ema20, bbU));
-    const stop = Math.round(price * 0.97);
-    return {
-      label: "BUY — looks cheap 💸",
-      tone: "good",
-      buyPrice: price,
-      targetSell: target,
-      stopLoss: stop,
-      hints: [
-        "Price is in the cheap zone.",
-        `Aim to sell ~${target.toLocaleString()}.`,
-        "If it dips, consider cutting around -3%.",
-      ],
-    };
-  }
-  if (sell && !buy) {
-    const target = Math.round(ema20);
-    return {
-      label: "SELL — looks pricey 🧨",
-      tone: "bad",
-      sellPrice: price,
-      targetBuyBack: target,
-      hints: ["Near the expensive zone.", `Could fall back to ~${target.toLocaleString()}.`],
-    };
-  }
-  return {
-    label: "HOLD — nothing special right now 💤",
-    tone: "neutral",
-    hints: ["Wait for cheaper deals (cheap zone) or take profit near expensive zone."],
-  };
-}
-
-const qp = new URLSearchParams(location.hash.includes("?") ? location.hash.split("?")[1] : "");
-
-// ===============================
-// Page
-// ===============================
-export default function SmartBuyerAISimple() {
-  const [platform, setPlatform] = useState(qp.get("platform") || "ps");
-  const [nameInput, setNameInput] = useState(qp.get("name") || "");
-  const [player, setPlayer] = useState(null); // { card_id, name, ... }
-  const [suggestions, setSuggestions] = useState([]);
-  const [timeframe, setTimeframe] = useState("15m");
-  const [status, setStatus] = useState("idle");
-  const [summary, setSummary] = useState({ label: "Loading…", tone: "neutral", hints: [] });
-  const [lastRsi, setLastRsi] = useState(null);
-  const [lastAtr, setLastAtr] = useState(null);
-  const [lastPrice, setLastPrice] = useState(null);
-  const [placing, setPlacing] = useState(false);
-
-  const wrapRef = useRef(null);
-  const chartRef = useRef(null);
-  const candleSeriesRef = useRef(null);
-  const ema20Ref = useRef(null);
-  const bbURef = useRef(null);
-  const bbLRef = useRef(null);
-
-  // Resolve ?name=… on first load
-  useEffect(() => {
-    const nm = qp.get("name");
-    if (!nm) return;
-    (async () => {
-      try {
-        const res = await fetch(
-          `${API_BASE}/api/players/resolve?name=${encodeURIComponent(nm)}`
-        );
-        if (res.ok) {
-          const js = await res.json();
-          setPlayer(js);
-          setNameInput(js.name || nm);
-        }
-      } catch (e) {
-        console.warn("resolve-by-name failed", e);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Build chart once (unchanged logic)
-  useEffect(() => {
-    if (!wrapRef.current) return;
-    const chart = createChart(wrapRef.current, {
-      layout: { background: { type: "solid", color: "#0b0f14" }, textColor: "#cfe3f3" },
-      grid: { vertLines: { color: "#14202b" }, horzLines: { color: "#14202b" } },
-      rightPriceScale: { borderVisible: false },
-      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
-      crosshair: { mode: CrosshairMode.Normal },
-      autoSize: true,
-    });
-    const candles = chart.addCandlestickSeries({
-      upColor: "#2ecc71",
-      downColor: "#e74c3c",
-      wickUpColor: "#2ecc71",
-      wickDownColor: "#e74c3c",
-      borderVisible: false,
-    });
-    const ema20 = chart.addLineSeries({ lineWidth: 2, color: "#60a5fa" });
-    const bbU = chart.addLineSeries({ lineWidth: 1, color: "#00ffaa" });
-    const bbL = chart.addLineSeries({ lineWidth: 1, color: "#00ffaa" });
-
-    chartRef.current = chart;
-    candleSeriesRef.current = candles;
-    ema20Ref.current = ema20;
-    bbURef.current = bbU;
-    bbLRef.current = bbL;
-
-    const onResize = () => chart.applyOptions({ autoSize: true });
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      chart.remove();
-    };
-  }, []);
-
-  // Debounced name search → suggestions (unchanged)
-  useEffect(() => {
-    const id = setTimeout(async () => {
-      const q = nameInput.trim();
-      if (q.length < 2) {
-        setSuggestions([]);
-        return;
-      }
-      try {
-        const res = await fetch(
-          `${API_BASE}/api/players/search?q=${encodeURIComponent(q)}&limit=8`
-        );
-        const js = await res.json();
-        const arr = Array.isArray(js) ? js : Array.isArray(js?.data) ? js.data : [];
-        setSuggestions(arr);
-      } catch {
-        setSuggestions([]);
-      }
-    }, 250);
-    return () => clearTimeout(id);
-  }, [nameInput]);
-
-  const urls = useMemo(() => {
-    if (!player?.card_id) return null;
-    const q = (o) =>
-      Object.entries(o)
-        .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
-        .join("&");
-    return {
-      candles: `${API_BASE}/api/market/candles?${q({
-        player_card_id: player.card_id,
-        platform,
-        timeframe,
-        limit: 500,
-      })}`,
-      ind: `${API_BASE}/api/market/indicators?${q({
-        player_card_id: player.card_id,
-        platform,
-        timeframe,
-      })}`,
-      now: `${API_BASE}/api/market/now?${q({
-        player_card_id: player.card_id,
-        platform,
-      })}`,
-      buy: `${API_BASE}/api/ai/signal/buy`,
-    };
-  }, [player, platform, timeframe]);
-
-  async function load() {
-    if (!urls) return;
-    setStatus("loading…");
-    try {
-      const [candles, indRaw] = await Promise.all([
-        fetch(urls.candles).then((r) => r.json()),
-        fetch(urls.ind).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      ]);
-
-      candleSeriesRef.current.setData(seriesFromCandles(candles));
-
-      if (indRaw) {
-        ema20Ref.current.setData(lineFrom(candles, indRaw.ema20));
-        bbURef.current.setData(lineFrom(candles, indRaw.bb_upper));
-        bbLRef.current.setData(lineFrom(candles, indRaw.bb_lower));
-        const last = (a) =>
-          Array.isArray(a) && a.filter((v) => v != null).length
-            ? a.filter((v) => v != null).slice(-1)[0]
-            : null;
-        setLastRsi(last(indRaw.rsi14));
-        setLastAtr(last(indRaw.atr14));
-        setSummary(computeSignal(candles, indRaw));
-      } else {
-        setLastRsi(null);
-        setLastAtr(null);
-        setSummary({ label: "Not enough data yet — keep watching 👀", tone: "neutral" });
-      }
-
-      const lastC = candles[candles.length - 1];
-      setLastPrice(lastC?.close ?? null);
-      setStatus(`loaded ${candles.length} bars`);
-    } catch (e) {
-      console.error(e);
-      setStatus("error");
-      setSummary({ label: "Couldn’t load data", tone: "neutral" });
+  const status = useMemo(() => {
+    if (latestPrice == null) return { key: "hold", label: "No data yet", color: "bg-zinc-700", icon: PauseCircle };
+    if (cheapZone && latestPrice <= Math.max(cheapZone[0], cheapZone[1])) {
+      return { key: "buy", label: "Good time to buy!", color: "bg-emerald-600", icon: ArrowDownCircle };
     }
-  }
-
-  // Reload when player/timeframe/platform changes
-  useEffect(() => {
-    if (urls) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urls?.candles, urls?.ind]);
-
-  async function placeBuy() {
-    if (!urls || !player) return;
-    try {
-      setPlacing(true);
-      const now = await fetch(urls.now).then((r) => r.json());
-      const body = {
-        player_card_id: player.card_id,
-        platform,
-        qty: 1,
-        max_price: now.price,
-        agent: "SimpleAI",
-      };
-      const res = await fetch(urls.buy, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }).then((r) => r.json());
-      alert(
-        res.filled
-          ? `Order filled at ${Number(res.fill?.price).toLocaleString()} coins`
-          : `Order placed (limit ${Number(res.limit_price).toLocaleString()})`
-      );
-    } catch (e) {
-      alert("Could not place buy: " + e.message);
-    } finally {
-      setPlacing(false);
+    if (expensiveZone && latestPrice >= Math.min(expensiveZone[0], expensiveZone[1])) {
+      return { key: "sell", label: "Price is high — think about selling", color: "bg-rose-600", icon: ArrowUpCircle };
     }
+    return { key: "hold", label: "Don’t buy yet — wait for a better deal", color: "bg-amber-500", icon: PauseCircle };
+  }, [latestPrice, cheapZone, expensiveZone]);
+
+  const StatusIcon = status.icon;
+
+  // Cheap/expensive meter calculations
+  const meter = useMemo(() => {
+    const low = cheapZone ? Math.min(...cheapZone) : (avgPrice ?? 0);
+    const high = expensiveZone ? Math.max(...expensiveZone) : (avgPrice ?? 1);
+    let min = Math.min(low, avgPrice ?? low);
+    let max = Math.max(high, avgPrice ?? high);
+    if (min === max) max = min + 1; // avoid div by zero
+    const value = latestPrice != null ? (latestPrice - min) / (max - min) : 0.5; // 0..1
+    return { min, max, value: Math.max(0, Math.min(1, value)) };
+  }, [cheapZone, expensiveZone, avgPrice, latestPrice]);
+
+  async function handleReload() {
+    if (!onReload) return;
+    setReloading(true);
+    try { await onReload(); } finally { setReloading(false); }
   }
 
-  // ---------- styling helpers ----------
-  const pill = "inline-flex items-center px-2.5 py-1 rounded-full border text-xs border-white/10 bg-white/5";
-  const toneCls =
-    summary.tone === "good"
-      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-200"
-      : summary.tone === "bad"
-      ? "bg-rose-500/10 border-rose-500/30 text-rose-200"
-      : "bg-white/5 border-white/10 text-white/90";
-  const rsiCls =
-    lastRsi == null
-      ? ""
-      : lastRsi < 40
-      ? "text-emerald-300"
-      : lastRsi > 60
-      ? "text-amber-300"
-      : "text-white/90";
-
-  // ----------------- UI (restyled) -----------------
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#140a2a] via-[#1b0f3a] to-[#22134a] text-white">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-8">
-
-        {/* Header */}
-        <header className="mb-5 sm:mb-6 flex items-center justify-between gap-3">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Smart Buyer — Simple</h1>
-          <span className="text-xs text-white/60">{status}</span>
-        </header>
-
-        {/* Controls */}
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr,120px,110px,120px] gap-3 items-center mb-5">
-          <input
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            placeholder="Search player"
-            className="h-11 rounded-xl bg-white/5 border border-white/10 px-3.5 placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
-          />
-          <select
-            value={timeframe}
-            onChange={(e) => setTimeframe(e.target.value)}
-            className="h-11 rounded-xl bg-white/5 border border-white/10 px-3 focus:ring-2 focus:ring-indigo-400/40"
-          >
-            <option value="5m">5m</option>
-            <option value="15m">15m</option>
-            <option value="1h">1h</option>
-          </select>
-          <select
-            value={platform}
-            onChange={(e) => setPlatform(e.target.value)}
-            className="h-11 rounded-xl bg-white/5 border border-white/10 px-3 focus:ring-2 focus:ring-indigo-400/40"
-          >
-            <option value="ps">PS</option>
-            <option value="xbox">Xbox</option>
-          </select>
-          <button
-            onClick={load}
-            className="inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-black font-semibold"
-          >
-            Reload
-          </button>
-        </div>
-
-        {/* Suggestions */}
-        {suggestions.length > 0 && (
-          <div className="mb-4 p-2 rounded-2xl bg-white/5 border border-white/10 max-w-xl">
-            {suggestions.map((s) => (
-              <button
-                key={s.card_id}
-                onClick={() => {
-                  setPlayer(s);
-                  setNameInput(s.name);
-                  setSuggestions([]);
-                }}
-                className="w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/5"
-              >
-                {s.image_url ? (
-                  <img src={s.image_url} alt="" className="w-8 h-8 rounded-md border border-white/10" />
-                ) : (
-                  <div className="w-8 h-8 rounded-md bg-white/10" />
-                )}
-                <div className="text-sm">
-                  <span className="font-medium">{s.name}</span>
-                  <span className="text-white/60"> • {s.position || ""} • {s.version || ""} • {s.rating || ""}</span>
-                </div>
-              </button>
-            ))}
-          </div>
+    <div className="w-full mx-auto max-w-6xl px-4 pb-16">
+      {/* Player header */}
+      <div className="flex items-center gap-3 mb-4">
+        {player?.imageUrl && (
+          <img src={player.imageUrl} alt={player?.name ?? "Player"} className="w-10 h-10 rounded-lg object-cover" />
         )}
-
-        {/* Banner */}
-        <div className={`mb-5 rounded-2xl border p-4 sm:p-5 ${toneCls}`}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-lg sm:text-xl font-semibold">{summary.label}</div>
-            <div className="text-sm text-white/80">
-              Latest sale:&nbsp;
-              <span className="text-white">{lastPrice != null ? Number(lastPrice).toLocaleString() : "—"} c</span>
-            </div>
-          </div>
-
-          {summary.hints?.length ? (
-            <ul className="mt-2 pl-5 list-disc opacity-85 text-sm">
-              {summary.hints.map((h, i) => (
-                <li key={i}>{h}</li>
-              ))}
-            </ul>
-          ) : null}
-
-          {summary.tone !== "bad" && player && (
-            <div className="mt-3">
-              <button
-                onClick={placeBuy}
-                disabled={placing}
-                className="px-3 py-2 rounded-xl bg-emerald-400 text-black font-semibold hover:bg-emerald-300"
-              >
-                {placing ? "Placing…" : "Place Buy"}
-              </button>
-            </div>
-          )}
+        <div className="flex-1">
+          <h1 className="text-xl md:text-2xl font-bold text-white leading-tight">
+            {player?.name || "Select a player"} {player?.rating ? <span className="opacity-75">— {player.rating}</span> : null}
+          </h1>
+          <p className="text-sm text-zinc-300">
+            {timeframe.toUpperCase()} · {platform.toUpperCase()}
+          </p>
         </div>
+        <button
+          onClick={handleReload}
+          disabled={!onReload || reloading}
+          className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-900/30"
+        >
+          <RefreshCw className={`w-4 h-4 ${reloading ? "animate-spin" : ""}`} /> Reload
+        </button>
+      </div>
 
-        {/* Chart */}
-        <div ref={wrapRef} style={{ height: 520 }} className="rounded-2xl border border-white/10 bg-[#0b0f14]" />
+      {/* Status banner */}
+      <motion.div
+        key={status.key}
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 8 }}
+        className={`rounded-3xl ${status.color} p-5 md:p-6 shadow-xl shadow-black/30 border border-white/10`}
+      >
+        <div className="flex items-start md:items-center gap-4">
+          <div className="shrink-0">
+            <StatusIcon className="w-8 h-8 text-white" />
+          </div>
+          <div className="flex-1">
+            <p className="text-lg md:text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+              <Sparkles className="w-5 h-5" /> {status.label}
+            </p>
+            <p className="text-sm md:text-base text-white/90 mt-1">
+              {status.key === "buy" && "Tip: Set a max price and move fast — these deals go quickly!"}
+              {status.key === "sell" && "Tip: Take profit while the price is hot. You can always buy back cheaper."}
+              {status.key === "hold" && "Tip: Keep an eye on the chart — we’ll tell you when the price looks great."}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs uppercase text-white/70">Latest sale</p>
+            <p className="text-2xl font-black text-white tabular-nums">{formatCoins(latestPrice)}</p>
+          </div>
+        </div>
+      </motion.div>
 
-        {/* Legend / stats */}
-        <div className="mt-4 flex flex-wrap gap-3">
-          <span className={pill}><b>Average price</b> (blue line)</span>
-          <span className={pill}><b>Cheap zone</b> (bottom blue)</span>
-          <span className={pill}><b>Expensive zone</b> (top blue)</span>
-          <span className={`${pill} ${rsiCls}`}>RSI: {lastRsi == null ? "—" : Number(lastRsi).toFixed(1)}</span>
-          <span className={pill}>ATR: {lastAtr == null ? "—" : Math.round(Number(lastAtr)).toLocaleString()}</span>
-          {player && <span className={pill}>{player.name} (#{player.card_id})</span>}
+      {/* Cheap ↔ Expensive meter */}
+      <div className="mt-6 rounded-3xl bg-white/5 border border-white/10 p-5">
+        <div className="flex items-center justify-between text-xs uppercase tracking-wide text-zinc-300 mb-2">
+          <span>Cheaper</span>
+          <span>Expensive</span>
+        </div>
+        <div className="relative h-4 rounded-full bg-gradient-to-r from-emerald-500/40 via-yellow-400/40 to-rose-500/40 overflow-hidden">
+          {/* position dot */}
+          <div
+            className="absolute top-0 bottom-0 w-1.5 rounded-full bg-white shadow-[0_0_0_3px_rgba(255,255,255,0.35)]"
+            style={{ left: `calc(${(meter.value * 100).toFixed(2)}% - 3px)` }}
+          />
+        </div>
+        <div className="mt-2 flex items-center justify-between text-xs text-zinc-400">
+          <span>Min: {formatCoins(meter.min)}</span>
+          <span>Avg: {formatCoins(avgPrice)}</span>
+          <span>Max: {formatCoins(meter.max)}</span>
+        </div>
+      </div>
+
+      {/* Chart + legend */}
+      <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 rounded-3xl bg-white/5 border border-white/10 p-3 md:p-4">
+          <div className="h-[360px] w-full rounded-2xl bg-black/30 overflow-hidden">
+            {/* Mount your TradingView or custom chart as children */}
+            {children || (
+              <div className="flex h-full items-center justify-center text-zinc-400">
+                <span className="text-sm">Chart goes here</span>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <Badge>Average price</Badge>
+            <Badge>Good price area</Badge>
+            <Badge>Bad price area</Badge>
+            <Badge>Player #{player?.cardId ?? "—"}</Badge>
+          </div>
+        </div>
+        <div className="rounded-3xl bg-white/5 border border-white/10 p-5 flex flex-col gap-4">
+          <h3 className="text-base font-semibold text-white flex items-center gap-2"><Info className="w-4 h-4"/> Quick Tips</h3>
+          <ul className="text-sm text-zinc-300 list-disc pl-5 space-y-2">
+            <li>Green area = good price. Red area = risky price.</li>
+            <li>Use <span className="font-semibold text-white">Quick Buy</span> when status says Buy.</li>
+            <li>Set coin limits so you don’t overspend.</li>
+          </ul>
+
+          <button className="mt-2 inline-flex items-center justify-center rounded-2xl bg-emerald-600 hover:bg-emerald-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/30">
+            ⚡ Quick Buy
+          </button>
+
+          {/* Advanced stats collapsible */}
+          <div className="mt-2">
+            <button
+              onClick={() => setShowAdvanced(v => !v)}
+              className="w-full flex items-center justify-between rounded-xl bg-black/30 border border-white/10 px-4 py-2 text-sm text-white/90"
+            >
+              <span>Advanced Stats</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
+            </button>
+            <AnimatePresence initial={false}>
+              {showAdvanced && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-4 py-3 grid grid-cols-2 gap-3 text-sm">
+                    <Stat label="RSI" value={rsi != null ? rsi.toFixed(1) : "—"} />
+                    <Stat label="ATR" value={atr != null ? atr.toFixed(2) : "—"} />
+                    <Stat label="Cheap Zone" value={formatRange(cheapZone)} />
+                    <Stat label="Expensive Zone" value={formatRange(expensiveZone)} />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </div>
   );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="rounded-xl bg-white/5 border border-white/10 p-3">
+      <p className="text-xs uppercase tracking-wide text-zinc-400">{label}</p>
+      <p className="mt-0.5 text-base font-semibold text-white tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function Badge({ children }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-white/10 border border-white/10 px-3 py-1 text-xs text-zinc-200">
+      {children}
+    </span>
+  );
+}
+
+// Helpers
+function formatCoins(n) {
+  if (n == null || Number.isNaN(n)) return "—";
+  const x = Math.round(Number(n));
+  return x.toLocaleString() + " c";
+}
+
+function formatRange(r) {
+  if (!r || r[0] == null || r[1] == null) return "—";
+  const [a, b] = r;
+  const lo = Math.min(a, b);
+  const hi = Math.max(a, b);
+  return `${formatCoins(lo)} – ${formatCoins(hi)}`;
 }
