@@ -1,5 +1,4 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../axios';
 
 const AuthContext = createContext();
@@ -45,30 +44,52 @@ const initialState = {
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Routes that should never trigger auth checks
-  const PUBLIC_ROUTES = ['/access-denied', '/login', '/landing'];
-
   const checkAuthStatus = async () => {
+    // Check if we're on a public route (HashRouter uses hash)
+    const hash = window.location.hash;
+    const isAccessDenied = hash.includes('/access-denied') || hash.includes('access-denied');
+    const isLogin = hash.includes('/login') || hash.includes('login');
+    const isLanding = hash.includes('/landing') || hash.includes('landing');
+    
+    if (isAccessDenied || isLogin || isLanding) {
+      console.log('🔍 On public route, skipping auth check:', hash);
+      dispatch({ type: 'SET_LOADING', payload: false });
+      return;
+    }
+
     try {
+      console.log('🔍 Checking auth status...');
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await api.get('/api/me');
       
       if (response.data.authenticated) {
+        console.log('✅ User authenticated:', response.data.user_id);
         dispatch({ 
           type: 'SET_AUTHENTICATED', 
           payload: response.data 
         });
       } else {
+        console.log('❌ User not authenticated, reason:', response.data.error);
         dispatch({ type: 'SET_UNAUTHENTICATED' });
         
         // Handle membership revoked case
         if (response.data.error === 'membership_revoked') {
-          window.location.href = '/access-denied';
+          console.log('🚫 Redirecting to access denied - membership revoked');
+          window.location.hash = '/access-denied';
+        } else {
+          console.log('🔄 Redirecting to login');
+          window.location.hash = '/login';
         }
       }
     } catch (error) {
-      console.log('Auth check failed:', error.message);
+      console.log('❌ Auth check failed:', error.message);
       dispatch({ type: 'SET_UNAUTHENTICATED' });
+      
+      // Only redirect if not already on public route
+      const hash = window.location.hash;
+      if (!hash.includes('/access-denied') && !hash.includes('/login') && !hash.includes('/landing')) {
+        window.location.hash = '/login';
+      }
     }
   };
 
@@ -80,24 +101,31 @@ export const AuthProvider = ({ children }) => {
     try {
       await api.get('/api/logout');
       dispatch({ type: 'SET_UNAUTHENTICATED' });
+      window.location.hash = '/login';
     } catch (error) {
       console.error('Logout error:', error);
       dispatch({ type: 'SET_UNAUTHENTICATED' });
+      window.location.hash = '/login';
     }
   };
 
   useEffect(() => {
-    // Get current path
-    const currentPath = window.location.hash.replace('#', '') || window.location.pathname;
-    
-    // Don't check auth on public routes
-    if (PUBLIC_ROUTES.includes(currentPath)) {
-      dispatch({ type: 'SET_LOADING', payload: false });
-      return;
-    }
-    
-    // Only check auth for protected routes
+    console.log('🔍 AuthProvider mounted, current hash:', window.location.hash);
     checkAuthStatus();
+
+    // Listen for hash changes
+    const handleHashChange = () => {
+      console.log('🔍 Hash changed to:', window.location.hash);
+      // Don't re-check auth when navigating to public routes
+      const hash = window.location.hash;
+      const isPublicRoute = hash.includes('/access-denied') || hash.includes('/login') || hash.includes('/landing');
+      if (!isPublicRoute && !state.isAuthenticated) {
+        checkAuthStatus();
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   const value = {
