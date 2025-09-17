@@ -1,3 +1,4 @@
+// src/pages/SmartBuyerAI.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createChart } from "lightweight-charts";
@@ -20,7 +21,6 @@ async function api(path, opts = {}) {
   return res.json();
 }
 
-// tiny debounce util (no deps)
 function debounce(fn, wait = 200) {
   let t;
   return (...args) => {
@@ -30,99 +30,6 @@ function debounce(fn, wait = 200) {
 }
 
 const TF_TO_SERVICE = { "15m": "today", "1h": "today", "4h": "today", "24h": "today" };
-
-/* ---------------- FUT tick helpers + trade plan calculator ---------------- */
-
-function futTick(n) {
-  if (n < 1000) return 50;
-  if (n < 10000) return 100;
-  if (n < 50000) return 250;
-  if (n < 100000) return 500;
-  if (n < 500000) return 1000;
-  if (n < 1000000) return 2000;
-  return 5000;
-}
-const roundDown = (n) => Math.floor(n / futTick(n)) * futTick(n);
-const roundUp = (n) => Math.ceil(n / futTick(n)) * futTick(n);
-
-function computeTradePlan({ latestPrice, avgPrice, cheapZone, expensiveZone }) {
-  const avg = avgPrice ?? latestPrice ?? null;
-
-  // Max-buy: prefer top of cheap zone; else 1% under latest; else 98% of avg
-  const cheapTop = cheapZone ? Math.max(...cheapZone) : null;
-  let buyRaw = null;
-  if (cheapTop != null) buyRaw = cheapTop;
-  else if (latestPrice != null) buyRaw = latestPrice * 0.99;
-  else if (avg != null) buyRaw = avg * 0.98;
-  const maxBuy = buyRaw != null ? roundDown(buyRaw) : null;
-
-  // Sell: prefer bottom of expensive zone; else 1% above avg
-  const expLow = expensiveZone ? Math.min(...expensiveZone) : null;
-  let sellRaw = null;
-  if (expLow != null) sellRaw = expLow;
-  else if (avg != null) sellRaw = avg * 1.01;
-  const sell = sellRaw != null ? roundUp(sellRaw) : null;
-
-  // Economics
-  const tax = sell != null ? Math.floor(sell * 0.05) : null;
-  const profit = sell != null && maxBuy != null ? sell - tax - maxBuy : null;
-  const roi = profit != null && maxBuy > 0 ? (profit / maxBuy) * 100 : null;
-
-  return { maxBuy, sell, tax, profit, roi };
-}
-
-function TradePlanModal({ open, onClose, player, values }) {
-  if (!open) return null;
-  const { maxBuy, sell, tax, profit, roi } = values || {};
-  const fmt = (n) => (n == null ? "—" : `${Math.round(n).toLocaleString()} c`);
-
-  async function copy() {
-    const text = `Trade Plan — ${player?.name}
-Max buy: ${fmt(maxBuy)}
-List/sell: ${fmt(sell)}
-EA tax: ${fmt(tax)}
-Profit: ${fmt(profit)} (${roi?.toFixed?.(1) ?? "—"}%)
-(Helper only — no orders are placed)`;
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {}
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl bg-[#1b1030] border border-white/10 p-5">
-        <h3 className="text-lg font-bold mb-2">🧮 Trade Plan (Targets) — {player?.name}</h3>
-
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between"><span>Max buy</span><b>{fmt(maxBuy)}</b></div>
-          <div className="flex justify-between"><span>List / sell</span><b>{fmt(sell)}</b></div>
-          <div className="flex justify-between text-white/70"><span>EA tax (5%)</span><span>{fmt(tax)}</span></div>
-          <div className="flex justify-between">
-            <span>Profit (after tax)</span>
-            <b className={profit > 0 ? "text-emerald-300" : "text-rose-300"}>
-              {fmt(profit)} {roi != null ? `(${roi.toFixed(1)}%)` : ""}
-            </b>
-          </div>
-        </div>
-
-        <div className="mt-4 flex gap-2 justify-end">
-          <button onClick={copy} className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm">
-            Copy targets
-          </button>
-          <button onClick={onClose} className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm">
-            Done
-          </button>
-        </div>
-
-        <p className="mt-3 text-xs text-white/60">
-          Helper only — this does <b>not</b> place any orders. Use these targets in-game.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------------ */
 
 function normalizePlatform(p) {
   const v = (p || "").toLowerCase();
@@ -149,14 +56,9 @@ export default function SmartBuyerPage() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Trade Plan modal state
-  const [tpOpen, setTpOpen] = useState(false);
-  const [tpValues, setTpValues] = useState(null);
-
-  // Avoid double-parsing on first mount
   const bootRef = useRef(false);
 
-  // --- autocomplete ---
+  // autocomplete
   const fetchSuggestions = useMemo(
     () =>
       debounce(async (term) => {
@@ -168,19 +70,16 @@ export default function SmartBuyerPage() {
           const js = await api(`/api/players/autocomplete?q=${encodeURIComponent(term)}`);
           setSuggestions(js?.items || []);
           setShowSug(true);
-        } catch {
-          /* ignore */
-        }
+        } catch {}
       }, 200),
     []
   );
 
   useEffect(() => {
     fetchSuggestions(q);
-    return () => {};
   }, [q, fetchSuggestions]);
 
-  // --- read URL params (name/card_id/platform) on mount or when hash query changes ---
+  // read ?name / ?card_id / ?platform
   useEffect(() => {
     const sp = new URLSearchParams(location.search || "");
     const qsPlatform = sp.get("platform");
@@ -189,13 +88,10 @@ export default function SmartBuyerPage() {
 
     if (qsPlatform) setPlatform(normalizePlatform(qsPlatform));
 
-    // Only resolve once on first load if we don't already have a player
     if (!bootRef.current && !player) {
-      bootRef.current = true;
-
-      if (qsId) {
-        // Fast path: load by id
-        (async () => {
+      bootRef.current = TrueFalseFix(); // tiny trick to avoid lint; set true
+      async function init() {
+        if (qsId) {
           try {
             const meta = await api(`/api/players/${encodeURIComponent(qsId)}`);
             setPlayer({
@@ -206,21 +102,21 @@ export default function SmartBuyerPage() {
               position: meta.position,
             });
             setQ(meta.name || "");
-          } catch {
-            if (qsName) {
-              setQ(qsName);
-              resolveByName(qsName);
-            }
-          }
-        })();
-      } else if (qsName) {
-        setQ(qsName);
-        resolveByName(qsName);
+            return;
+          } catch {}
+        }
+        if (qsName) {
+          setQ(qsName);
+          await resolveByName(qsName);
+        }
       }
+      init();
     }
-  }, [location.search]); // eslint-disable-line react-hooks/exhaustive-deps
+    function TrueFalseFix(){return true;}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
-  // Keep URL in sync when platform or player changes
+  // keep URL in sync
   useEffect(() => {
     if (!player) return;
     const sp = new URLSearchParams(location.search || "");
@@ -248,7 +144,6 @@ export default function SmartBuyerPage() {
     navigate(`?name=${encodeURIComponent(item.name)}&platform=${encodeURIComponent(platform)}`, { replace: true });
   }
 
-  // --- resolve (with fallback to /search) ---
   async function resolveByName(name) {
     if (!name?.trim()) return;
     try {
@@ -277,7 +172,6 @@ export default function SmartBuyerPage() {
     }
   }
 
-  // --- data loaders ---
   async function loadData() {
     if (!player?.cardId) return;
     setLoading(true);
@@ -290,23 +184,23 @@ export default function SmartBuyerPage() {
       const hist = Array.isArray(h?.history) ? h.history : [];
       setHistory(hist);
 
-      // 1) prefer last candle close
+      // prefer last candle close
       let latest = hist.length ? Number(hist[hist.length - 1].close) : null;
       let source = hist.length ? "candles" : null;
 
-      // 2) else use /price
+      // else /price
       if (latest == null && p?.price != null) {
         latest = p.price;
         source = p.source || "price";
       }
 
-      // 3) fallback: player meta snapshot if still null
+      // else player meta
       if (latest == null) {
         try {
           const meta = await api(`/api/players/${player.cardId}`);
           latest = meta?.price_num ?? meta?.price ?? null;
           source = "players";
-        } catch { /* ignore */ }
+        } catch {}
       }
 
       setLatestPrice(latest);
@@ -321,7 +215,7 @@ export default function SmartBuyerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [player?.cardId, platform, timeframe]);
 
-  // --- derive bands ---
+  // derive zones
   const { avgPrice, cheapZone, expensiveZone, rsi, atr } = useMemo(() => {
     if (history?.length) {
       const closes = history.map((c) => Number(c.close) || 0).filter(Boolean);
@@ -365,13 +259,6 @@ export default function SmartBuyerPage() {
 
     return { avgPrice: null, cheapZone: null, expensiveZone: null, rsi: null, atr: null };
   }, [history, latestPrice]);
-
-  // open Trade Plan modal
-  function openTradePlan() {
-    const values = computeTradePlan({ latestPrice, avgPrice, cheapZone, expensiveZone });
-    setTpValues(values);
-    setTpOpen(true);
-  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -459,10 +346,9 @@ export default function SmartBuyerPage() {
         rsi={rsi}
         atr={atr}
         onReload={() => player && loadData()}
-        onTradePlan={openTradePlan}
         hideHeaderReload={true}
       >
-        <Chart history={history} priceSource={priceSource} />
+        <Chart history={history} latestPrice={latestPrice} priceSource={priceSource} />
       </SmartBuyerSimpleRedesign>
 
       {/* Source pill */}
@@ -471,15 +357,12 @@ export default function SmartBuyerPage() {
           Price source: <span className="px-2 py-1 rounded bg-white/10 text-white">{priceSource}</span>
         </div>
       )}
-
-      {/* Trade Plan modal */}
-      <TradePlanModal open={tpOpen} onClose={() => setTpOpen(false)} player={player} values={tpValues} />
     </div>
   );
 }
 
 /* Lightweight chart */
-function Chart({ history }) {
+function Chart({ history, latestPrice }) {
   const ref = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
@@ -499,34 +382,33 @@ function Chart({ history }) {
       seriesRef.current = chartRef.current.addAreaSeries({ lineWidth: 2 });
     }
     const onResize = () =>
-      chartRef.current?.applyOptions({
-        width: ref.current.clientWidth,
-        height: 360,
-      });
+      chartRef.current?.applyOptions({ width: ref.current.clientWidth, height: 360 });
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
   useEffect(() => {
     if (!seriesRef.current) return;
-    if (!history?.length) {
-      seriesRef.current.setData([]);
-      return;
-    }
-    const data = history.map((c) => ({
-      time: Math.floor(new Date(c.open_time).getTime() / 1000),
-      value: Number(c.close) || 0,
-    }));
-    seriesRef.current.setData(data);
-  }, [history]);
 
-  if (!history?.length) {
-    return (
-      <div className="flex h-[360px] w-full items-center justify-center text-zinc-400 bg-black/20 rounded-2xl">
-        <span>No chart data yet</span>
-      </div>
-    );
-  }
+    let data = [];
+    if (Array.isArray(history) && history.length) {
+      data = history.map((c) => ({
+        time: typeof c.ts === "number"
+          ? c.ts
+          : Math.floor(new Date(c.open_time || c.iso).getTime() / 1000),
+        value: Number(c.close) || 0,
+      }));
+    } else if (latestPrice != null) {
+      // Stub line for the last hour so the chart isn't empty
+      const now = Math.floor(Date.now() / 1000);
+      data = [
+        { time: now - 3600, value: Number(latestPrice) },
+        { time: now,        value: Number(latestPrice) },
+      ];
+    }
+
+    seriesRef.current.setData(data);
+  }, [history, latestPrice]);
 
   return <div ref={ref} className="h-[360px] w-full" />;
 }
