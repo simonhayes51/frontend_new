@@ -4,12 +4,9 @@ import Loading from './Loading';
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
-  // Check if we're on access denied page
-  const hash = window.location.hash;
-  const isAccessDenied = hash.includes('/access-denied');
-  
-  if (isAccessDenied) {
-    // Don't show loading or redirect for access denied page
+  // Don't protect if we're on access-denied
+  if (window.location.pathname === '/access-denied' || 
+      window.location.pathname.includes('access-denied')) {
     return children;
   }
 
@@ -18,6 +15,7 @@ const PrivateRoute = ({ children }) => {
   }
 
   if (!isAuthenticated) {
+    // Use hash routing for login
     window.location.hash = '/login';
     return null;
   }
