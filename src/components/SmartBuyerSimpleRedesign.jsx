@@ -1,7 +1,16 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useMemo, useState } from "react";
 import { ArrowDownCircle, ArrowUpCircle, PauseCircle, Sparkles, Info, ChevronDown, RefreshCw } from "lucide-react";
 
+/**
+ * Kid-friendly Smart Buyer panel (no external animation deps)
+ * Props:
+ *  - player, platform, timeframe
+ *  - latestPrice, avgPrice, cheapZone [lo,hi], expensiveZone [lo,hi]
+ *  - rsi, atr
+ *  - onReload: () => void
+ *  - hideHeaderReload: boolean (default true)
+ *  - children: chart node
+ */
 export default function SmartBuyerSimpleRedesign({
   player,
   platform = "ps",
@@ -14,6 +23,7 @@ export default function SmartBuyerSimpleRedesign({
   atr = null,
   onReload,
   children,
+  hideHeaderReload = true,
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [reloading, setReloading] = useState(false);
@@ -49,6 +59,7 @@ export default function SmartBuyerSimpleRedesign({
 
   return (
     <div className="w-full mx-auto max-w-6xl px-4 pb-16">
+      {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         {player?.imageUrl && (
           <img src={player.imageUrl} alt={player?.name ?? "Player"} className="w-10 h-10 rounded-lg object-cover" />
@@ -57,26 +68,22 @@ export default function SmartBuyerSimpleRedesign({
           <h1 className="text-xl md:text-2xl font-bold text-white leading-tight">
             {player?.name || "Select a player"} {player?.rating ? <span className="opacity-75">— {player.rating}</span> : null}
           </h1>
-          <p className="text-sm text-zinc-300">
-            {timeframe.toUpperCase()} · {platform.toUpperCase()}
-          </p>
+          <p className="text-sm text-zinc-300">{timeframe.toUpperCase()} · {platform.toUpperCase()}</p>
         </div>
-        <button
-          onClick={handleReload}
-          disabled={!onReload || reloading}
-          className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-900/30"
-        >
-          <RefreshCw className={`w-4 h-4 ${reloading ? "animate-spin" : ""}`} /> Reload
-        </button>
+
+        {!hideHeaderReload && (
+          <button
+            onClick={handleReload}
+            disabled={!onReload || reloading}
+            className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-900/30"
+          >
+            <RefreshCw className={`w-4 h-4 ${reloading ? "animate-spin" : ""}`} /> Reload
+          </button>
+        )}
       </div>
 
-      <motion.div
-        key={status.key}
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 8 }}
-        className={`rounded-3xl ${status.color} p-5 md:p-6 shadow-xl shadow-black/30 border border-white/10`}
-      >
+      {/* Status banner */}
+      <div className={`rounded-3xl ${status.color} p-5 md:p-6 shadow-xl shadow-black/30 border border-white/10 transition-colors`}>
         <div className="flex items-start md:items-center gap-4">
           <div className="shrink-0">
             <StatusIcon className="w-8 h-8 text-white" />
@@ -96,12 +103,12 @@ export default function SmartBuyerSimpleRedesign({
             <p className="text-2xl font-black text-white tabular-nums">{formatCoins(latestPrice)}</p>
           </div>
         </div>
-      </motion.div>
+      </div>
 
+      {/* Cheap ↔ Expensive meter */}
       <div className="mt-6 rounded-3xl bg-white/5 border border-white/10 p-5">
         <div className="flex items-center justify-between text-xs uppercase tracking-wide text-zinc-300 mb-2">
-          <span>Cheaper</span>
-          <span>Expensive</span>
+          <span>Cheaper</span><span>Expensive</span>
         </div>
         <div className="relative h-4 rounded-full bg-gradient-to-r from-emerald-500/40 via-yellow-400/40 to-rose-500/40 overflow-hidden">
           <div
@@ -116,6 +123,7 @@ export default function SmartBuyerSimpleRedesign({
         </div>
       </div>
 
+      {/* Chart + tips */}
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 rounded-3xl bg-white/5 border border-white/10 p-3 md:p-4">
           <div className="h-[360px] w-full rounded-2xl bg-black/30 overflow-hidden">
@@ -132,8 +140,9 @@ export default function SmartBuyerSimpleRedesign({
             <Badge>Player #{player?.cardId ?? "—"}</Badge>
           </div>
         </div>
+
         <div className="rounded-3xl bg-white/5 border border-white/10 p-5 flex flex-col gap-4">
-          <h3 className="text-base font-semibold text-white flex items-center gap-2"><Info className="w-4 h-4"/> Quick Tips</h3>
+          <h3 className="text-base font-semibold text-white flex items-center gap-2"><Info className="w-4 h-4" /> Quick Tips</h3>
           <ul className="text-sm text-zinc-300 list-disc pl-5 space-y-2">
             <li>Green area = good price. Red area = risky price.</li>
             <li>Use <span className="font-semibold text-white">Quick Buy</span> when status says Buy.</li>
@@ -144,6 +153,7 @@ export default function SmartBuyerSimpleRedesign({
             ⚡ Quick Buy
           </button>
 
+          {/* Advanced Stats (no animation lib) */}
           <div className="mt-2">
             <button
               onClick={() => setShowAdvanced(v => !v)}
@@ -152,23 +162,14 @@ export default function SmartBuyerSimpleRedesign({
               <span>Advanced Stats</span>
               <ChevronDown className={`w-4 h-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
             </button>
-            <AnimatePresence initial={false}>
-              {showAdvanced && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="px-4 py-3 grid grid-cols-2 gap-3 text-sm">
-                    <Stat label="RSI" value={rsi != null ? rsi.toFixed(1) : "—"} />
-                    <Stat label="ATR" value={atr != null ? atr.toFixed(2) : "—"} />
-                    <Stat label="Cheap Zone" value={formatRange(cheapZone)} />
-                    <Stat label="Expensive Zone" value={formatRange(expensiveZone)} />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <div className={`overflow-hidden transition-all duration-300 ${showAdvanced ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}>
+              <div className="px-4 py-3 grid grid-cols-2 gap-3 text-sm">
+                <Stat label="RSI" value={rsi != null ? rsi.toFixed(1) : "—"} />
+                <Stat label="ATR" value={atr != null ? atr.toFixed(2) : "—"} />
+                <Stat label="Cheap Zone" value={formatRange(cheapZone)} />
+                <Stat label="Expensive Zone" value={formatRange(expensiveZone)} />
+              </div>
+            </div>
           </div>
         </div>
       </div>
