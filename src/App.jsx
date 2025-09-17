@@ -1,11 +1,10 @@
 // src/App.jsx
-
 import { lazy, Suspense } from "react";
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { DashboardProvider } from "./context/DashboardContext";
 import { SettingsProvider } from "./context/SettingsContext";
-import { EntitlementsProvider } from "./context/EntitlementsContext"; // Make sure this is imported
+import { EntitlementsProvider } from "./context/EntitlementsContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
 import Loading from "./components/Loading";
@@ -35,10 +34,9 @@ const NotFound      = lazy(() => import("./pages/NotFound"));
 const PlayerCompare = lazy(() => import("./pages/PlayerCompare"));
 const Billing       = lazy(() => import("./pages/Billing"));
 
-// NEW pages
 const SmartBuyerAI  = lazy(() => import("./pages/SmartBuyerAI"));
 const BestBuys      = lazy(() => import("./pages/BestBuys"));
-const SBCHub        = lazy(() => import("./pages/SBCHub"));   // <-- add this
+const SBCHub        = lazy(() => import("./pages/SBCHub"));
 
 function App() {
   return (
@@ -49,7 +47,7 @@ function App() {
             <div className="bg-black min-h-screen text-white">
               <Suspense fallback={<Loading />}>
                 <Routes>
-                  {/* Public routes */}
+                  {/* Public */}
                   <Route path="/login" element={<Login />} />
                   <Route path="/access-denied" element={<AccessDenied />} />
                   <Route path="/landing" element={<Landing />} />
@@ -67,8 +65,10 @@ function App() {
                       </PrivateRoute>
                     }
                   >
-                    {/* Free tier pages */}
-                    <Route index element={<Dashboard />} />
+                    {/* 👉 Default to Best Buys */}
+                    <Route index element={<BestBuys />} />
+
+                    {/* Other pages */}
                     <Route path="add-trade" element={<AddTrade />} />
                     <Route path="trades" element={<Trades />} />
                     <Route path="player-search" element={<PlayerSearch />} />
@@ -80,12 +80,9 @@ function App() {
                     <Route path="watchlist" element={<Watchlist />} />
                     <Route path="squad" element={<SquadBuilder />} />
                     <Route path="billing" element={<Billing />} />
-                    <Route path="sbc" element={<SBCHub />} />   {/* <-- FIXED route */}
-
-                    {/* Basic trending (free tier gets limited access) */}
+                    <Route path="sbc" element={<SBCHub />} />
                     <Route path="trending" element={<Trending />} />
 
-                    {/* Premium-only routes */}
                     <Route
                       path="smart-buy"
                       element={
@@ -104,7 +101,6 @@ function App() {
                       }
                     />
 
-                    {/* NEW: Smart Buyer (Simple) with name search + Place Buy */}
                     <Route
                       path="smart-buyer-ai"
                       element={
@@ -114,7 +110,6 @@ function App() {
                       }
                     />
 
-                    {/* NEW: Best Buys overview with risk rating */}
                     <Route
                       path="best-buys"
                       element={
@@ -124,7 +119,6 @@ function App() {
                       }
                     />
 
-                    {/* Optional: more premium analytics */}
                     <Route
                       path="advanced-analytics"
                       element={
@@ -135,7 +129,6 @@ function App() {
                     />
                   </Route>
 
-                  {/* 404 fallback */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
