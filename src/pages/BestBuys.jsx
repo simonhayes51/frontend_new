@@ -1,5 +1,5 @@
 // src/pages/BestBuys.jsx
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -17,7 +17,7 @@ import {
 const API_BASE =
   (import.meta?.env?.VITE_API_URL?.replace(/\/$/, "")) || "https://api.futhub.co.uk";
 
-const PLATFORM = "ps"; // console only — keep it internal
+const PLATFORM = "ps"; // console only (used internally for API)
 
 function formatCoins(n) {
   const x = Number(n || 0);
@@ -26,6 +26,21 @@ function formatCoins(n) {
 
 function cx(...xs) {
   return xs.filter(Boolean).join(" ");
+}
+
+// small debounce (no deps)
+function useDebounced(fn, wait = 200) {
+  const t = useRef();
+  return (...args) => {
+    clearTimeout(t.current);
+    t.current = setTimeout(() => fn(...args), wait);
+  };
+}
+
+async function api(path) {
+  const r = await fetch(`${API_BASE}${path}`, { credentials: "include" });
+  if (!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
+  return r.json();
 }
 
 function RiskPill({ label = "Unknown" }) {
@@ -84,18 +99,15 @@ function Sparkline({ data }) {
   );
 }
 
-/* ---------- Custom Glass Dropdown (matches theme) ---------- */
+/* ---------- Custom Glass Dropdown ---------- */
 function GlassDropdown({ value, onChange, options, label = "Sort" }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
-    function onDoc(e) {
-      if (!ref.current) return;
-      if (!ref.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener("click", onDoc);
-    return () => document.removeEventListener("click", onDoc);
+    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
   }, []);
 
   const current = options.find((o) => o.value === value) || options[0];
@@ -126,10 +138,7 @@ function GlassDropdown({ value, onChange, options, label = "Sort" }) {
                 key={o.value}
                 role="option"
                 aria-selected={active}
-                onClick={() => {
-                  onChange(o.value);
-                  setOpen(false);
-                }}
+                onClick={() => { onChange(o.value); setOpen(false); }}
                 className={cx(
                   "w-full text-left px-3 py-2 flex items-center gap-2 text-sm",
                   active ? "bg-white/10 text-white" : "text-zinc-200 hover:bg-white/5"
@@ -145,14 +154,20 @@ function GlassDropdown({ value, onChange, options, label = "Sort" }) {
     </div>
   );
 }
-/* ----------------------------------------------------------- */
+/* ------------------------------------------ */
 
 export default function BestBuys() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [q, setQ] = useState("");
 
+  // Autocomplete state (global players)
+  const [term, setTerm] = useState("");
+  const [sug, setSug] = useState([]);
+  const [showSug, setShowSug] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
+
+  // Filters / sort (unchanged)
   const [risk, setRisk] = useState("All"); // All | Low | Medium | High
   const [sort, setSort] = useState("cheap"); // cheap | current | volume | rating | name
 
@@ -179,11 +194,57 @@ export default function BestBuys() {
   }
   useEffect(() => { load(); }, []);
 
-  // filter + sort
+  // -------- AUTOCOMPLETE (global) --------
+  const debouncedFetch = useDebounced(async (q) => {
+    if (!q?.trim()) { setSug([]); return; }
+    try {
+      const res = await api(`/api/players/autocomplete?q=${encodeURIComponent(q)}`);
+      setSug(res?.items || []);
+      setShowSug(true);
+      setActiveIdx(-1);
+    } catch {
+      setSug([]);
+      setShowSug(false);
+    }
+  }, 160);
+
+  useEffect(() => { debouncedFetch(term); }, [term]);
+
+  function goTo(name) {
+    if (!name?.trim()) return;
+    navigate(`/smart-buyer-ai?name=${encodeURIComponent(name.trim())}`);
+  }
+
+  function selectSuggestion(item) {
+    setShowSug(false);
+    setTerm(item?.name || "");
+    if (item?.name) goTo(item.name);
+  }
+
+  function onKeyDown(e) {
+    if (!showSug || sug.length === 0) {
+      if (e.key === "Enter" && term.trim()) goTo(term);
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((i) => (i + 1) % sug.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => (i - 1 + sug.length) % sug.length);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const item = sug[activeIdx] || sug[0];
+      if (item) selectSuggestion(item);
+    } else if (e.key === "Escape") {
+      setShowSug(false);
+    }
+  }
+  // ---------------------------------------
+
+  // filter + sort (NOTE: no search-term filtering here anymore)
   const filteredSorted = useMemo(() => {
     let arr = Array.isArray(rows) ? rows.slice() : [];
-    const term = q.trim().toLowerCase();
-    if (term) arr = arr.filter((r) => (r?.player?.name || "").toLowerCase().includes(term));
     if (["Low", "Medium", "High"].includes(risk)) {
       arr = arr.filter((r) => (r?.risk_label || "").toLowerCase() === risk.toLowerCase());
     }
@@ -203,7 +264,7 @@ export default function BestBuys() {
       }
     });
     return arr;
-  }, [rows, q, risk, sort]);
+  }, [rows, risk, sort]);
 
   // KPIs
   const kpi = useMemo(() => {
@@ -215,12 +276,6 @@ export default function BestBuys() {
       : 0;
     return { avgCheap, avgVol, medianPrice };
   }, [filteredSorted]);
-
-  function goToSmartBuyer(name) {
-    const nm = (name || q || "").trim();
-    if (!nm) return;
-    navigate(`/smart-buyer-ai?name=${encodeURIComponent(nm)}`); // platform defaults inside page
-  }
 
   function copyLink(name) {
     const url = `${location.origin}${location.pathname}#/smart-buyer-ai?name=${encodeURIComponent(name || "")}`;
@@ -238,31 +293,51 @@ export default function BestBuys() {
           <div className="flex-1">
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Best Buys — Live Picks</h1>
             <p className="text-sm text-white/70">
-              Underpriced cards right now. Click a card to open Smart Buyer for details.
+              Underpriced cards right now. Use the search to jump to Smart Buyer for any player.
             </p>
           </div>
         </div>
 
-        {/* Controls (no platform selector) */}
+        {/* Controls */}
         <div className="flex flex-col md:flex-row gap-3">
-          {/* search */}
+          {/* Autocomplete search (global) */}
           <div className="relative flex-1">
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-3">
               <Search className="w-4 h-4 text-zinc-300" />
               <input
                 className="w-full bg-transparent py-3 text-white placeholder:text-zinc-400 focus:outline-none"
-                placeholder="Search a player (e.g., Mohamed Salah)"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && goToSmartBuyer()}
+                placeholder="Search any player (e.g., Mohamed Salah)"
+                value={term}
+                onChange={(e) => setTerm(e.target.value)}
+                onFocus={() => sug.length && setShowSug(true)}
+                onKeyDown={onKeyDown}
               />
               <button
-                onClick={() => goToSmartBuyer()}
+                onClick={() => term.trim() && goTo(term)}
                 className="rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-2"
               >
                 Search
               </button>
             </div>
+
+            {showSug && sug.length > 0 && (
+              <div className="absolute z-30 mt-2 w-full rounded-2xl bg-[#1b1030] border border-white/10 shadow-xl overflow-hidden">
+                {sug.map((s, i) => (
+                  <button
+                    key={`${s.card_id}-${s.name}`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => selectSuggestion(s)}
+                    className={cx(
+                      "w-full text-left px-3 py-2 flex items-center gap-2 text-sm",
+                      i === activeIdx ? "bg-white/10 text-white" : "text-zinc-200 hover:bg-white/5"
+                    )}
+                  >
+                    <img src={s.image_url} alt="" className="w-6 h-6 rounded border border-white/10" />
+                    <span className="flex-1 truncate">{s.label || s.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* risk filter */}
@@ -357,7 +432,7 @@ export default function BestBuys() {
                 <div
                   key={r.player_card_id || i}
                   className="group p-4 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
-                  onClick={() => goToSmartBuyer(name)}
+                  onClick={() => goTo(name)}
                   title="Open in Smart Buyer"
                 >
                   <div className="flex items-center gap-3">
@@ -414,10 +489,7 @@ export default function BestBuys() {
                     <div className="flex gap-2">
                       <button
                         className="inline-flex items-center gap-2 rounded-2xl bg-white/10 hover:bg-white/15 px-3 py-2 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          copyLink(name);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); copyLink(name); }}
                         title="Copy Smart Buyer link"
                       >
                         <Copy className="w-3.5 h-3.5" /> Copy Link
