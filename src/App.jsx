@@ -41,6 +41,16 @@ const SmartBuyerAI  = lazy(() => import("./pages/SmartBuyerAI"));
 const BestBuys      = lazy(() => import("./pages/BestBuys"));
 const SBCHub        = lazy(() => import("./pages/SBCHub"));
 
+// ENHANCED features
+const PortfolioOptimizer = lazy(() => import("./pages/PortfolioOptimizer"));
+const ProfitCalculator = lazy(() => import("./pages/ProfitCalculator"));
+const TradeCopilot = lazy(() => import("./pages/TradeCopilot"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const ReferralProgram = lazy(() => import("./pages/ReferralProgram"));
+const MarketSentiment = lazy(() => import("./pages/MarketSentiment"));
+const PricingTiers = lazy(() => import("./pages/PricingTiers"));
+const MarketMaker = lazy(() => import("./pages/MarketMaker"));
+
 function App() {
   return (
     <ErrorBoundary>
@@ -86,7 +96,11 @@ function App() {
                     <Route path="watchlist" element={<Watchlist />} />
                     <Route path="squad" element={<SquadBuilder />} />
                     <Route path="billing" element={<Billing />} />
+                    <Route path="pricing" element={<PricingTiers />} />
                     <Route path="sbc" element={<SBCHub />} />
+                    <Route path="profit-calculator" element={<ProfitCalculator />} />
+                    <Route path="leaderboard" element={<Leaderboard />} />
+                    <Route path="referrals" element={<ReferralProgram />} />
 
                     {/* Basic trending (free tier gets limited access) */}
                     <Route path="trending" element={<Trending />} />
@@ -136,6 +150,43 @@ function App() {
                       element={
                         <PremiumRoute feature="advanced_analytics" featureName="Advanced Analytics">
                           <ProfitGraph />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    {/* Elite tier features */}
+                    <Route
+                      path="portfolio-optimizer"
+                      element={
+                        <PremiumRoute feature="portfolio_optimizer" featureName="Portfolio Optimizer">
+                          <PortfolioOptimizer />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    <Route
+                      path="trade-copilot"
+                      element={
+                        <PremiumRoute feature="ai_copilot" featureName="AI Trade Copilot">
+                          <TradeCopilot />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    <Route
+                      path="market-sentiment"
+                      element={
+                        <PremiumRoute feature="market_sentiment" featureName="Market Sentiment">
+                          <MarketSentiment />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    <Route
+                      path="market-maker"
+                      element={
+                        <PremiumRoute feature="market_maker" featureName="Market Maker Mode">
+                          <MarketMaker />
                         </PremiumRoute>
                       }
                     />

@@ -19,6 +19,13 @@ import {
   User,
   Settings,
   ArrowLeftRight,
+  Sparkles,
+  Calculator,
+  Bot,
+  Activity,
+  Trophy,
+  Gift,
+  TrendingUp,
 } from "lucide-react";
 
 const DesktopSidebar = () => {
@@ -57,12 +64,20 @@ const DesktopSidebar = () => {
     { path: "/", label: "Dashboard", icon: Home },
     { path: "/add-trade", label: "Add Trade", icon: Plus },
     { path: "/trades", label: "Recent Trades", icon: BarChart3 },
+    { path: "/profit-calculator", label: "Profit Calc", icon: Calculator },
     { path: "/player-search", label: "Player Search", icon: Search },
     { path: "/player-compare", label: "Compare", icon: ArrowLeftRight },
     { path: "/watchlist", label: "Watchlist", icon: Eye },
     { path: "/trending", label: "Trending", icon: Target },
-    { path: "/smart-buy", label: "Smart Buy", icon: Zap, premium: true },
+    { path: "/smart-buyer-ai", label: "Smart Buy AI", icon: Sparkles, premium: true },
+    { path: "/best-buys", label: "Best Buys", icon: TrendingUp, premium: true },
     { path: "/squad", label: "Squad Builder", icon: Users },
+    { path: "/leaderboard", label: "Leaderboard", icon: Trophy },
+    { path: "/trade-copilot", label: "AI Copilot", icon: Bot, premium: true, elite: true },
+    { path: "/portfolio-optimizer", label: "Portfolio AI", icon: Sparkles, premium: true, elite: true },
+    { path: "/market-sentiment", label: "Sentiment", icon: Activity, premium: true, elite: true },
+    { path: "/market-maker", label: "Market Maker", icon: Zap, premium: true, elite: true },
+    { path: "/referrals", label: "Refer & Earn", icon: Gift },
   ];
 
   const isActive = (p) => location.pathname === p;
