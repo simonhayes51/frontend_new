@@ -4,8 +4,8 @@ import screenshot from '../assets/dashboard-preview.jpg';
 import '../styles/landing.css';
 import { useNavigate } from 'react-router-dom';
 
-const LOGIN_URL = 'https://backend.yourdomain.tld/login'; // TODO: replace
-const CHROME_URL = 'https://chrome.google.com/webstore/detail/your-extension-id'; // TODO: replace
+const LOGIN_URL = 'https://api.futhub.co.uk/api/login';
+const CHROME_URL = 'https://chrome.google.com/webstore/detail/fut-trader-hub'; // Chrome Web Store URL
 
 const FeatureCard = ({icon, title, children}) => (
   <article className="card-surface rounded-2xl p-5">
@@ -51,23 +51,41 @@ const Landing = () => {
           </header>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <FeatureCard icon="🤖" title="AI Trade Copilot">
+              Chat with AI for instant trading advice, market analysis, and strategy guidance.
+            </FeatureCard>
+            <FeatureCard icon="✨" title="Portfolio Optimizer">
+              AI-powered portfolio analysis with risk metrics, diversification insights, and optimization.
+            </FeatureCard>
             <FeatureCard icon="📈" title="Live Price Checks">
-              Ultra-fast lookups via fut.gg with console prices and trend spark lines. Extinct flag included.
+              Ultra-fast lookups with console prices and trend spark lines. Extinct flag included.
             </FeatureCard>
-            <FeatureCard icon="🧠" title="Smart Movers">
-              4h vs 24h delta highlights players about to flip — perfect for snipes and lazy lists.
+            <FeatureCard icon="🧠" title="Smart Buy AI">
+              AI-powered recommendations for profitable trades with real-time price analysis.
             </FeatureCard>
-            <FeatureCard icon="🧮" title="EA Tax & Profit">
+            <FeatureCard icon="💰" title="Profit Calculator">
+              Advanced calculator with EA tax scenarios, break-even points, and ROI targets.
+            </FeatureCard>
+            <FeatureCard icon="🧮" title="EA Tax & Analytics">
               Automatic tax and net profit on every sale, plus weekly P&amp;L and ROI.
             </FeatureCard>
-            <FeatureCard icon="🔔" title="Alerts to Discord">
-              Price spikes, falls and watchlist refreshes dropped straight into your server.
+            <FeatureCard icon="📊" title="Market Sentiment">
+              Real-time sentiment analysis from Twitter, Discord, and community signals.
             </FeatureCard>
-            <FeatureCard icon="🧩" title="Chrome Companion">
+            <FeatureCard icon="🏆" title="Leaderboards">
+              Compete globally with monthly prizes for top traders. Climb the ranks!
+            </FeatureCard>
+            <FeatureCard icon="⚡" title="Market Maker Mode">
+              Bulk trade entry for power traders. Import CSV, calculate ROI instantly.
+            </FeatureCard>
+            <FeatureCard icon="🔔" title="Real-time Alerts">
+              Price spikes, falls and trade opportunities sent to Discord or in-app.
+            </FeatureCard>
+            <FeatureCard icon="🎁" title="Refer & Earn">
+              Get free Premium days and earn 30% commission on referrals.
+            </FeatureCard>
+            <FeatureCard icon="🧩" title="Chrome Extension">
               Track sold listings, log trades in one click, and sync to your portfolio.
-            </FeatureCard>
-            <FeatureCard icon="🔍" title="Player Watchlist">
-              Store a starting price and refresh to pull the latest — with smart sort controls.
             </FeatureCard>
           </div>
         </div>
