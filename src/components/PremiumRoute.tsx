@@ -35,12 +35,13 @@ export default function PremiumRoute({
   // If no access, show the premium required page
   if (!hasAccess) {
     return (
-      <PremiumGate 
-        requirePremium={feature === "any"} 
-        feature={feature !== "any" ? (feature as any) : undefined}
-        featureName={featureName}
-        fullPage={true}
-      />
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <PremiumGate
+          feature={feature !== "any" ? (feature as any) : undefined}
+          featureName={featureName}
+          className="max-w-md w-full"
+        />
+      </div>
     );
   }
 

@@ -89,7 +89,7 @@ export default function SmartBuyerPage() {
     if (qsPlatform) setPlatform(normalizePlatform(qsPlatform));
 
     if (!bootRef.current && !player) {
-      bootRef.current = TrueFalseFix(); // tiny trick to avoid lint; set true
+      bootRef.current = true;
       async function init() {
         if (qsId) {
           try {
@@ -112,7 +112,6 @@ export default function SmartBuyerPage() {
       }
       init();
     }
-    function TrueFalseFix(){return true;}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
@@ -297,7 +296,7 @@ export default function SmartBuyerPage() {
                   className="w-full text-left px-3 py-2 hover:bg-white/5 flex items-center gap-2 text-sm text-white"
                 >
                   <img src={s.image_url} alt="" className="w-6 h-6 rounded" />
-                  <span className="flex-1">{s.label}</span>
+                  <span className="flex-1">{s.name} {s.rating && `(${s.rating})`}</span>
                 </button>
               ))}
             </div>
