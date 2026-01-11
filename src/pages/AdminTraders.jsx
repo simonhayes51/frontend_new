@@ -10,6 +10,7 @@ import {
 } from "../api/social";
 import { formatDate } from "../components/social/FeedPanel";
 import { useAuth } from "../context/AuthContext";
+import { isAdminUser } from "../utils/admin";
 
 export default function AdminTraders() {
   const { user } = useAuth();
@@ -19,6 +20,7 @@ export default function AdminTraders() {
   const [searchResults, setSearchResults] = useState([]);
   const [manualUserId, setManualUserId] = useState("");
 
+  const isAdmin = isAdminUser(user);
   const isAdmin = user?.is_admin || user?.role === "admin";
 
   const loadRequests = async () => {
@@ -106,6 +108,10 @@ export default function AdminTraders() {
           <h1 className="text-xl font-semibold mb-2">Admin access required</h1>
           <p className="text-slate-400">
             You do not have access to the trader requests panel.
+          </p>
+          <p className="text-xs text-slate-500 mt-2">
+            Ask an existing admin to add your user ID to VITE_ADMIN_IDS or grant admin on the
+            backend.
           </p>
         </div>
       </div>

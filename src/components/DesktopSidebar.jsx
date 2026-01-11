@@ -29,6 +29,7 @@ import {
   MessageSquare,
   ShieldCheck,
 } from "lucide-react";
+import { isAdminUser } from "../utils/admin";
 
 const DesktopSidebar = () => {
   const location = useLocation();
@@ -82,6 +83,7 @@ const DesktopSidebar = () => {
     { path: "/market-sentiment", label: "Sentiment", icon: Activity, premium: true, elite: true },
     { path: "/market-maker", label: "Market Maker", icon: Zap, premium: true, elite: true },
     { path: "/referrals", label: "Refer & Earn", icon: Gift },
+    ...(isAdminUser(user)
     ...(user?.is_admin || user?.role === "admin"
       ? [{ path: "/admin/traders", label: "Trader Requests", icon: ShieldCheck }]
       : []),
