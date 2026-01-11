@@ -52,11 +52,15 @@ export default function MobileNavigation() {
   const tabs = [
     {
       to: "/",
-      label: "Dashboard",
+      label: "Feed",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 12l9-9 9 9" />
-          <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M9 21V9h6v12" />
+          <path
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M4 6h16M4 12h10M4 18h12"
+          />
         </svg>
       ),
     },
@@ -71,6 +75,20 @@ export default function MobileNavigation() {
             strokeLinecap="round"
             strokeLinejoin="round"
             d="M7 21h10a2 2 0 0 0 2-2V7l-6-4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2z"
+          />
+        </svg>
+      ),
+    },
+    {
+      to: "/community",
+      label: "Community",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M7 8h10M7 12h6M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z"
           />
         </svg>
       ),
