@@ -10,7 +10,7 @@ import {
 } from "../api/social";
 import { formatDate } from "../components/social/FeedPanel";
 import { useAuth } from "../context/AuthContext";
-import { isAdminUser } from "../utils/admin";
+import { getAdminIds, isAdminUser } from "../utils/admin";
 
 export default function AdminTraders() {
   const { user } = useAuth();
@@ -20,8 +20,10 @@ export default function AdminTraders() {
   const [searchResults, setSearchResults] = useState([]);
   const [manualUserId, setManualUserId] = useState("");
 
-  const isAdmin = isAdminUser(user);
-  const isAdmin = user?.is_admin || user?.role === "admin";
+  const adminAccess = isAdminUser(user);
+  const adminIds = getAdminIds();
+  const userId = user?.user_id || user?.id || "unknown";
+  const username = user?.username || user?.global_name || "unknown";
 
   const loadRequests = async () => {
     setLoading(true);
@@ -39,13 +41,13 @@ export default function AdminTraders() {
   };
 
   useEffect(() => {
-    if (isAdmin) {
+    if (adminAccess) {
       loadRequests();
     }
-  }, [isAdmin]);
+  }, [adminAccess]);
 
   useEffect(() => {
-    if (!isAdmin) return () => {};
+    if (!adminAccess) return () => {};
     const handler = setTimeout(async () => {
       if (!searchQuery || searchQuery.length < 2) {
         setSearchResults([]);
@@ -63,7 +65,7 @@ export default function AdminTraders() {
     }, 400);
 
     return () => clearTimeout(handler);
-  }, [isAdmin, searchQuery]);
+  }, [adminAccess, searchQuery]);
 
   const handleApprove = async (requestId) => {
     try {
@@ -101,7 +103,7 @@ export default function AdminTraders() {
     }
   };
 
-  if (!isAdmin) {
+  if (!adminAccess) {
     return (
       <div className="min-h-screen bg-[#0e1320] text-white p-6">
         <div className="max-w-3xl mx-auto bg-slate-900/60 border border-white/10 rounded-2xl p-6 text-center">
@@ -113,6 +115,13 @@ export default function AdminTraders() {
             Ask an existing admin to add your user ID to VITE_ADMIN_IDS or grant admin on the
             backend.
           </p>
+          <div className="mt-4 text-xs text-slate-500 space-y-1">
+            <p>Signed in as: {username}</p>
+            <p>User ID: {userId}</p>
+            <p>
+              Configured VITE_ADMIN_IDS: {adminIds.length > 0 ? adminIds.join(", ") : "none"}
+            </p>
+          </div>
         </div>
       </div>
     );
