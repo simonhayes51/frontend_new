@@ -26,6 +26,8 @@ import {
   Trophy,
   Gift,
   TrendingUp,
+  MessageSquare,
+  ShieldCheck,
 } from "lucide-react";
 
 const DesktopSidebar = () => {
@@ -61,7 +63,8 @@ const DesktopSidebar = () => {
   useEffect(() => setUserMenuOpen(false), [location.pathname]);
 
   const navItems = [
-    { path: "/", label: "Dashboard", icon: Home },
+    { path: "/", label: "Feed", icon: MessageSquare },
+    { path: "/dashboard", label: "Dashboard", icon: Home },
     { path: "/add-trade", label: "Add Trade", icon: Plus },
     { path: "/trades", label: "Recent Trades", icon: BarChart3 },
     { path: "/profit-calculator", label: "Profit Calc", icon: Calculator },
@@ -73,11 +76,15 @@ const DesktopSidebar = () => {
     { path: "/best-buys", label: "Best Buys", icon: TrendingUp, premium: true },
     { path: "/squad", label: "Squad Builder", icon: Users },
     { path: "/leaderboard", label: "Leaderboard", icon: Trophy },
+    { path: "/community", label: "Community", icon: Users },
     { path: "/trade-copilot", label: "AI Copilot", icon: Bot, premium: true, elite: true },
     { path: "/portfolio-optimizer", label: "Portfolio AI", icon: Sparkles, premium: true, elite: true },
     { path: "/market-sentiment", label: "Sentiment", icon: Activity, premium: true, elite: true },
     { path: "/market-maker", label: "Market Maker", icon: Zap, premium: true, elite: true },
     { path: "/referrals", label: "Refer & Earn", icon: Gift },
+    ...(user?.is_admin || user?.role === "admin"
+      ? [{ path: "/admin/traders", label: "Trader Requests", icon: ShieldCheck }]
+      : []),
   ];
 
   const isActive = (p) => location.pathname === p;
