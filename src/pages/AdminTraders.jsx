@@ -170,6 +170,22 @@ export default function AdminTraders() {
               Grant Role
             </button>
           </div>
+          <div className="grid md:grid-cols-[1fr_auto] gap-3">
+            <input
+              type="text"
+              value={manualUserId}
+              onChange={(event) => setManualUserId(event.target.value)}
+              placeholder="Paste user ID to grant role"
+              className="w-full rounded-xl bg-slate-950/80 border border-white/10 px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => handleAssignRole(manualUserId)}
+              className="bg-slate-800/70 hover:bg-slate-700 text-sm px-4 py-2 rounded-xl"
+            >
+              Grant by ID
+            </button>
+          </div>
           {searchResults.length > 0 && (
             <div className="grid md:grid-cols-2 gap-2">
               {searchResults.map((user) => (

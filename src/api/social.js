@@ -37,7 +37,9 @@ export const markConversationRead = (conversationId) =>
   api.post(`/api/messages/conversations/${conversationId}/read`);
 
 export const searchMessageUsers = (query) =>
-  api.get("/api/messages/users/search", { params: { q: query } });
+  api.get("/api/messages/users/search", {
+    params: { q: query, query, username: query },
+  });
 
 export const getUnreadMessageCount = () => api.get("/api/messages/unread-count");
 
