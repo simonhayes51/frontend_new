@@ -1,5 +1,33 @@
 import api from "../axios";
 
+const tryPost = async (paths, payload) => {
+  let lastError;
+  for (const path of paths) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      return await api.post(path, payload);
+    } catch (error) {
+      if (error?.response?.status !== 404) throw error;
+      lastError = error;
+    }
+  }
+  throw lastError;
+};
+
+const tryGet = async (paths, config) => {
+  let lastError;
+  for (const path of paths) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      return await api.get(path, config);
+    } catch (error) {
+      if (error?.response?.status !== 404) throw error;
+      lastError = error;
+    }
+  }
+  throw lastError;
+};
+
 export const getFeed = (params) => api.get("/api/feed", { params });
 export const createPost = (payload) => api.post("/api/feed", payload);
 export const updatePost = (postId, payload) => api.put(`/api/feed/${postId}`, payload);
@@ -45,7 +73,8 @@ export const getUnreadMessageCount = () => api.get("/api/messages/unread-count")
 
 export const getTraders = (params) => api.get("/api/traders", { params });
 export const getTraderProfile = (traderId) => api.get(`/api/traders/${traderId}`);
-export const upgradeToTrader = (payload) => api.post("/api/traders/upgrade", payload);
+export const upgradeToTrader = (payload) =>
+  tryPost(["/api/traders/upgrade", "/api/traders/request", "/api/traders/apply"], payload);
 
 export const subscribeToTrader = (traderId) =>
   api.post(`/api/subscriptions/${traderId}/subscribe`);
@@ -58,9 +87,23 @@ export const rateTrader = (traderId, payload) => api.post(`/api/ratings/${trader
 export const getTopRatedTraders = () => api.get("/api/ratings/leaderboard");
 export const getRecommendedTraders = () => api.get("/api/subscriptions/recommended");
 
-export const getTraderRoleRequests = () => api.get("/api/admin/traders/requests");
+export const getTraderRoleRequests = () =>
+  tryGet(["/api/admin/traders/requests", "/api/traders/requests"]);
 export const approveTraderRoleRequest = (requestId) =>
-  api.post(`/api/admin/traders/requests/${requestId}/approve`);
+  tryPost(
+    [
+      `/api/admin/traders/requests/${requestId}/approve`,
+      `/api/traders/requests/${requestId}/approve`,
+    ],
+    {}
+  );
 export const rejectTraderRoleRequest = (requestId) =>
-  api.post(`/api/admin/traders/requests/${requestId}/reject`);
-export const assignTraderRole = (payload) => api.post("/api/admin/traders/assign", payload);
+  tryPost(
+    [
+      `/api/admin/traders/requests/${requestId}/reject`,
+      `/api/traders/requests/${requestId}/reject`,
+    ],
+    {}
+  );
+export const assignTraderRole = (payload) =>
+  tryPost(["/api/admin/traders/assign", "/api/traders/assign"], payload);
