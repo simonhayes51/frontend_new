@@ -21,6 +21,7 @@ export default function AdminTraders() {
   const [manualUserId, setManualUserId] = useState("");
 
   const isAdmin = isAdminUser(user);
+  const isAdmin = user?.is_admin || user?.role === "admin";
 
   const loadRequests = async () => {
     setLoading(true);
