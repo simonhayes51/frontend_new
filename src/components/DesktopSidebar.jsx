@@ -84,6 +84,7 @@ const DesktopSidebar = () => {
     { path: "/market-maker", label: "Market Maker", icon: Zap, premium: true, elite: true },
     { path: "/referrals", label: "Refer & Earn", icon: Gift },
     ...(isAdminUser(user)
+    ...(user?.is_admin || user?.role === "admin"
       ? [{ path: "/admin/traders", label: "Trader Requests", icon: ShieldCheck }]
       : []),
   ];

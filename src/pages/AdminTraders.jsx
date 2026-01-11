@@ -10,7 +10,7 @@ import {
 } from "../api/social";
 import { formatDate } from "../components/social/FeedPanel";
 import { useAuth } from "../context/AuthContext";
-import { getAdminIds, isAdminUser } from "../utils/admin";
+import { isAdminUser } from "../utils/admin";
 
 export default function AdminTraders() {
   const { user } = useAuth();
@@ -21,9 +21,7 @@ export default function AdminTraders() {
   const [manualUserId, setManualUserId] = useState("");
 
   const isAdmin = isAdminUser(user);
-  const adminIds = getAdminIds();
-  const userId = user?.user_id || user?.id || "unknown";
-  const username = user?.username || user?.global_name || "unknown";
+  const isAdmin = user?.is_admin || user?.role === "admin";
 
   const loadRequests = async () => {
     setLoading(true);
@@ -115,13 +113,6 @@ export default function AdminTraders() {
             Ask an existing admin to add your user ID to VITE_ADMIN_IDS or grant admin on the
             backend.
           </p>
-          <div className="mt-4 text-xs text-slate-500 space-y-1">
-            <p>Signed in as: {username}</p>
-            <p>User ID: {userId}</p>
-            <p>
-              Configured VITE_ADMIN_IDS: {adminIds.length > 0 ? adminIds.join(", ") : "none"}
-            </p>
-          </div>
         </div>
       </div>
     );
