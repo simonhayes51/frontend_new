@@ -26,6 +26,7 @@ import {
   Trophy,
   Gift,
   TrendingUp,
+  MessageSquare,
 } from "lucide-react";
 
 const DesktopSidebar = () => {
@@ -73,6 +74,7 @@ const DesktopSidebar = () => {
     { path: "/best-buys", label: "Best Buys", icon: TrendingUp, premium: true },
     { path: "/squad", label: "Squad Builder", icon: Users },
     { path: "/leaderboard", label: "Leaderboard", icon: Trophy },
+    { path: "/community", label: "Community", icon: MessageSquare },
     { path: "/trade-copilot", label: "AI Copilot", icon: Bot, premium: true, elite: true },
     { path: "/portfolio-optimizer", label: "Portfolio AI", icon: Sparkles, premium: true, elite: true },
     { path: "/market-sentiment", label: "Sentiment", icon: Activity, premium: true, elite: true },

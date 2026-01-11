@@ -76,6 +76,20 @@ export default function MobileNavigation() {
       ),
     },
     {
+      to: "/community",
+      label: "Community",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M7 8h10M7 12h6M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z"
+          />
+        </svg>
+      ),
+    },
+    {
       to: "/player-search",
       label: "Search",
       icon: (
