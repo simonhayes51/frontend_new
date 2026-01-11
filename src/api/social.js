@@ -1,11 +1,18 @@
 import api from "../axios";
 
+const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_API_URL || api.defaults.baseURL || "").replace(
+  /\/$/,
+  ""
+);
+
+const socialRequest = (config) => api.request({ ...config, baseURL: SOCIAL_BASE });
+
 const tryPost = async (paths, payload) => {
   let lastError;
   for (const path of paths) {
     try {
       // eslint-disable-next-line no-await-in-loop
-      return await api.post(path, payload);
+      return await socialRequest({ method: "post", url: path, data: payload });
     } catch (error) {
       if (error?.response?.status !== 404) throw error;
       lastError = error;
@@ -19,7 +26,7 @@ const tryGet = async (paths, config) => {
   for (const path of paths) {
     try {
       // eslint-disable-next-line no-await-in-loop
-      return await api.get(path, config);
+      return await socialRequest({ method: "get", url: path, ...config });
     } catch (error) {
       if (error?.response?.status !== 404) throw error;
       lastError = error;
@@ -28,72 +35,156 @@ const tryGet = async (paths, config) => {
   throw lastError;
 };
 
-export const getFeed = (params) => api.get("/api/feed", { params });
-export const createPost = (payload) => api.post("/api/feed", payload);
-export const updatePost = (postId, payload) => api.put(`/api/feed/${postId}`, payload);
-export const deletePost = (postId) => api.delete(`/api/feed/${postId}`);
+export const getFeed = (params) =>
+  tryGet(
+    ["/api/feed", "/api/social/feed", "/api/social/posts"],
+    { params }
+  );
+export const createPost = (payload) =>
+  tryPost(["/api/feed", "/api/social/feed", "/api/social/posts"], payload);
+export const updatePost = (postId, payload) =>
+  tryPost([`/api/feed/${postId}`, `/api/social/posts/${postId}`], payload);
+export const deletePost = (postId) =>
+  socialRequest({ method: "delete", url: `/api/feed/${postId}` });
 
 export const reactToPost = (postId, reaction) =>
-  api.post(`/api/interactions/posts/${postId}/reactions`, { reaction });
+  tryPost(
+    [
+      `/api/interactions/posts/${postId}/reactions`,
+      `/api/social/interactions/posts/${postId}/reactions`,
+    ],
+    { reaction }
+  );
 
 export const getPostComments = (postId, params) =>
-  api.get(`/api/interactions/posts/${postId}/comments`, { params });
+  tryGet(
+    [
+      `/api/interactions/posts/${postId}/comments`,
+      `/api/social/interactions/posts/${postId}/comments`,
+    ],
+    { params }
+  );
 
 export const addPostComment = (postId, payload) =>
-  api.post(`/api/interactions/posts/${postId}/comments`, payload);
+  tryPost(
+    [
+      `/api/interactions/posts/${postId}/comments`,
+      `/api/social/interactions/posts/${postId}/comments`,
+    ],
+    payload
+  );
 
 export const updateComment = (commentId, payload) =>
-  api.put(`/api/interactions/comments/${commentId}`, payload);
+  tryPost(
+    [
+      `/api/interactions/comments/${commentId}`,
+      `/api/social/interactions/comments/${commentId}`,
+    ],
+    payload
+  );
 
 export const deleteComment = (commentId) =>
-  api.delete(`/api/interactions/comments/${commentId}`);
+  socialRequest({ method: "delete", url: `/api/interactions/comments/${commentId}` });
 
 export const reactToComment = (commentId) =>
-  api.post(`/api/interactions/comments/${commentId}/like`);
+  tryPost(
+    [
+      `/api/interactions/comments/${commentId}/like`,
+      `/api/social/interactions/comments/${commentId}/like`,
+    ],
+    {}
+  );
 
-export const getConversations = () => api.get("/api/messages/conversations");
+export const getConversations = () =>
+  tryGet(["/api/messages/conversations", "/api/social/messages/conversations"]);
 export const getConversationMessages = (conversationId) =>
-  api.get(`/api/messages/conversations/${conversationId}/messages`);
+  tryGet([
+    `/api/messages/conversations/${conversationId}/messages`,
+    `/api/social/messages/conversations/${conversationId}/messages`,
+  ]);
 
 export const sendConversationMessage = (conversationId, payload) =>
-  api.post(`/api/messages/conversations/${conversationId}/messages`, payload);
+  tryPost(
+    [
+      `/api/messages/conversations/${conversationId}/messages`,
+      `/api/social/messages/conversations/${conversationId}/messages`,
+    ],
+    payload
+  );
 
 export const startConversation = (payload) =>
-  api.post("/api/messages/conversations", payload);
+  tryPost(["/api/messages/conversations", "/api/social/messages/conversations"], payload);
 
 export const markConversationRead = (conversationId) =>
-  api.post(`/api/messages/conversations/${conversationId}/read`);
+  tryPost(
+    [
+      `/api/messages/conversations/${conversationId}/read`,
+      `/api/social/messages/conversations/${conversationId}/read`,
+    ],
+    {}
+  );
 
 export const searchMessageUsers = (query) =>
-  api.get("/api/messages/users/search", {
-    params: { q: query, query, username: query },
-  });
+  tryGet(
+    [
+      "/api/messages/users/search",
+      "/api/social/messages/users/search",
+      "/api/messages/search/users",
+    ],
+    { params: { q: query, query, username: query } }
+  );
 
-export const getUnreadMessageCount = () => api.get("/api/messages/unread-count");
+export const getUnreadMessageCount = () =>
+  tryGet(["/api/messages/unread-count", "/api/social/messages/unread-count"]);
 
-export const getTraders = (params) => api.get("/api/traders", { params });
+export const getTraders = (params) =>
+  tryGet(["/api/traders", "/api/social/traders"], { params });
 export const getTraderProfile = (traderId) => api.get(`/api/traders/${traderId}`);
 export const upgradeToTrader = (payload) =>
-  tryPost(["/api/traders/upgrade", "/api/traders/request", "/api/traders/apply"], payload);
+  tryPost(
+    ["/api/traders/upgrade", "/api/traders/request", "/api/traders/apply", "/api/social/traders"],
+    payload
+  );
 
 export const subscribeToTrader = (traderId) =>
-  api.post(`/api/subscriptions/${traderId}/subscribe`);
+  tryPost(
+    [
+      `/api/subscriptions/${traderId}/subscribe`,
+      `/api/social/subscriptions/${traderId}/subscribe`,
+    ],
+    {}
+  );
 
 export const unsubscribeFromTrader = (traderId) =>
-  api.post(`/api/subscriptions/${traderId}/unsubscribe`);
+  tryPost(
+    [
+      `/api/subscriptions/${traderId}/unsubscribe`,
+      `/api/social/subscriptions/${traderId}/unsubscribe`,
+    ],
+    {}
+  );
 
-export const getTraderRatings = (traderId) => api.get(`/api/ratings/${traderId}`);
-export const rateTrader = (traderId, payload) => api.post(`/api/ratings/${traderId}`, payload);
-export const getTopRatedTraders = () => api.get("/api/ratings/leaderboard");
-export const getRecommendedTraders = () => api.get("/api/subscriptions/recommended");
+export const getTraderRatings = (traderId) =>
+  tryGet([`/api/ratings/${traderId}`, `/api/social/ratings/${traderId}`]);
+export const rateTrader = (traderId, payload) =>
+  tryPost([`/api/ratings/${traderId}`, `/api/social/ratings/${traderId}`], payload);
+export const getTopRatedTraders = () =>
+  tryGet(["/api/ratings/leaderboard", "/api/social/ratings/leaderboard"]);
+export const getRecommendedTraders = () =>
+  tryGet(["/api/subscriptions/recommended", "/api/social/subscriptions/recommended"]);
 
 export const getTraderRoleRequests = () =>
-  tryGet(["/api/admin/traders/requests", "/api/traders/requests"]);
+  tryGet([
+    "/api/admin/traders/requests",
+    "/api/traders/requests",
+    "/api/social/traders/requests",
+  ]);
 export const approveTraderRoleRequest = (requestId) =>
   tryPost(
     [
       `/api/admin/traders/requests/${requestId}/approve`,
       `/api/traders/requests/${requestId}/approve`,
+      `/api/social/traders/requests/${requestId}/approve`,
     ],
     {}
   );
@@ -102,8 +193,12 @@ export const rejectTraderRoleRequest = (requestId) =>
     [
       `/api/admin/traders/requests/${requestId}/reject`,
       `/api/traders/requests/${requestId}/reject`,
+      `/api/social/traders/requests/${requestId}/reject`,
     ],
     {}
   );
 export const assignTraderRole = (payload) =>
-  tryPost(["/api/admin/traders/assign", "/api/traders/assign"], payload);
+  tryPost(
+    ["/api/admin/traders/assign", "/api/traders/assign", "/api/social/traders/assign"],
+    payload
+  );
