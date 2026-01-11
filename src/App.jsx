@@ -50,6 +50,7 @@ const ReferralProgram = lazy(() => import("./pages/ReferralProgram"));
 const MarketSentiment = lazy(() => import("./pages/MarketSentiment"));
 const PricingTiers = lazy(() => import("./pages/PricingTiers"));
 const MarketMaker = lazy(() => import("./pages/MarketMaker"));
+const SocialHub = lazy(() => import("./pages/SocialHub"));
 
 function App() {
   return (
@@ -101,6 +102,7 @@ function App() {
                     <Route path="profit-calculator" element={<ProfitCalculator />} />
                     <Route path="leaderboard" element={<Leaderboard />} />
                     <Route path="referrals" element={<ReferralProgram />} />
+                    <Route path="community" element={<SocialHub />} />
 
                     {/* Basic trending (free tier gets limited access) */}
                     <Route path="trending" element={<Trending />} />
