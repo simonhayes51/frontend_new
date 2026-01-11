@@ -51,6 +51,8 @@ const MarketSentiment = lazy(() => import("./pages/MarketSentiment"));
 const PricingTiers = lazy(() => import("./pages/PricingTiers"));
 const MarketMaker = lazy(() => import("./pages/MarketMaker"));
 const SocialHub = lazy(() => import("./pages/SocialHub"));
+const Feed = lazy(() => import("./pages/Feed"));
+const AdminTraders = lazy(() => import("./pages/AdminTraders"));
 
 function App() {
   return (
@@ -79,8 +81,8 @@ function App() {
                       </PrivateRoute>
                     }
                   >
-                    {/* ✅ Overview (default) loads Dashboard */}
-                    <Route index element={<Dashboard />} />
+                    {/* ✅ Feed (default) */}
+                    <Route index element={<Feed />} />
                     {/* Optional aliases – both load Dashboard */}
                     <Route path="overview" element={<Dashboard />} />
                     <Route path="dashboard" element={<Dashboard />} />
@@ -103,6 +105,7 @@ function App() {
                     <Route path="leaderboard" element={<Leaderboard />} />
                     <Route path="referrals" element={<ReferralProgram />} />
                     <Route path="community" element={<SocialHub />} />
+                    <Route path="admin/traders" element={<AdminTraders />} />
 
                     {/* Basic trending (free tier gets limited access) */}
                     <Route path="trending" element={<Trending />} />

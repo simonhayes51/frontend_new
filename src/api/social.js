@@ -54,3 +54,11 @@ export const unsubscribeFromTrader = (traderId) =>
 export const getTraderRatings = (traderId) => api.get(`/api/ratings/${traderId}`);
 export const rateTrader = (traderId, payload) => api.post(`/api/ratings/${traderId}`, payload);
 export const getTopRatedTraders = () => api.get("/api/ratings/leaderboard");
+export const getRecommendedTraders = () => api.get("/api/subscriptions/recommended");
+
+export const getTraderRoleRequests = () => api.get("/api/admin/traders/requests");
+export const approveTraderRoleRequest = (requestId) =>
+  api.post(`/api/admin/traders/requests/${requestId}/approve`);
+export const rejectTraderRoleRequest = (requestId) =>
+  api.post(`/api/admin/traders/requests/${requestId}/reject`);
+export const assignTraderRole = (payload) => api.post("/api/admin/traders/assign", payload);
