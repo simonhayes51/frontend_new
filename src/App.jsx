@@ -57,6 +57,13 @@ const TradersArea = lazy(() => import("./pages/TradersArea"));
 const TraderProfile = lazy(() => import("./pages/TraderProfile"));
 const SavedPosts = lazy(() => import("./pages/SavedPosts"));
 
+// RADICAL REDESIGN - New OnlyFans-style pages
+const LandingPageNew = lazy(() => import("./pages/LandingPageNew"));
+const FeedNew = lazy(() => import("./pages/FeedNew"));
+const TraderProfileNew = lazy(() => import("./pages/TraderProfileNew"));
+const MessagesPage = lazy(() => import("./pages/MessagesPage"));
+const TraderDashboard = lazy(() => import("./pages/TraderDashboard"));
+
 function App() {
   return (
     <ErrorBoundary>
@@ -70,6 +77,9 @@ function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/access-denied" element={<AccessDenied />} />
                   <Route path="/landing" element={<Landing />} />
+                  
+                  {/* NEW: Radical Redesign Landing */}
+                  <Route path="/new" element={<LandingPageNew />} />
 
                   {/* Protected shell */}
                   <Route
@@ -84,11 +94,18 @@ function App() {
                       </PrivateRoute>
                     }
                   >
-                    {/* ✅ Feed (default) */}
-                    <Route index element={<Feed />} />
+                    {/* ✅ Feed (default) - NEW REDESIGN */}
+                    <Route index element={<FeedNew />} />
                     {/* Optional aliases – both load Dashboard */}
                     <Route path="overview" element={<Dashboard />} />
                     <Route path="dashboard" element={<Dashboard />} />
+                    
+                    {/* NEW: Radical Redesign Pages */}
+                    <Route path="feed" element={<FeedNew />} />
+                    <Route path="messages" element={<MessagesPage />} />
+                    <Route path="messages/:userId" element={<MessagesPage />} />
+                    <Route path="trader-dashboard" element={<TraderDashboard />} />
+                    <Route path="trader/:traderId" element={<TraderProfileNew />} />
 
                     {/* Free tier pages */}
                     <Route path="add-trade" element={<AddTrade />} />
@@ -109,7 +126,6 @@ function App() {
                     <Route path="referrals" element={<ReferralProgram />} />
                     <Route path="community" element={<SocialHub />} />
                     <Route path="traders-area" element={<TradersArea />} />
-                    <Route path="trader/:traderId" element={<TraderProfile />} />
                     <Route path="saved-posts" element={<SavedPosts />} />
                     <Route path="admin/traders" element={<AdminTraders />} />
 
