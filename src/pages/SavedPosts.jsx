@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import api from "../api";
+import { getSavedPosts, unsavePost } from "../api/social";
 
 const POST_STYLES = [
   { id: "flipping", label: "Flipping", icon: "⚡", color: "text-yellow-400" },
@@ -38,7 +38,7 @@ export default function SavedPosts() {
   const loadSavedPosts = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/api/subscriptions/saved-posts");
+      const { data } = await getSavedPosts();
       setPosts(data.posts || []);
       
       // Extract unique traders
