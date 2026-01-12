@@ -20,7 +20,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../api/social';
+import api from '../axios';
 import UserHoverCard from '../components/UserHoverCard';
 
 /**

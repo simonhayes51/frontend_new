@@ -17,7 +17,7 @@ import {
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import UserHoverCard from '../components/UserHoverCard';
-import api from '../api/social';
+import api from '../axios';
 
 /**
  * RADICAL FEED REDESIGN - OnlyFans/Instagram hybrid

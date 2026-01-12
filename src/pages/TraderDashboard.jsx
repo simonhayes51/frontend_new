@@ -15,7 +15,7 @@ import {
   ArrowDown,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../api/social';
+import api from '../axios';
 
 /**
  * Transfer Traders - Trader Earnings Dashboard

@@ -12,7 +12,7 @@ import {
   Lock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../api/social';
+import api from '../axios';
 
 /**
  * Transfer Traders - OnlyFans Style Messaging
