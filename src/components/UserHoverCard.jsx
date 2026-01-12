@@ -10,7 +10,7 @@ import {
   DollarSign 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/social';
+import { getTraderProfile, subscribeToTrader, unsubscribeFromTrader } from '../api/social';
 
 /**
  * User Hover Card - OnlyFans Style Profile Preview
@@ -29,7 +29,7 @@ export default function UserHoverCard({ userId, username, children, placement = 
       timeout = setTimeout(async () => {
         setLoading(true);
         try {
-          const response = await api.get(`/api/traders/profile/${userId}`);
+          const response = await getTraderProfile(userId);
           setProfile(response.data);
           setIsSubscribed(response.data.is_subscribed || false);
         } catch (error) {
@@ -46,10 +46,10 @@ export default function UserHoverCard({ userId, username, children, placement = 
     e.stopPropagation();
     try {
       if (isSubscribed) {
-        await api.delete(`/api/subscriptions/unsubscribe/${userId}`);
+        await unsubscribeFromTrader(userId);
         setIsSubscribed(false);
       } else {
-        await api.post(`/api/subscriptions/${userId}/subscribe`);
+        await subscribeToTrader(userId);
         setIsSubscribed(true);
       }
     } catch (error) {
