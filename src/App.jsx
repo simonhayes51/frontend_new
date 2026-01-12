@@ -63,6 +63,7 @@ const FeedNew = lazy(() => import("./pages/FeedNew"));
 const TraderProfileNew = lazy(() => import("./pages/TraderProfileNew"));
 const MessagesPage = lazy(() => import("./pages/MessagesPage"));
 const TraderDashboard = lazy(() => import("./pages/TraderDashboard"));
+const AppLayout = lazy(() => import("./components/AppLayout"));
 
 function App() {
   return (
@@ -88,7 +89,7 @@ function App() {
                       <PrivateRoute>
                         <SettingsProvider>
                           <DashboardProvider>
-                            <Layout />
+                            <AppLayout />
                           </DashboardProvider>
                         </SettingsProvider>
                       </PrivateRoute>
