@@ -93,10 +93,11 @@ const FeedPanel = ({ user, headline = "Share a trading update" }) => {
         title: composer.title || undefined,
         content: composer.content,
         post_type: composer.post_type,
-        premium: composer.premium,
-        expires_in_hours: composer.expires_in_hours
-          ? Number(composer.expires_in_hours)
-          : undefined,
+        premium: isTrader ? composer.premium : false,
+        expires_in_hours:
+          isTrader && composer.expires_in_hours
+            ? Number(composer.expires_in_hours)
+            : undefined,
       };
       const { data } = await createPost(payload);
       const newPost = data?.post || data;
@@ -242,104 +243,102 @@ const FeedPanel = ({ user, headline = "Share a trading update" }) => {
 
   return (
     <div className="space-y-6">
-      {isTrader ? (
-        <form
-          onSubmit={handleCreatePost}
-          className="bg-slate-900/60 border border-white/10 rounded-2xl p-6 space-y-4"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">{headline}</h3>
-              <p className="text-sm text-slate-400">
-                Premium content and time-sensitive tips can be gated for subscribers.
-              </p>
-            </div>
-            <span className="text-xs uppercase tracking-[0.2em] text-purple-300">Trader</span>
-          </div>
-          <div className="grid md:grid-cols-2 gap-4">
-            <input
-              type="text"
-              value={composer.title}
-              onChange={(event) => setComposer((prev) => ({ ...prev, title: event.target.value }))}
-              placeholder="Headline (optional)"
-              className="w-full rounded-xl bg-slate-950/80 border border-white/10 px-4 py-2 text-sm"
-            />
-            <select
-              value={composer.post_type}
-              onChange={(event) =>
-                setComposer((prev) => ({ ...prev, post_type: event.target.value }))
-              }
-              className="w-full rounded-xl bg-slate-950/80 border border-white/10 px-4 py-2 text-sm"
-            >
-              {POST_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <textarea
-            value={composer.content}
-            onChange={(event) => setComposer((prev) => ({ ...prev, content: event.target.value }))}
-            placeholder="Share the trade setup, timing, and reasoning..."
-            rows={4}
-            className="w-full rounded-xl bg-slate-950/80 border border-white/10 px-4 py-3 text-sm"
-          />
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="flex items-center gap-2 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                checked={composer.premium}
-                onChange={(event) =>
-                  setComposer((prev) => ({ ...prev, premium: event.target.checked }))
-                }
-                className="rounded border-white/20"
-              />
-              Premium-only
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={composer.expires_in_hours}
-              onChange={(event) =>
-                setComposer((prev) => ({ ...prev, expires_in_hours: event.target.value }))
-              }
-              placeholder="Expires in (hours)"
-              className="w-40 rounded-xl bg-slate-950/80 border border-white/10 px-3 py-2 text-sm"
-            />
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="ml-auto bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold px-4 py-2 rounded-xl"
-            >
-              {isSubmitting ? "Publishing..." : "Publish"}
-            </button>
-          </div>
-        </form>
-      ) : (
-        <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <form
+        onSubmit={handleCreatePost}
+        className="bg-slate-900/60 border border-white/10 rounded-2xl p-6 space-y-4"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-semibold">Become a verified trader</h3>
+            <h3 className="text-lg font-semibold">{headline}</h3>
             <p className="text-sm text-slate-400">
-              Request a trader role to post market analysis, predictions, and premium tips.
+              {isTrader
+                ? "Premium content and time-sensitive tips can be gated for subscribers."
+                : "Post trade ideas or questions for the community."}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                await upgradeToTrader({});
-                toast.success("Trader role request submitted");
-              } catch (error) {
-                toast.error(error.userMessage || "Failed to request trader role");
-              }
-            }}
-            className="bg-gradient-to-r from-emerald-500 to-green-500 text-black font-semibold px-4 py-2 rounded-xl"
+          {isTrader ? (
+            <span className="text-xs uppercase tracking-[0.2em] text-purple-300">Trader</span>
+          ) : (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await upgradeToTrader({});
+                  toast.success("Trader role request submitted");
+                } catch (error) {
+                  toast.error(error.userMessage || "Failed to request trader role");
+                }
+              }}
+              className="bg-gradient-to-r from-emerald-500 to-green-500 text-black font-semibold px-4 py-2 rounded-xl"
+            >
+              Request Trader Role
+            </button>
+          )}
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          <input
+            type="text"
+            value={composer.title}
+            onChange={(event) => setComposer((prev) => ({ ...prev, title: event.target.value }))}
+            placeholder="Headline (optional)"
+            className="w-full rounded-xl bg-slate-950/80 border border-white/10 px-4 py-2 text-sm"
+          />
+          <select
+            value={composer.post_type}
+            onChange={(event) =>
+              setComposer((prev) => ({ ...prev, post_type: event.target.value }))
+            }
+            className="w-full rounded-xl bg-slate-950/80 border border-white/10 px-4 py-2 text-sm"
           >
-            Request Trader Role
+            {POST_TYPES.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <textarea
+          value={composer.content}
+          onChange={(event) => setComposer((prev) => ({ ...prev, content: event.target.value }))}
+          placeholder="Share the trade setup, timing, and reasoning..."
+          rows={4}
+          className="w-full rounded-xl bg-slate-950/80 border border-white/10 px-4 py-3 text-sm"
+        />
+        <div className="flex flex-wrap items-center gap-4">
+          {isTrader && (
+            <>
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={composer.premium}
+                  onChange={(event) =>
+                    setComposer((prev) => ({ ...prev, premium: event.target.checked }))
+                  }
+                  className="rounded border-white/20"
+                />
+                Premium-only
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={composer.expires_in_hours}
+                onChange={(event) =>
+                  setComposer((prev) => ({ ...prev, expires_in_hours: event.target.value }))
+                }
+                placeholder="Expires in (hours)"
+                className="w-40 rounded-xl bg-slate-950/80 border border-white/10 px-3 py-2 text-sm"
+              />
+            </>
+          )}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="ml-auto bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold px-4 py-2 rounded-xl"
+          >
+            {isSubmitting ? "Publishing..." : "Publish"}
           </button>
         </div>
-      )}
+      </form>
 
       <div className="flex flex-wrap gap-2">
         {[{ value: "all", label: "All" }, ...POST_TYPES].map((type) => (

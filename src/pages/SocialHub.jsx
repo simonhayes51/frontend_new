@@ -49,6 +49,9 @@ const MessagesPanel = () => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [userQuery, setUserQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  const [newRecipient, setNewRecipient] = useState(null);
+  const [newMessage, setNewMessage] = useState("");
+  const [isStarting, setIsStarting] = useState(false);
 
   const loadConversations = async () => {
     try {
@@ -128,18 +131,39 @@ const MessagesPanel = () => {
     }
   };
 
-  const startNewConversation = async (userId) => {
+  const handleSendNewMessage = async () => {
+    if (!newRecipient?.id) {
+      toast.error("Select a recipient first");
+      return;
+    }
+    if (!newMessage.trim()) {
+      toast.error("Write a message first");
+      return;
+    }
+
+    setIsStarting(true);
     try {
-      const { data } = await startConversation({ recipient_id: userId });
+      const { data } = await startConversation({ recipient_id: newRecipient.id });
       const conversation = data?.conversation || data;
-      if (conversation) {
-        setConversations((prev) => [conversation, ...prev]);
-        setActiveConversation(conversation);
-        setUserQuery("");
-        setSearchResults([]);
+      if (!conversation?.id) {
+        toast.error("Unable to start conversation");
+        return;
       }
+      setConversations((prev) => [conversation, ...prev]);
+      setActiveConversation(conversation);
+      const { data: messageData } = await sendConversationMessage(conversation.id, {
+        content: newMessage,
+      });
+      const sentMessage = messageData?.message || messageData;
+      setMessages(sentMessage ? [sentMessage] : []);
+      setNewMessage("");
+      setNewRecipient(null);
+      setUserQuery("");
+      setSearchResults([]);
     } catch (error) {
-      toast.error(error.userMessage || "Failed to start conversation");
+      toast.error(error.userMessage || "Failed to send message");
+    } finally {
+      setIsStarting(false);
     }
   };
 
@@ -166,7 +190,11 @@ const MessagesPanel = () => {
               <button
                 key={user.id}
                 type="button"
-                onClick={() => startNewConversation(user.id)}
+                onClick={() => {
+                  setNewRecipient(user);
+                  setNewMessage("");
+                  setActiveConversation(null);
+                }}
                 className="w-full text-left bg-slate-800/60 hover:bg-slate-700/60 rounded-xl px-3 py-2 text-sm"
               >
                 {user.username || user.display_name || "Trader"}
@@ -181,7 +209,11 @@ const MessagesPanel = () => {
               <button
                 key={conversation.id}
                 type="button"
-                onClick={() => setActiveConversation(conversation)}
+                onClick={() => {
+                  setActiveConversation(conversation);
+                  setNewRecipient(null);
+                  setNewMessage("");
+                }}
                 className={`w-full text-left rounded-xl px-3 py-2 transition-all border ${
                   isActive
                     ? "bg-purple-600/20 border-purple-400/40"
@@ -261,8 +293,38 @@ const MessagesPanel = () => {
             </div>
           </>
         ) : (
-          <div className="text-slate-400 text-center py-10">
-            Select a conversation to view messages.
+          <div className="flex flex-col gap-6 h-full">
+            <div className="text-slate-400 text-center py-6">
+              Select a conversation or start a new message.
+            </div>
+            <div className="bg-slate-950/60 border border-white/10 rounded-2xl p-4 space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold">New message</h3>
+                <p className="text-xs text-slate-400">
+                  Pick a recipient from the search results and send your first note.
+                </p>
+              </div>
+              <div className="bg-slate-900/60 rounded-xl px-3 py-2 text-sm text-slate-200">
+                {newRecipient
+                  ? newRecipient.username || newRecipient.display_name || "Trader"
+                  : "No recipient selected"}
+              </div>
+              <textarea
+                value={newMessage}
+                onChange={(event) => setNewMessage(event.target.value)}
+                placeholder="Write a message to start the conversation"
+                rows={4}
+                className="w-full rounded-xl bg-slate-950/80 border border-white/10 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={handleSendNewMessage}
+                disabled={isStarting}
+                className="bg-purple-600 hover:bg-purple-500 text-white rounded-xl px-4 py-2 text-sm font-semibold"
+              >
+                {isStarting ? "Sending..." : "Send message"}
+              </button>
+            </div>
           </div>
         )}
       </div>
