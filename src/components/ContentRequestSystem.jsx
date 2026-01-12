@@ -11,7 +11,13 @@ import {
   MessageSquare,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import api from "../api";
+import {
+  createContentRequest,
+  getTraderContentRequests,
+  upvoteContentRequest,
+  updateContentRequestStatus,
+  deleteContentRequest,
+} from "../api/social";
 
 const STATUS_CONFIG = {
   pending: { label: "Pending", color: "bg-slate-600", icon: Clock },
@@ -82,7 +88,7 @@ export default function ContentRequestSystem({ traderId, isTrader = false, isSub
 
   const handleUpvote = async (requestId) => {
     try {
-      const { data } = await api.post(`/api/content-requests/${requestId}/upvote`);
+      const { data } = await upvoteContentRequest(requestId);
       setRequests((prev) =>
         prev.map((req) =>
           req.id === requestId
