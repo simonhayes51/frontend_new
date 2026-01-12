@@ -18,6 +18,13 @@ import {
   Search,
   Menu,
   X,
+  ShoppingCart,
+  History,
+  Eye,
+  GitCompare,
+  Calculator,
+  Trophy,
+  UserPlus,
 } from 'lucide-react';
 import { TransferTradersLogoCompact } from './TransferTradersLogo';
 
@@ -35,13 +42,19 @@ export default function AppLayout({ user, children }) {
   const isTrader = user?.account_type === 'trader' || user?.is_trader;
 
   const navigation = [
-    { name: 'Feed', path: '/feed', icon: Home },
-    { name: 'Discover', path: '/discover', icon: Compass },
+    { name: 'Feed', path: '/', icon: Home },
+    { name: 'Dashboard', path: '/dashboard', icon: BarChart3 },
+    { name: 'Add Trade', path: '/add-trade', icon: Plus },
+    { name: 'Trades', path: '/trades', icon: History },
+    { name: 'Watchlist', path: '/watchlist', icon: Eye },
+    { name: 'Trending', path: '/trending', icon: TrendingUp },
+    { name: 'Player Search', path: '/player-search', icon: Search },
+    { name: 'Compare', path: '/player-compare', icon: GitCompare },
+    { name: 'Profit Calc', path: '/profit-calculator', icon: Calculator },
     { name: 'Messages', path: '/messages', icon: MessageCircle, badge: 3 },
-    { name: 'Saved', path: '/saved', icon: Bookmark },
+    { name: 'Saved', path: '/saved-posts', icon: Bookmark },
     ...(isTrader ? [
-      { name: 'Dashboard', path: '/dashboard', icon: BarChart3 },
-      { name: 'My Profile', path: `/trader/${user?.user_id}`, icon: Crown },
+      { name: 'Trader Dashboard', path: '/trader-dashboard', icon: Crown },
     ] : [
       { name: 'Subscriptions', path: '/subscriptions', icon: Users },
     ]),
