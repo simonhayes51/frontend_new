@@ -59,7 +59,7 @@ export default function SavedPosts() {
     if (!confirm("Remove this post from your library?")) return;
 
     try {
-      await api.delete(`/api/subscriptions/save-post/${postId}`);
+      await unsavePost(postId);
       setPosts(prev => prev.filter(p => p.id !== postId));
       toast.success("Post removed from library");
     } catch (error) {
