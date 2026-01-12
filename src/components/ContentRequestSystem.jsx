@@ -53,8 +53,8 @@ export default function ContentRequestSystem({ traderId, isTrader = false, isSub
   const loadRequests = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get(`/api/content-requests/trader/${traderId}`, {
-        params: { status: statusFilter === "all" ? undefined : statusFilter },
+      const { data } = await getTraderContentRequests(traderId, {
+        status: statusFilter === "all" ? undefined : statusFilter,
       });
       setRequests(data.requests || []);
     } catch (error) {
@@ -73,7 +73,7 @@ export default function ContentRequestSystem({ traderId, isTrader = false, isSub
     }
 
     try {
-      await api.post("/api/content-requests/create", {
+      await createContentRequest({
         trader_id: traderId,
         ...newRequest,
       });
@@ -104,11 +104,7 @@ export default function ContentRequestSystem({ traderId, isTrader = false, isSub
 
   const handleUpdateStatus = async (requestId, newStatus, postId = null) => {
     try {
-      await api.patch(`/api/content-requests/${requestId}/status`, {
-        status: newStatus,
-      }, {
-        params: postId ? { post_id: postId } : {},
-      });
+      await updateContentRequestStatus(requestId, newStatus, postId);
       toast.success(`Status updated to ${newStatus}`);
       loadRequests();
     } catch (error) {
@@ -120,7 +116,7 @@ export default function ContentRequestSystem({ traderId, isTrader = false, isSub
     if (!confirm("Are you sure you want to delete this request?")) return;
 
     try {
-      await api.delete(`/api/content-requests/${requestId}`);
+      await deleteContentRequest(requestId);
       toast.success("Request deleted");
       loadRequests();
     } catch (error) {
