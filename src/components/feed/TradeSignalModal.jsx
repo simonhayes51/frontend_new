@@ -81,6 +81,8 @@ export function TradeSignalModal({ isOpen, onClose, onSubmit }) {
         buy_range_max: signalData.buy_price ? parseFloat(signalData.buy_price) : null,
         sell_target: signalData.sell_price ? parseFloat(signalData.sell_price) : null,
         confidence_level: confidenceMap[signalData.confidence] || 66,
+        player_image_url: selectedPlayer?.image_url || null,
+        card_image_url: selectedPlayer?.card_image_url || null,
       });
       
       toast.success("Trade signal posted!");

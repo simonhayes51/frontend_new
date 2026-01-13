@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Heart,
   MessageCircle,
@@ -19,11 +19,32 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 const buildProxy = (url) => `${API_BASE}/img?url=${encodeURIComponent(url)}`;
 const PLACEHOLDER = "/img/card-placeholder.png";
 
+const normalizeForSearch = (value = "") =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+const searchPlayers = async (query) => {
+  if (!query.trim()) return [];
+  const qNorm = normalizeForSearch(query);
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/search-players?q=${encodeURIComponent(query)}&q_norm=${encodeURIComponent(qNorm)}`,
+      { credentials: "include" }
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.players || [];
+  } catch (error) {
+    console.error("Search failed:", error);
+    return [];
+  }
+};
+
 export function PostCard({ post, onUpdate }) {
   const [liked, setLiked] = useState(post.user_has_liked || false);
   const [saved, setSaved] = useState(post.is_saved || false);
   const [likeCount, setLikeCount] = useState(post.likes_count || post.likes || 0);
   const [expanded, setExpanded] = useState(false);
+  const [tradeImage, setTradeImage] = useState(null);
 
   const handleLike = async () => {
     try {
@@ -84,6 +105,7 @@ export function PostCard({ post, onUpdate }) {
     price: getTradePrice(post),
     image:
       post.player?.image_url ||
+      post.player?.image ||
       post.player_image_url ||
       post.card_image_url ||
       post.player?.card_image_url ||
@@ -121,6 +143,24 @@ export function PostCard({ post, onUpdate }) {
     }
     return (max || min).toLocaleString();
   }
+
+  useEffect(() => {
+    let active = true;
+
+    const loadTradeImage = async () => {
+      setTradeImage(null);
+      if (!trade || trade.image || !trade.player) return;
+      const players = await searchPlayers(trade.player);
+      if (!active) return;
+      const match = players[0];
+      setTradeImage(match?.image_url || match?.card_image_url || null);
+    };
+
+    loadTradeImage();
+    return () => {
+      active = false;
+    };
+  }, [trade?.player, trade?.image]);
 
   return (
     <article className="bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-border/80">
@@ -194,19 +234,20 @@ export function PostCard({ post, onUpdate }) {
 
       {/* Trade Signal */}
       {trade && !isLocked && (
-        <div className="mx-4 mb-3 border-t border-border/60 pt-3">
+        <div className="mx-4 mb-3 border-t border-border/50 pt-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-12 w-9 rounded-md bg-muted/40 p-1">
+              <div className="h-14 w-10 rounded-md border border-border/60 bg-transparent p-1">
                 <img
-                  src={trade.image || PLACEHOLDER}
+                  src={tradeImage || trade.image || PLACEHOLDER}
                   alt={trade.player}
                   className="h-full w-full object-contain"
                   onError={(e) => {
                     const img = e.currentTarget;
-                    if (!img.dataset.triedProxy && trade.image) {
+                    const targetImage = tradeImage || trade.image;
+                    if (!img.dataset.triedProxy && targetImage) {
                       img.dataset.triedProxy = "1";
-                      img.src = buildProxy(trade.image);
+                      img.src = buildProxy(targetImage);
                     } else {
                       img.src = PLACEHOLDER;
                     }
