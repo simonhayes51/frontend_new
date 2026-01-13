@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../axios';
+import { getTraderProfile } from '../api/social';
 import UserHoverCard from '../components/UserHoverCard';
 
 /**
@@ -45,8 +46,8 @@ export default function TraderProfileNew() {
   const loadTraderProfile = async () => {
     setLoading(true);
     try {
-      // Load trader profile
-      const profileRes = await api.get(`/api/traders/profile/${traderId}`);
+      // Load trader profile - use exported API function
+      const profileRes = await getTraderProfile(traderId);
       setTrader(profileRes.data);
       setIsSubscribed(profileRes.data.is_subscribed || false);
 

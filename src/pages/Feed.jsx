@@ -2,7 +2,10 @@ import { useState, useEffect } from "react";
 import { PostCard } from "../components/feed/PostCard";
 import { TrendingTraders } from "../components/feed/TrendingTraders";
 import { LiveAlerts } from "../components/feed/LiveAlerts";
-import { Image, FileText, BarChart3, Zap } from "lucide-react";
+import { CommunityUploads } from "../components/feed/CommunityUploads";
+import { TradeSignalModal } from "../components/feed/TradeSignalModal";
+import { ArticleEditorModal } from "../components/feed/ArticleEditorModal";
+import { Image, FileText, BarChart3, Zap, X } from "lucide-react";
 import { GradientButton } from "../components/ui/GradientButton";
 import { getFeed, createPost } from "../api/social";
 import toast from "react-hot-toast";
@@ -13,6 +16,9 @@ export default function Feed() {
   const [filter, setFilter] = useState("all");
   const [postContent, setPostContent] = useState("");
   const [creating, setCreating] = useState(false);
+  const [showTradeModal, setShowTradeModal] = useState(false);
+  const [showArticleModal, setShowArticleModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   useEffect(() => {
     loadPosts();
@@ -44,18 +50,48 @@ export default function Feed() {
 
     setCreating(true);
     try {
-      await createPost({
+      const postData = {
         content: postContent,
         post_type: "tip",
-      });
+      };
+      
+      if (selectedImage) {
+        postData.image_url = selectedImage;
+      }
+
+      await createPost(postData);
       toast.success("Post created!");
       setPostContent("");
+      setSelectedImage(null);
       loadPosts();
     } catch (error) {
       console.error("Failed to create post:", error);
       toast.error("Failed to create post");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleTradeSignalSubmit = async (signalData) => {
+    await createPost(signalData);
+    loadPosts();
+  };
+
+  const handleArticleSubmit = async (articleData) => {
+    await createPost(articleData);
+    loadPosts();
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // In production, upload to storage service
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result);
+        toast.success("Image attached!");
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -86,15 +122,27 @@ export default function Feed() {
               </div>
               <div className="flex items-center justify-between pl-13">
                 <div className="flex items-center gap-2">
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
+                  <label className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer">
                     <Image className="w-4 h-4" />
                     <span className="hidden sm:inline">Image</span>
-                  </button>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleImageUpload}
+                    />
+                  </label>
+                  <button 
+                    onClick={() => setShowTradeModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                  >
                     <BarChart3 className="w-4 h-4" />
                     <span className="hidden sm:inline">Trade</span>
                   </button>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
+                  <button 
+                    onClick={() => setShowArticleModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                  >
                     <FileText className="w-4 h-4" />
                     <span className="hidden sm:inline">Article</span>
                   </button>
@@ -107,6 +155,23 @@ export default function Feed() {
                   {creating ? "Posting..." : "Post"}
                 </GradientButton>
               </div>
+              
+              {/* Image Preview */}
+              {selectedImage && (
+                <div className="mt-3 relative">
+                  <img 
+                    src={selectedImage} 
+                    alt="Preview" 
+                    className="max-h-40 rounded-lg"
+                  />
+                  <button
+                    onClick={() => setSelectedImage(null)}
+                    className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Feed Tabs */}
@@ -157,8 +222,21 @@ export default function Feed() {
           <div className="space-y-6">
             <LiveAlerts />
             <TrendingTraders />
+            <CommunityUploads />
           </div>
         </div>
+
+      {/* Modals */}
+      <TradeSignalModal 
+        isOpen={showTradeModal}
+        onClose={() => setShowTradeModal(false)}
+        onSubmit={handleTradeSignalSubmit}
+      />
+      <ArticleEditorModal 
+        isOpen={showArticleModal}
+        onClose={() => setShowArticleModal(false)}
+        onSubmit={handleArticleSubmit}
+      />
     </div>
   );
 }
