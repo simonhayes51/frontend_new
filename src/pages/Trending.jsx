@@ -53,15 +53,18 @@ function RankBadge({ rank }) {
 /* ------------ normalisers ------------ */
 function normaliseItem(p) {
   const platform = (p.platform ?? "ps").toString().toLowerCase();
+  const pid = p.pid ?? p.card_id ?? p.player_id ?? p.id ?? null;
+
   return {
     name: p.name ?? "Unknown",
     rating: p.rating ?? p.ovr ?? null,
-    pid: p.pid ?? p.card_id ?? p.player_id ?? p.id,
+    pid,
+    card_id: p.card_id ?? pid, // keep for debugging / stability
     version: p.version ?? p.card_type ?? "",
     image: p.image ?? p.image_url ?? null,
     platform,
 
-    // prefer your new flat field, but also support nested prices.console
+    // prefer flat field, support nested too
     price_console:
       p.price_console ??
       p.price_ps ??
@@ -77,24 +80,22 @@ function normaliseItem(p) {
 }
 
 function normaliseSmart(it) {
+  const platform = (it.platform ?? "ps").toString().toLowerCase();
+  const pid = it.pid ?? it.card_id ?? it.id ?? null;
+
   return {
     name: it.name ?? "Unknown",
     rating: it.rating ?? null,
-    pid: it.pid ?? it.card_id ?? it.id,
+    pid,
+    card_id: it.card_id ?? pid,
     image: it.image ?? it.image_url ?? null,
     version: it.version ?? "",
-    platform: (it.platform ?? "ps").toString().toLowerCase(),
+
+    platform,
 
     // backend may return percent_6h/percent_24h OR trend object
-    percent6:
-      it.percent_6h ??
-      it.trend?.chg6hPct ??
-      it.percent ??
-      null,
-    percent24:
-      it.percent_24h ??
-      it.trend?.chg24hPct ??
-      null,
+    percent6: it.percent_6h ?? it.trend?.chg6hPct ?? it.percent ?? null,
+    percent24: it.percent_24h ?? it.trend?.chg24hPct ?? null,
 
     price_console:
       it.price_console ??
@@ -103,6 +104,23 @@ function normaliseSmart(it) {
       it.prices?.console ??
       null,
   };
+}
+
+function dedupeByPid(list) {
+  const out = [];
+  const seen = new Set();
+
+  for (const it of list) {
+    // if pid is missing, fall back to card_id; if still missing, skip
+    const rawId = it?.pid ?? it?.card_id ?? null;
+    if (rawId === null || rawId === undefined) continue;
+
+    const key = `${String(rawId)}-${String(it.platform || "ps")}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(it);
+  }
+  return out;
 }
 
 /* ============================== Component ============================== */
@@ -130,23 +148,14 @@ export default function Trending() {
     setLoading(true);
     setErr("");
     try {
-      const url = `${API_BASE}/api/trending?type=${tab}&tf=${timeframe}`;
+      // explicitly request 10 (backend should respect this once paywall removed)
+      const url = `${API_BASE}/api/trending?type=${tab}&tf=${timeframe}&limit=10`;
       const r = await fetch(url, { credentials: "include" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
 
-      // normalise + hard dedupe by pid+platform (safety net)
       const mapped = (data.items || []).map(normaliseItem);
-      const uniq = [];
-      const seen = new Set();
-      for (const it of mapped) {
-        const key = `${it.pid}-${it.platform || "ps"}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        uniq.push(it);
-      }
-
-      setItems(uniq);
+      setItems(dedupeByPid(mapped));
       setLastUpdated(new Date());
     } catch (e) {
       setErr(`Failed to load trending: ${e.message}`);
@@ -171,16 +180,7 @@ export default function Trending() {
       const data = await r.json();
 
       const mapped = (data.items || []).map(normaliseSmart);
-      const uniq = [];
-      const seen = new Set();
-      for (const it of mapped) {
-        const key = `${it.pid}-${it.platform || "ps"}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        uniq.push(it);
-      }
-
-      setSmartItems(uniq);
+      setSmartItems(dedupeByPid(mapped));
     } catch (e) {
       setSmartErr(`Failed to load Smart Movers: ${e.message}`);
     } finally {
@@ -192,16 +192,17 @@ export default function Trending() {
     fetchSmart();
   }, [fetchSmart]);
 
-  /* ------- layout helpers ------- */
-  const [left, right] = useMemo(
-    () => chunkTop10(tab === "smart" ? smartItems : items),
-    [tab, smartItems, items]
-  );
+  /* ------- layout helpers (dedupe again just in case) ------- */
+  const safeList = useMemo(() => {
+    return tab === "smart" ? dedupeByPid(smartItems) : dedupeByPid(items);
+  }, [tab, smartItems, items]);
+
+  const [left, right] = useMemo(() => chunkTop10(safeList), [safeList]);
 
   async function addToWatchlist(p) {
     try {
       const payload = {
-        card_id: p.pid,
+        card_id: p.pid ?? p.card_id,
         player_name: p.name,
         version: p.version || null,
         platform: p.platform || "ps",
@@ -223,7 +224,7 @@ export default function Trending() {
         const text = await r.text().catch(() => "");
         throw new Error(text || `HTTP ${r.status}`);
       }
-      setAdded((prev) => ({ ...prev, [p.pid]: true }));
+      setAdded((prev) => ({ ...prev, [payload.card_id]: true }));
     } catch (e) {
       alert(`Failed to add to watchlist: ${e.message}`);
     }
@@ -245,6 +246,8 @@ export default function Trending() {
       </span>
     </button>
   );
+
+  const isTabLoading = tab === "smart" ? smartLoading : loading;
 
   return (
     <div className="p-4 md:p-6 space-y-4">
@@ -294,7 +297,7 @@ export default function Trending() {
             className="px-3 py-2 rounded-xl border border-gray-800 bg-gray-900/40 text-gray-200 hover:border-gray-700 inline-flex items-center gap-2"
             title="Refresh"
           >
-            {(tab !== "smart" ? loading : smartLoading) ? (
+            {isTabLoading ? (
               <Loader2 className="animate-spin" size={16} />
             ) : (
               <RefreshCcw size={16} />
@@ -308,9 +311,15 @@ export default function Trending() {
       <div className="flex items-center justify-between">
         <div className="text-xs text-gray-400">
           {tab === "smart" ? (
-            <>Showing <span className="font-medium">Smart Movers</span> (short vs long divergence).</>
+            <>
+              Showing <span className="font-medium">Smart Movers</span> (short vs
+              long divergence).
+            </>
           ) : (
-            <>Showing {tab} for <span className="font-medium">{timeframe}h</span>.</>
+            <>
+              Showing {tab} for{" "}
+              <span className="font-medium">{timeframe}h</span>.
+            </>
           )}
         </div>
         {lastUpdated && tab !== "smart" && (
@@ -336,7 +345,7 @@ export default function Trending() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {[left, right].map((col, colIdx) => (
           <div key={colIdx} className="space-y-3">
-            {(tab !== "smart" ? loading : smartLoading) && (
+            {isTabLoading && (
               <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div
@@ -354,7 +363,7 @@ export default function Trending() {
               </div>
             )}
 
-            {(tab !== "smart" ? !loading : !smartLoading) &&
+            {!isTabLoading &&
               col.map((p, i) => {
                 const rank = colIdx * 5 + i + 1;
 
@@ -363,10 +372,11 @@ export default function Trending() {
                     ? Number(p.percent6 ?? 0) > 0
                     : Number(p.percent ?? 0) > 0;
 
-                const key = `${p.pid}-${p.platform || "ps"}`;
-
                 return (
-                  <div key={key} className={`${cardBase} flex items-center gap-3`}>
+                  <div
+                    key={String(p.pid ?? p.card_id)}
+                    className={`${cardBase} flex items-center gap-3`}
+                  >
                     <RankBadge rank={rank} />
 
                     {p.image ? (
@@ -437,6 +447,11 @@ export default function Trending() {
                             ? p.price_console.toLocaleString()
                             : p.price_console ?? "N/A"}
                         </span>
+
+                        {/* Uncomment this temporarily if you want to debug duplicates */}
+                        {/* <span className={`${pillBase} border border-gray-800 bg-gray-900/60 text-gray-400`}>
+                          ID: {String(p.pid ?? p.card_id)}
+                        </span> */}
                       </div>
                     </div>
 
@@ -444,16 +459,16 @@ export default function Trending() {
                     <div className="shrink-0">
                       <button
                         onClick={() => addToWatchlist(p)}
-                        disabled={!!added[p.pid]}
+                        disabled={!!added[p.pid ?? p.card_id]}
                         className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border ${
-                          added[p.pid]
+                          added[p.pid ?? p.card_id]
                             ? "bg-gray-800 border-gray-700 text-gray-400 cursor-default"
                             : "bg-gray-900/50 border-gray-700 hover:border-gray-600 text-gray-100"
                         }`}
                         title="Add to Watchlist"
                       >
                         <BookmarkPlus size={16} />
-                        {added[p.pid] ? "Added" : "Watchlist"}
+                        {added[p.pid ?? p.card_id] ? "Added" : "Watchlist"}
                       </button>
                     </div>
                   </div>
