@@ -17,19 +17,21 @@ export function TrendingTraders() {
       const items = Array.isArray(data) ? data : data?.traders || [];
       
       // Map to expected format
-      const formattedTraders = items.map(trader => ({
-        id: trader.user_id,
-        name: trader.username,
-        username: trader.username,
-        avatar: trader.avatar_url || `https://i.pravatar.cc/150?u=${trader.user_id}`,
-        verified: trader.verified || false,
-        rating: trader.avg_rating || 4.0,
-        subscribers: trader.total_followers || 0,
-        winRate: trader.win_rate || 0,
-        tier: mapTierName(trader.tier),
-        subscriptionPrice: getSubscriptionPrice(trader.tier),
-        isSubscribed: trader.is_subscribed || false,
-      }));
+      const formattedTraders = items
+        .filter(trader => trader.user_id || trader.id) // Only include traders with valid ID
+        .map(trader => ({
+          id: trader.user_id || trader.id, // Fallback to id if user_id doesn't exist
+          name: trader.username || trader.name || 'Anonymous',
+          username: trader.username || trader.name || 'trader',
+          avatar: trader.avatar_url || `https://i.pravatar.cc/150?u=${trader.user_id || trader.id || 'default'}`,
+          verified: trader.verified || false,
+          rating: trader.avg_rating || 4.0,
+          subscribers: trader.total_followers || 0,
+          winRate: trader.win_rate || 0,
+          tier: mapTierName(trader.tier),
+          subscriptionPrice: getSubscriptionPrice(trader.tier),
+          isSubscribed: trader.is_subscribed || false,
+        }));
       
       setTraders(formattedTraders);
     } catch (error) {

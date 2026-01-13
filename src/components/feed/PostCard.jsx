@@ -19,6 +19,7 @@ export function PostCard({ post, onUpdate }) {
   const [liked, setLiked] = useState(post.user_has_liked || false);
   const [saved, setSaved] = useState(post.is_saved || false);
   const [likeCount, setLikeCount] = useState(post.likes_count || post.likes || 0);
+  const [expanded, setExpanded] = useState(false);
 
   const handleLike = async () => {
     try {
@@ -68,12 +69,15 @@ export function PostCard({ post, onUpdate }) {
   };
 
   const isLocked = post.is_locked || (post.visibility === 'premium' && !post.can_view);
+  const isArticle = post.post_type === 'analysis';
+  const contentPreviewLength = 200;
+  const shouldTruncate = isArticle && post.content && post.content.length > contentPreviewLength;
   
   // Extract trade info if available
   const trade = (post.post_type === 'quick_flip' || post.post_type === 'prediction') ? {
     type: post.post_type === 'quick_flip' ? 'buy' : 'sell',
     player: post.player_name || 'Player',
-    price: post.buy_price || post.sell_price || 0,
+    price: post.buy_range_min || post.buy_range_max || post.sell_target || 0,
     result: post.profit ? {
       profit: post.profit,
       percentage: post.profit_percentage || 0,
@@ -132,7 +136,21 @@ export function PostCard({ post, onUpdate }) {
             </div>
           </div>
         ) : (
-          <p className="text-foreground leading-relaxed">{post.content}</p>
+          <>
+            <p className="text-foreground leading-relaxed whitespace-pre-line">
+              {shouldTruncate && !expanded 
+                ? post.content.slice(0, contentPreviewLength) + '...' 
+                : post.content}
+            </p>
+            {shouldTruncate && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="mt-2 text-primary hover:underline text-sm font-medium"
+              >
+                {expanded ? 'Show less' : 'Read more'}
+              </button>
+            )}
+          </>
         )}
       </div>
 

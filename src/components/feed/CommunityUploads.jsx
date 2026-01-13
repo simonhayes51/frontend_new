@@ -12,18 +12,19 @@ export function CommunityUploads() {
 
   const loadUploads = async () => {
     try {
-      const { data } = await getFeed({ limit: 6 });
+      const { data } = await getFeed({ limit: 20 });
       const items = Array.isArray(data)
         ? data
         : data?.posts || data?.items || data?.results || [];
       
-      // Filter posts with images
+      // For now, show placeholder images for analysis/tip posts until backend supports image_url
+      // Filter for analysis and tip posts (articles and tips)
       const imageUploads = items
-        .filter(post => post.image_url)
+        .filter(post => post.post_type === 'analysis' || post.post_type === 'tip')
         .slice(0, 6)
         .map(post => ({
           id: post.id,
-          image: post.image_url,
+          image: post.image_url || `https://picsum.photos/seed/${post.id}/300/300`, // Placeholder until backend supports images
           author: post.author?.username || 'Anonymous',
           likes: post.like_count || 0,
           views: post.view_count || 0,
