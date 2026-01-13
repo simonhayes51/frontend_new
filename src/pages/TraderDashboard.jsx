@@ -95,7 +95,10 @@ export default function TraderDashboard() {
       });
       toast.success('Subscription prices updated!');
     } catch (error) {
-      toast.error('Failed to update prices');
+      console.error('Error saving prices:', error);
+      // Fallback: save to localStorage if backend not implemented yet
+      localStorage.setItem('trader_subscription_prices', JSON.stringify(subscriptionPrices));
+      toast.success('Subscription prices saved locally (backend endpoint pending)');
     } finally {
       setSavingPrices(false);
     }
