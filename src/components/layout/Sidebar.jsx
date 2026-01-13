@@ -27,13 +27,14 @@ const mainNavItems = [
   { icon: Home, label: "Feed", path: "/" },
   { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
   { icon: Users, label: "Traders", path: "/subscriptions" },
-  { icon: Flame, label: "Trending", path: "/trending" },
+  { icon: Flame, label: "Trending Traders", path: "/subscriptions" },
 ];
 
 const tradingNavItems = [
   { icon: Plus, label: "Add Trade", path: "/add-trade" },
   { icon: History, label: "Trades", path: "/trades" },
   { icon: Eye, label: "Watchlist", path: "/watchlist" },
+  { icon: TrendingUp, label: "Trending Cards", path: "/trending" },
   { icon: Search, label: "Player Search", path: "/player-search" },
   { icon: GitCompare, label: "Compare", path: "/player-compare" },
   { icon: Calculator, label: "Profit Calc", path: "/profit-calculator" },
