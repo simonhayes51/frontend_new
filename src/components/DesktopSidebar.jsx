@@ -113,8 +113,8 @@ const DesktopSidebar = () => {
           />
         </div>
         {!collapsed && (
-          <h1 className="mt-2 text-lg font-bold text-white text-center">
-            FUT Traders Hub
+          <h1 className="mt-2 text-lg font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent text-center">
+            Transfer Traders
           </h1>
         )}
         <button

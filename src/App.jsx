@@ -94,14 +94,14 @@ function App() {
                       <PrivateRoute>
                         <SettingsProvider>
                           <DashboardProvider>
-                            <AppLayoutPro />
+                            <Layout />
                           </DashboardProvider>
                         </SettingsProvider>
                       </PrivateRoute>
                     }
                   >
-                    {/* ✅ Feed (default) - PROFESSIONAL REDESIGN */}
-                    <Route index element={<FeedPro />} />
+                    {/* ✅ Feed/Dashboard - Keep original behavior */}
+                    <Route index element={<Dashboard />} />
                     {/* Optional aliases – both load Dashboard */}
                     <Route path="overview" element={<Dashboard />} />
                     <Route path="dashboard" element={<Dashboard />} />
