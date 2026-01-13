@@ -342,7 +342,7 @@ const Settings = () => {
                       <select
                         value={settings.default_platform}
                         onChange={(e) => updateSetting('default_platform', e.target.value)}
-                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary/50 focus:border-primary"
+                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
                       >
                         <option value="Console">PlayStation (Console)</option>
                         <option value="Xbox">Xbox</option>
@@ -376,7 +376,7 @@ const Settings = () => {
                         step="0.1"
                         value={settings.tax_rate}
                         onChange={(e) => updateSetting('tax_rate', parseFloat(e.target.value) || 5)}
-                        className="block w-32 px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary/50 focus:border-primary"
+                        className="block w-32 px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
                       />
                     </div>
 
@@ -385,7 +385,7 @@ const Settings = () => {
                       <select
                         value={settings.profit_display_mode}
                         onChange={(e) => updateSetting('profit_display_mode', e.target.value)}
-                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary/50 focus:border-primary"
+                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
                       >
                         <option value="after_tax">After Tax (Default)</option>
                         <option value="before_tax">Before Tax</option>
@@ -401,7 +401,7 @@ const Settings = () => {
                         max="100"
                         value={settings.target_profit_margin}
                         onChange={(e) => updateSetting('target_profit_margin', parseInt(e.target.value) || 10)}
-                        className="block w-32 px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary/50 focus:border-primary"
+                        className="block w-32 px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
                       />
                       <p className="text-sm text-muted-foreground mt-1">Used for trade suggestions and analysis</p>
                     </div>
@@ -415,7 +415,7 @@ const Settings = () => {
                           onChange={(e) => setNewQuickTag(e.target.value)}
                           onKeyPress={(e) => e.key === 'Enter' && addQuickTag()}
                           placeholder="Add a quick tag..."
-                          className="flex-1 px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary/50 focus:border-primary"
+                          className="flex-1 px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
                         />
                         <button
                           onClick={addQuickTag}
@@ -476,7 +476,7 @@ const Settings = () => {
                         max="50"
                         value={settings.price_alert_threshold}
                         onChange={(e) => updateSetting('price_alert_threshold', parseInt(e.target.value) || 10)}
-                        className="block w-32 px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary/50 focus:border-primary"
+                        className="block w-32 px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
                       />
                       <p className="text-sm text-muted-foreground mt-1">Alert when player prices change by this percentage</p>
                     </div>
@@ -504,7 +504,7 @@ const Settings = () => {
                         type="time"
                         value={settings.daily_summary_time}
                         onChange={(e) => updateSetting('daily_summary_time', e.target.value)}
-                        className="block w-40 px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary/50 focus:border-primary"
+                        className="block w-40 px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
                       />
                       <p className="text-sm text-muted-foreground mt-1">When to send daily trading summary</p>
                     </div>
@@ -523,7 +523,7 @@ const Settings = () => {
                       <select
                         value={settings.currency_display}
                         onChange={(e) => updateSetting('currency_display', e.target.value)}
-                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary/50 focus:border-primary"
+                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
                       >
                         <option value="coins">Full Coins (1,250,000)</option>
                         <option value="k_format">K Format (1.25M, 250K)</option>
@@ -579,7 +579,7 @@ const Settings = () => {
                       <select
                         value={settings.risk_tolerance}
                         onChange={(e) => updateSetting('risk_tolerance', e.target.value)}
-                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary/50 focus:border-primary"
+                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
                       >
                         <option value="low">Low - Conservative trading</option>
                         <option value="medium">Medium - Balanced approach</option>
@@ -592,7 +592,7 @@ const Settings = () => {
                       <select
                         value={settings.investment_horizon}
                         onChange={(e) => updateSetting('investment_horizon', e.target.value)}
-                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary/50 focus:border-primary"
+                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
                       >
                         <option value="short">Short-term (Hours to Days)</option>
                         <option value="medium">Medium-term (Days to Weeks)</option>
@@ -639,7 +639,7 @@ const Settings = () => {
                       <select
                         value={settings.price_update_interval}
                         onChange={(e) => updateSetting('price_update_interval', parseInt(e.target.value))}
-                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary/50 focus:border-primary"
+                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
                       >
                         <option value={1}>1 minute</option>
                         <option value={5}>5 minutes</option>
@@ -745,7 +745,7 @@ const Settings = () => {
                       <select
                         value={settings.data_retention_days}
                         onChange={(e) => updateSetting('data_retention_days', parseInt(e.target.value))}
-                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary/50 focus:border-primary"
+                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
                       >
                         <option value={90}>90 days</option>
                         <option value={180}>6 months</option>
@@ -782,7 +782,7 @@ const Settings = () => {
                       <select
                         value={settings.backup_frequency}
                         onChange={(e) => updateSetting('backup_frequency', e.target.value)}
-                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary/50 focus:border-primary"
+                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
                       >
                         <option value="never">Never</option>
                         <option value="weekly">Weekly</option>
@@ -794,17 +794,17 @@ const Settings = () => {
                     </div>
 
                     {/* Danger Zone */}
-                    <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+                    <div className="border border-destructive/40 rounded-lg p-4 bg-destructive/10">
                       <div className="flex items-center mb-3">
-                        <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
-                        <h4 className="text-sm font-medium text-red-900">Danger Zone</h4>
+                        <AlertTriangle className="h-5 w-5 text-destructive mr-2" />
+                        <h4 className="text-sm font-medium text-destructive">Danger Zone</h4>
                       </div>
-                      <p className="text-sm text-red-700 mb-4">
+                      <p className="text-sm text-destructive/80 mb-4">
                         Permanently delete all your trading data. This action cannot be undone.
                       </p>
                       <button
                         onClick={() => setShowDeleteModal(true)}
-                        className="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm bg-card text-sm font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        className="inline-flex items-center px-4 py-2 border border-destructive/40 rounded-md shadow-sm bg-card text-sm font-medium text-destructive hover:bg-destructive/10 focus:outline-none focus:ring-2 focus:ring-destructive/50"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete All Data
@@ -855,7 +855,7 @@ const Settings = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-card rounded-lg max-w-md w-full p-6">
               <div className="flex items-center mb-4">
-                <AlertTriangle className="h-6 w-6 text-red-500 mr-3" />
+                <AlertTriangle className="h-6 w-6 text-destructive mr-3" />
                 <h3 className="text-lg font-medium text-foreground">Delete All Trading Data</h3>
               </div>
               <div className="mb-4">
@@ -876,7 +876,7 @@ const Settings = () => {
                 type="text"
                 value={deleteConfirm}
                 onChange={(e) => setDeleteConfirm(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 mb-4"
+                className="w-full px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-destructive/50 focus:border-destructive mb-4"
                 placeholder="Type DELETE"
               />
               <div className="flex space-x-3">
@@ -892,7 +892,7 @@ const Settings = () => {
                 <button
                   onClick={deleteAllData}
                   disabled={loading || deleteConfirm !== 'DELETE'}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-destructive border border-transparent rounded-md hover:bg-destructive/90 focus:outline-none focus:ring-2 focus:ring-destructive/50 disabled:opacity-50"
                 >
                   {loading ? (
                     <RefreshCw className="animate-spin h-4 w-4 mx-auto" />
