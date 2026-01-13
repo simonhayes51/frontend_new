@@ -7,90 +7,6 @@ import { GradientButton } from "../components/ui/GradientButton";
 import { getFeed, createPost } from "../api/social";
 import toast from "react-hot-toast";
 
-const mockPosts = [
-  {
-    id: "1",
-    trader: {
-      name: "CoinMaster_FC",
-      username: "coinmaster",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
-      verified: true,
-      tier: "Diamond",
-    },
-    content: "🚀 BIG OPPORTUNITY! Mbappé TOTY is dropping due to panic sells. This is the perfect time to invest. Target buy: 2.8M, Expected rise: 3.2M+ by weekend. Trust the process! 💎",
-    trade: {
-      type: "buy",
-      player: "Mbappé TOTY",
-      price: 2800000,
-      prediction: "profit",
-    },
-    isLocked: false,
-    likes: 847,
-    comments: 124,
-    shares: 56,
-    views: 12400,
-    timestamp: "2h ago",
-  },
-  {
-    id: "2",
-    trader: {
-      name: "FC_Trader_Pro",
-      username: "traderpro",
-      avatar: "https://images.unsplash.com/photo-1599566150163-29194dcabd36?w=100&h=100&fit=crop",
-      verified: true,
-      tier: "Platinum",
-    },
-    content: "Just closed another huge trade! Haaland sold at peak. +320k profit in just 3 days. My subscribers ate good this week! 🔥 Full breakdown in premium...",
-    trade: {
-      type: "sell",
-      player: "Haaland",
-      price: 1950000,
-      result: { profit: 320000, percentage: 19.6 },
-    },
-    isLocked: false,
-    likes: 523,
-    comments: 89,
-    shares: 34,
-    views: 8900,
-    timestamp: "5h ago",
-  },
-  {
-    id: "3",
-    trader: {
-      name: "MarketKing",
-      username: "marketking",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-      verified: false,
-      tier: "Gold",
-    },
-    content: "🔒 PREMIUM CONTENT: The full market analysis for next week's promo is ready. 5 players to invest in, expected ROI breakdown, and timing strategy all included...",
-    isLocked: true,
-    likes: 234,
-    comments: 45,
-    shares: 12,
-    views: 4200,
-    timestamp: "8h ago",
-  },
-  {
-    id: "4",
-    trader: {
-      name: "TradeMaster",
-      username: "trademaster",
-      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
-      verified: true,
-      tier: "Diamond",
-    },
-    content: "Meta update incoming! Based on leaks, these players will rise: Rodri, Bellingham, and Salah. Get them now before the patch drops tomorrow. You heard it here first! 📈",
-    image: "https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=800&h=400&fit=crop",
-    isLocked: false,
-    likes: 1203,
-    comments: 234,
-    shares: 89,
-    views: 23000,
-    timestamp: "12h ago",
-  },
-];
-
 export default function Feed() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -243,7 +159,6 @@ export default function Feed() {
             <TrendingTraders />
           </div>
         </div>
-      </div>
     </div>
   );
 }
