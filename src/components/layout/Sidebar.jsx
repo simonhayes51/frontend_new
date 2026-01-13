@@ -20,6 +20,7 @@ import {
   GitCompare,
   Calculator,
   Plus,
+  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
