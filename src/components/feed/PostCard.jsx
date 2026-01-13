@@ -234,14 +234,14 @@ export function PostCard({ post, onUpdate }) {
 
       {/* Trade Signal */}
       {trade && !isLocked && (
-        <div className="mx-4 mb-3 rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+        <div className="mx-4 mb-4 rounded-2xl border border-border/50 bg-muted/20 px-4 py-4">
           <div
-            className={`flex items-center justify-between gap-4 border-l-4 pl-3 ${
+            className={`flex items-center justify-between gap-5 border-l-4 pl-4 ${
               trade.type === "buy" ? "border-success/60" : "border-destructive/60"
             }`}
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-16 w-12 rounded-md border border-border/40 bg-black/20 p-1">
+              <div className="h-24 w-16 rounded-lg border border-border/40 bg-black/20 p-1">
                 <img
                   src={tradeImage || trade.image || PLACEHOLDER}
                   alt={trade.player}
@@ -262,13 +262,13 @@ export function PostCard({ post, onUpdate }) {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   {trade.type === "buy" ? (
-                    <TrendingUp className="w-4 h-4 text-success" />
+                    <TrendingUp className="w-5 h-5 text-success" />
                   ) : (
-                    <TrendingDown className="w-4 h-4 text-destructive" />
+                    <TrendingDown className="w-5 h-5 text-destructive" />
                   )}
-                  <p className="font-semibold text-foreground truncate">{trade.player}</p>
+                  <p className="text-lg font-semibold text-foreground truncate">{trade.player}</p>
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-base text-muted-foreground">
                   {trade.type === "buy" ? "Buy" : "Sell"} @ {formatTradePrice(trade.price)} coins
                 </p>
               </div>
