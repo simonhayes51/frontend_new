@@ -65,6 +65,10 @@ const MessagesPage = lazy(() => import("./pages/MessagesPage"));
 const TraderDashboard = lazy(() => import("./pages/TraderDashboard"));
 const AppLayout = lazy(() => import("./components/AppLayout"));
 
+// PROFESSIONAL REDESIGN - Clean, modern layout
+const AppLayoutPro = lazy(() => import("./components/AppLayoutPro"));
+const FeedPro = lazy(() => import("./pages/FeedPro"));
+
 function App() {
   return (
     <ErrorBoundary>
@@ -89,14 +93,14 @@ function App() {
                       <PrivateRoute>
                         <SettingsProvider>
                           <DashboardProvider>
-                            <AppLayout />
+                            <AppLayoutPro />
                           </DashboardProvider>
                         </SettingsProvider>
                       </PrivateRoute>
                     }
                   >
-                    {/* ✅ Feed (default) - NEW REDESIGN */}
-                    <Route index element={<FeedNew />} />
+                    {/* ✅ Feed (default) - PROFESSIONAL REDESIGN */}
+                    <Route index element={<FeedPro />} />
                     {/* Optional aliases – both load Dashboard */}
                     <Route path="overview" element={<Dashboard />} />
                     <Route path="dashboard" element={<Dashboard />} />
