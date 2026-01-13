@@ -100,9 +100,9 @@ function App() {
                       </PrivateRoute>
                     }
                   >
-                    {/* ✅ Feed/Dashboard - Keep original behavior */}
-                    <Route index element={<Dashboard />} />
-                    {/* Optional aliases – both load Dashboard */}
+                    {/* ✅ Feed is now the default landing page */}
+                    <Route index element={<Feed />} />
+                    {/* Optional aliases */}
                     <Route path="overview" element={<Dashboard />} />
                     <Route path="dashboard" element={<Dashboard />} />
                     

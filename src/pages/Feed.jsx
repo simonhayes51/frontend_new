@@ -1,174 +1,160 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Users, Star, TrendingUp, Wallet, Activity } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
-import { useDashboard } from "../context/DashboardContext";
-import toast from "react-hot-toast";
-import FeedPanel, { formatDate } from "../components/social/FeedPanel";
-import { getRecommendedTraders, getTopRatedTraders } from "../api/social";
+import { MainLayout } from "../components/layout/MainLayout";
+import { PostCard } from "../components/feed/PostCard";
+import { TrendingTraders } from "../components/feed/TrendingTraders";
+import { LiveAlerts } from "../components/feed/LiveAlerts";
+import { Image, FileText, BarChart3, Zap } from "lucide-react";
+import { GradientButton } from "../components/ui/GradientButton";
 
-const StatCard = ({ label, value, icon, accent = "text-emerald-400" }) => (
-  <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-4 flex items-center gap-3">
-    <div className={`w-10 h-10 rounded-xl bg-slate-900/80 grid place-items-center ${accent}`}>
-      {icon}
-    </div>
-    <div>
-      <p className="text-xs text-slate-400 uppercase tracking-[0.2em]">{label}</p>
-      <p className="text-lg font-semibold text-white">{value}</p>
-    </div>
-  </div>
-);
-
-const TraderList = ({ title, traders }) => (
-  <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-4">
-    <div className="flex items-center justify-between mb-4">
-      <h3 className="text-sm font-semibold text-white">{title}</h3>
-    </div>
-    <div className="space-y-3">
-      {traders.length === 0 ? (
-        <p className="text-xs text-slate-400">No traders to show yet.</p>
-      ) : (
-        traders.map((trader) => (
-          <div key={trader.id} className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-white">
-                {trader.username || trader.display_name || "Trader"}
-              </p>
-              <p className="text-xs text-slate-400">
-                {Number(trader.rating_avg || trader.average_rating || 0).toFixed(1)} ★ •{" "}
-                {trader.specialties?.[0] || "All markets"}
-              </p>
-            </div>
-            <span className="text-xs text-emerald-300">
-              {trader.subscribers || trader.followers || 0} followers
-            </span>
-          </div>
-        ))
-      )}
-    </div>
-  </div>
-);
+const mockPosts = [
+  {
+    id: "1",
+    trader: {
+      name: "CoinMaster_FC",
+      username: "coinmaster",
+      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+      verified: true,
+      tier: "Diamond",
+    },
+    content: "🚀 BIG OPPORTUNITY! Mbappé TOTY is dropping due to panic sells. This is the perfect time to invest. Target buy: 2.8M, Expected rise: 3.2M+ by weekend. Trust the process! 💎",
+    trade: {
+      type: "buy",
+      player: "Mbappé TOTY",
+      price: 2800000,
+      prediction: "profit",
+    },
+    isLocked: false,
+    likes: 847,
+    comments: 124,
+    shares: 56,
+    views: 12400,
+    timestamp: "2h ago",
+  },
+  {
+    id: "2",
+    trader: {
+      name: "FC_Trader_Pro",
+      username: "traderpro",
+      avatar: "https://images.unsplash.com/photo-1599566150163-29194dcabd36?w=100&h=100&fit=crop",
+      verified: true,
+      tier: "Platinum",
+    },
+    content: "Just closed another huge trade! Haaland sold at peak. +320k profit in just 3 days. My subscribers ate good this week! 🔥 Full breakdown in premium...",
+    trade: {
+      type: "sell",
+      player: "Haaland",
+      price: 1950000,
+      result: { profit: 320000, percentage: 19.6 },
+    },
+    isLocked: false,
+    likes: 523,
+    comments: 89,
+    shares: 34,
+    views: 8900,
+    timestamp: "5h ago",
+  },
+  {
+    id: "3",
+    trader: {
+      name: "MarketKing",
+      username: "marketking",
+      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
+      verified: false,
+      tier: "Gold",
+    },
+    content: "🔒 PREMIUM CONTENT: The full market analysis for next week's promo is ready. 5 players to invest in, expected ROI breakdown, and timing strategy all included...",
+    isLocked: true,
+    likes: 234,
+    comments: 45,
+    shares: 12,
+    views: 4200,
+    timestamp: "8h ago",
+  },
+  {
+    id: "4",
+    trader: {
+      name: "TradeMaster",
+      username: "trademaster",
+      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
+      verified: true,
+      tier: "Diamond",
+    },
+    content: "Meta update incoming! Based on leaks, these players will rise: Rodri, Bellingham, and Salah. Get them now before the patch drops tomorrow. You heard it here first! 📈",
+    image: "https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=800&h=400&fit=crop",
+    isLocked: false,
+    likes: 1203,
+    comments: 234,
+    shares: 89,
+    views: 23000,
+    timestamp: "12h ago",
+  },
+];
 
 export default function Feed() {
-  const { user } = useAuth();
-  const { netProfit, trades, profile, startingBalance } = useDashboard();
-  const [topRated, setTopRated] = useState([]);
-  const [recommended, setRecommended] = useState([]);
-
-  useEffect(() => {
-    const loadSidebars = async () => {
-      try {
-        const [topRes, recRes] = await Promise.all([
-          getTopRatedTraders(),
-          getRecommendedTraders(),
-        ]);
-        const topItems = Array.isArray(topRes.data)
-          ? topRes.data
-          : topRes.data?.traders || topRes.data?.results || [];
-        const recItems = Array.isArray(recRes.data)
-          ? recRes.data
-          : recRes.data?.traders || recRes.data?.results || [];
-        setTopRated(topItems.slice(0, 4));
-        setRecommended(recItems.slice(0, 4));
-      } catch (error) {
-        toast.error(error.userMessage || "Failed to load trader insights");
-      }
-    };
-
-    loadSidebars();
-  }, []);
-
-  const stats = useMemo(() => {
-    const totalTrades = trades?.length || 0;
-    const winRate = profile?.winRate || 0;
-    return [
-      {
-        label: "Invested",
-        value: startingBalance ? `${startingBalance.toLocaleString()} coins` : "—",
-        icon: <Wallet className="w-5 h-5" />,
-      },
-      {
-        label: "Profit",
-        value: `${(netProfit || 0).toLocaleString()} coins`,
-        icon: <TrendingUp className="w-5 h-5" />,
-        accent: netProfit >= 0 ? "text-emerald-400" : "text-red-400",
-      },
-      {
-        label: "Trades",
-        value: totalTrades,
-        icon: <Users className="w-5 h-5" />,
-      },
-      {
-        label: "Win Rate",
-        value: `${winRate.toFixed(1)}%`,
-        icon: <Activity className="w-5 h-5" />,
-      },
-    ];
-  }, [netProfit, profile?.winRate, startingBalance, trades]);
-
-  const recentTrades = useMemo(() => {
-    if (!trades?.length) return [];
-    return [...trades]
-      .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
-      .slice(0, 4);
-  }, [trades]);
-
   return (
-    <div className="min-h-screen bg-[#0e1320] text-white p-6">
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_320px] gap-6">
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-black">Your Feed</h1>
-            <p className="text-slate-400">
-              Latest tips and trade alerts from the traders you follow.
-            </p>
-          </div>
-          <FeedPanel user={user} headline="Post a trade update" />
-        </div>
-
-        <aside className="space-y-6">
-          <div className="grid gap-4">
-            {stats.map((stat) => (
-              <StatCard key={stat.label} {...stat} />
-            ))}
-          </div>
-
-          <TraderList title="Top Rated Traders" traders={topRated} />
-          <TraderList title="Suggested Traders" traders={recommended} />
-
-          <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Star className="w-4 h-4 text-yellow-400" />
-              <h3 className="text-sm font-semibold">Recent Trades</h3>
-            </div>
-            {recentTrades.length === 0 ? (
-              <p className="text-xs text-slate-400">No recent trades yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {recentTrades.map((trade) => (
-                  <div key={trade.trade_id || trade.id} className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        {trade.player || trade.name || "Trade"}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {formatDate(trade.timestamp)}
-                      </p>
-                    </div>
-                    <span
-                      className={`text-xs font-semibold ${
-                        trade.profit >= 0 ? "text-emerald-400" : "text-red-400"
-                      }`}
-                    >
-                      {trade.profit >= 0 ? "+" : ""}
-                      {Number(trade.profit || 0).toLocaleString()}
-                    </span>
-                  </div>
-                ))}
+    <MainLayout>
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Feed */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Create Post */}
+            <div className="bg-card border border-border rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-primary-foreground" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Share a trade signal, market insight, or tip..."
+                  className="flex-1 bg-muted/50 border border-border rounded-lg px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                />
               </div>
-            )}
+              <div className="flex items-center justify-between pl-13">
+                <div className="flex items-center gap-2">
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
+                    <Image className="w-4 h-4" />
+                    <span className="hidden sm:inline">Image</span>
+                  </button>
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
+                    <BarChart3 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Trade</span>
+                  </button>
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
+                    <FileText className="w-4 h-4" />
+                    <span className="hidden sm:inline">Article</span>
+                  </button>
+                </div>
+                <GradientButton size="sm">Post</GradientButton>
+              </div>
+            </div>
+
+            {/* Feed Tabs */}
+            <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg w-fit">
+              <button className="px-4 py-2 text-sm font-medium rounded-md bg-card text-foreground shadow-sm">
+                For You
+              </button>
+              <button className="px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground transition-colors">
+                Following
+              </button>
+              <button className="px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground transition-colors">
+                Premium
+              </button>
+            </div>
+
+            {/* Posts */}
+            <div className="space-y-4">
+              {mockPosts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </div>
           </div>
-        </aside>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            <LiveAlerts />
+            <TrendingTraders />
+          </div>
+        </div>
       </div>
-    </div>
+    </MainLayout>
   );
 }
