@@ -55,9 +55,10 @@ export default function Feed() {
         post_type: "tip",
       };
       
-      if (selectedImage) {
-        postData.image_url = selectedImage;
-      }
+      // Note: image_url not yet supported by backend, will be added in future
+      // if (selectedImage) {
+      //   postData.image_url = selectedImage;
+      // }
 
       await createPost(postData);
       toast.success("Post created!");

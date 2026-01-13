@@ -26,13 +26,16 @@ export function TradeSignalModal({ isOpen, onClose, onSubmit }) {
     }
 
     try {
+      const confidenceMap = { low: 33, medium: 66, high: 90 };
+      
       await onSubmit({
         post_type: signalData.signal_type === "buy" ? "quick_flip" : "prediction",
         content: signalData.notes || `${signalData.signal_type === "buy" ? "Buy" : "Sell"} signal for ${signalData.player_name}`,
         player_name: signalData.player_name,
-        buy_price: parseFloat(signalData.buy_price) || null,
-        sell_price: parseFloat(signalData.sell_price) || null,
-        confidence: signalData.confidence,
+        buy_range_min: signalData.buy_price ? parseFloat(signalData.buy_price) : null,
+        buy_range_max: signalData.buy_price ? parseFloat(signalData.buy_price) : null,
+        sell_target: signalData.sell_price ? parseFloat(signalData.sell_price) : null,
+        confidence_level: confidenceMap[signalData.confidence] || 66,
       });
       
       toast.success("Trade signal posted!");

@@ -35,10 +35,8 @@ export function ArticleEditorModal({ isOpen, onClose, onSubmit }) {
 
     try {
       await onSubmit({
-        post_type: "article",
-        content: articleData.title,
-        article_content: articleData.content,
-        image_url: articleData.thumbnail,
+        post_type: "analysis",
+        content: `${articleData.title}\n\n${articleData.content}`,
         tags: articleData.tags.split(',').map(t => t.trim()).filter(Boolean),
       });
       
