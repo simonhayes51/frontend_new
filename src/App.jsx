@@ -9,6 +9,7 @@ import { EntitlementsProvider } from "./context/EntitlementsContext";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
+import { MainLayout } from "./components/layout/MainLayout";
 import Loading from "./components/Loading";
 import PrivateRoute from "./components/PrivateRoute";
 import PremiumRoute from "./components/PremiumRoute";
@@ -94,7 +95,7 @@ function App() {
                       <PrivateRoute>
                         <SettingsProvider>
                           <DashboardProvider>
-                            <Layout />
+                            <MainLayout />
                           </DashboardProvider>
                         </SettingsProvider>
                       </PrivateRoute>

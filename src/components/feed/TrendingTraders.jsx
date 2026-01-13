@@ -1,46 +1,77 @@
+import { useState, useEffect } from "react";
 import { Flame, ChevronRight } from "lucide-react";
 import { TraderCard } from "./TraderCard";
-
-const trendingTraders = [
-  {
-    id: "1",
-    name: "CoinMaster_FC",
-    username: "coinmaster",
-    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
-    verified: true,
-    rating: 4.9,
-    subscribers: 12500,
-    winRate: 78,
-    tier: "diamond",
-    subscriptionPrice: 9.99,
-  },
-  {
-    id: "2",
-    name: "FC_Trader_Pro",
-    username: "traderpro",
-    avatar: "https://images.unsplash.com/photo-1599566150163-29194dcabd36?w=100&h=100&fit=crop",
-    verified: true,
-    rating: 4.7,
-    subscribers: 8200,
-    winRate: 72,
-    tier: "platinum",
-    subscriptionPrice: 7.99,
-  },
-  {
-    id: "3",
-    name: "MarketKing",
-    username: "marketking",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    verified: false,
-    rating: 4.5,
-    subscribers: 5600,
-    winRate: 68,
-    tier: "gold",
-    subscriptionPrice: 4.99,
-  },
-];
+import { getTraders } from "../../api/social";
 
 export function TrendingTraders() {
+  const [traders, setTraders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadTraders();
+  }, []);
+
+  const loadTraders = async () => {
+    try {
+      const { data } = await getTraders({ verified: true, limit: 3 });
+      const items = Array.isArray(data) ? data : data?.traders || [];
+      
+      // Map to expected format
+      const formattedTraders = items.map(trader => ({
+        id: trader.user_id,
+        name: trader.username,
+        username: trader.username,
+        avatar: trader.avatar_url || `https://i.pravatar.cc/150?u=${trader.user_id}`,
+        verified: trader.verified || false,
+        rating: trader.avg_rating || 4.0,
+        subscribers: trader.total_followers || 0,
+        winRate: trader.win_rate || 0,
+        tier: mapTierName(trader.tier),
+        subscriptionPrice: getSubscriptionPrice(trader.tier),
+        isSubscribed: trader.is_subscribed || false,
+      }));
+      
+      setTraders(formattedTraders);
+    } catch (error) {
+      console.error("Failed to load traders:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const mapTierName = (tier) => {
+    const tierMap = {
+      'free': 'bronze',
+      'basic': 'silver',
+      'premium': 'gold',
+      'elite': 'platinum',
+      'diamond': 'diamond',
+    };
+    return tierMap[tier?.toLowerCase()] || 'bronze';
+  };
+
+  const getSubscriptionPrice = (tier) => {
+    const priceMap = {
+      'diamond': 9.99,
+      'elite': 7.99,
+      'premium': 4.99,
+      'basic': 2.99,
+      'free': 0,
+    };
+    return priceMap[tier?.toLowerCase()] || 4.99;
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-4">
+        <div className="animate-pulse space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-24 bg-muted/30 rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="bg-card border border-border rounded-xl p-4">
       <div className="flex items-center justify-between mb-4">
@@ -55,9 +86,15 @@ export function TrendingTraders() {
       </div>
 
       <div className="space-y-3">
-        {trendingTraders.map((trader) => (
-          <TraderCard key={trader.id} trader={trader} />
-        ))}
+        {traders.length > 0 ? (
+          traders.map((trader) => (
+            <TraderCard key={trader.id} trader={trader} />
+          ))
+        ) : (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            No traders found
+          </div>
+        )}
       </div>
     </div>
   );

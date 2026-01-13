@@ -1,9 +1,11 @@
-import { MainLayout } from "../components/layout/MainLayout";
+import { useState, useEffect } from "react";
 import { PostCard } from "../components/feed/PostCard";
 import { TrendingTraders } from "../components/feed/TrendingTraders";
 import { LiveAlerts } from "../components/feed/LiveAlerts";
 import { Image, FileText, BarChart3, Zap } from "lucide-react";
 import { GradientButton } from "../components/ui/GradientButton";
+import { getFeed, createPost } from "../api/social";
+import toast from "react-hot-toast";
 
 const mockPosts = [
   {
@@ -90,9 +92,59 @@ const mockPosts = [
 ];
 
 export default function Feed() {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
+  const [postContent, setPostContent] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    loadPosts();
+  }, [filter]);
+
+  const loadPosts = async () => {
+    setLoading(true);
+    try {
+      const { data } = await getFeed({
+        type: filter !== "all" ? filter : undefined,
+      });
+      const items = Array.isArray(data)
+        ? data
+        : data?.posts || data?.items || data?.results || [];
+      setPosts(items);
+    } catch (error) {
+      console.error("Failed to load posts:", error);
+      toast.error("Failed to load feed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreatePost = async () => {
+    if (!postContent.trim()) {
+      toast.error("Please enter some content");
+      return;
+    }
+
+    setCreating(true);
+    try {
+      await createPost({
+        content: postContent,
+        post_type: "tip",
+      });
+      toast.success("Post created!");
+      setPostContent("");
+      loadPosts();
+    } catch (error) {
+      console.error("Failed to create post:", error);
+      toast.error("Failed to create post");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
-    <MainLayout>
-      <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Feed */}
           <div className="lg:col-span-2 space-y-6">
@@ -106,6 +158,14 @@ export default function Feed() {
                   type="text"
                   placeholder="Share a trade signal, market insight, or tip..."
                   className="flex-1 bg-muted/50 border border-border rounded-lg px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                  value={postContent}
+                  onChange={(e) => setPostContent(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleCreatePost();
+                    }
+                  }}
                 />
               </div>
               <div className="flex items-center justify-between pl-13">
@@ -123,28 +183,57 @@ export default function Feed() {
                     <span className="hidden sm:inline">Article</span>
                   </button>
                 </div>
-                <GradientButton size="sm">Post</GradientButton>
+                <GradientButton 
+                  size="sm" 
+                  onClick={handleCreatePost}
+                  disabled={creating || !postContent.trim()}
+                >
+                  {creating ? "Posting..." : "Post"}
+                </GradientButton>
               </div>
             </div>
 
             {/* Feed Tabs */}
             <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg w-fit">
-              <button className="px-4 py-2 text-sm font-medium rounded-md bg-card text-foreground shadow-sm">
+              <button 
+                onClick={() => setFilter("all")}
+                className={`px-4 py-2 text-sm font-medium rounded-md ${
+                  filter === "all" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                } transition-colors`}
+              >
                 For You
               </button>
-              <button className="px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground transition-colors">
+              <button 
+                onClick={() => setFilter("subscribed")}
+                className={`px-4 py-2 text-sm font-medium rounded-md ${
+                  filter === "subscribed" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                } transition-colors`}
+              >
                 Following
               </button>
-              <button className="px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground transition-colors">
+              <button 
+                onClick={() => setFilter("premium")}
+                className={`px-4 py-2 text-sm font-medium rounded-md ${
+                  filter === "premium" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                } transition-colors`}
+              >
                 Premium
               </button>
             </div>
 
             {/* Posts */}
             <div className="space-y-4">
-              {mockPosts.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
+              {loading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading posts...</div>
+              ) : posts.length > 0 ? (
+                posts.map((post) => (
+                  <PostCard key={post.id} post={post} onUpdate={loadPosts} />
+                ))
+              ) : (
+                <div className="text-center py-12 bg-card border border-border rounded-xl">
+                  <p className="text-muted-foreground">No posts yet. Be the first to share!</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -155,6 +244,6 @@ export default function Feed() {
           </div>
         </div>
       </div>
-    </MainLayout>
+    </div>
   );
 }

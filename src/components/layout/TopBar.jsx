@@ -1,12 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Bell, MessageCircle, Plus, Zap } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 export function TopBar() {
   const [searchFocused, setSearchFocused] = useState(false);
+  const [liveCount, setLiveCount] = useState(0);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+
+  useEffect(() => {
+    // Simulate live count - in production, this would come from WebSocket or API
+    const updateLiveCount = () => {
+      setLiveCount(Math.floor(Math.random() * 500) + 2000); // 2000-2500
+    };
+    updateLiveCount();
+    const interval = setInterval(updateLiveCount, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleCreatePost = () => {
+    // Scroll to top of feed page to focus on create post input
+    if (location.pathname === '/') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      navigate('/');
+    }
+  };
 
   return (
     <header className="h-16 bg-card/50 backdrop-blur-lg border-b border-border sticky top-0 z-50">
@@ -32,13 +53,13 @@ export function TopBar() {
         {/* Live Indicator */}
         <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-success/10 border border-success/20 rounded-full">
           <div className="w-2 h-2 bg-success rounded-full animate-pulse" />
-          <span className="text-xs font-medium text-success">2.4k Live</span>
+          <span className="text-xs font-medium text-success">{(liveCount / 1000).toFixed(1)}k Live</span>
         </div>
 
         {/* Actions */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigate('/add-trade')}
+            onClick={handleCreatePost}
             className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
           >
             <Plus className="w-4 h-4" />
