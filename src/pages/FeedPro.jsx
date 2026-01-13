@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Heart, MessageCircle, Bookmark, Send, MoreVertical, Image as ImageIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import api from '../axios';
+import { getFeed, reactToPost, savePost, createPost } from '../api/social';
 
 /**
  * Professional Feed - Clean, card-based design
@@ -11,7 +11,7 @@ import api from '../axios';
 export default function FeedPro() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('recents');
+  const [filter, setFilter] = useState('all');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,8 +21,13 @@ export default function FeedPro() {
   const loadPosts = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/api/feed?filter=${filter}&limit=20`);
-      setPosts(response.data.posts || []);
+      const { data } = await getFeed({
+        type: filter !== 'all' ? filter : undefined,
+      });
+      const items = Array.isArray(data)
+        ? data
+        : data?.posts || data?.items || data?.results || [];
+      setPosts(items);
     } catch (error) {
       console.error('Failed to load posts:', error);
       toast.error('Failed to load feed');
@@ -33,23 +38,30 @@ export default function FeedPro() {
 
   const handleLike = async (postId) => {
     try {
-      await api.post(`/api/interactions/posts/${postId}/reactions`, { reaction: 'like' });
+      await reactToPost(postId, 'like');
       setPosts(posts.map(p => 
         p.id === postId 
-          ? { ...p, likes_count: p.likes_count + 1, user_liked: true }
+          ? { 
+              ...p, 
+              likes_count: (p.likes_count || 0) + 1, 
+              user_reaction: 'like',
+              stats: { ...p.stats, likes: (p.stats?.likes || 0) + 1 }
+            }
           : p
       ));
     } catch (error) {
       console.error('Like failed:', error);
+      toast.error('Failed to like post');
     }
   };
 
   const handleSave = async (postId) => {
     try {
-      await api.post(`/api/subscriptions/save-post/${postId}`, {});
+      await savePost(postId);
       toast.success('Post saved!');
     } catch (error) {
       console.error('Save failed:', error);
+      toast.error('Failed to save post');
     }
   };
 
@@ -79,17 +91,22 @@ export default function FeedPro() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Feeds</h1>
           <div className="flex gap-4">
-            {['recents', 'friends', 'popular'].map(f => (
+            {[
+              { value: 'all', label: 'Recents' },
+              { value: 'quick_flip', label: 'Quick Flips' },
+              { value: 'prediction', label: 'Predictions' },
+              { value: 'tip', label: 'Tips' },
+            ].map(f => (
               <button
-                key={f}
-                onClick={() => setFilter(f)}
+                key={f.value}
+                onClick={() => setFilter(f.value)}
                 className={`px-4 py-2 rounded-full font-medium transition-all ${
-                  filter === f
+                  filter === f.value
                     ? 'bg-gray-900 text-white'
                     : 'text-gray-500 hover:bg-gray-100'
                 }`}
               >
-                {f.charAt(0).toUpperCase() + f.slice(1)}
+                {f.label}
               </button>
             ))}
           </div>
@@ -186,17 +203,17 @@ export default function FeedPro() {
                 <button
                   onClick={() => handleLike(post.id)}
                   className={`flex items-center gap-2 transition-all ${
-                    post.user_liked
+                    post.user_reaction === 'like'
                       ? 'text-pink-500'
                       : 'text-gray-500 hover:text-pink-500'
                   }`}
                 >
-                  <Heart className={`w-5 h-5 ${post.user_liked ? 'fill-current' : ''}`} />
-                  <span className="text-sm font-medium">{post.likes_count || 0}</span>
+                  <Heart className={`w-5 h-5 ${post.user_reaction === 'like' ? 'fill-current' : ''}`} />
+                  <span className="text-sm font-medium">{post.stats?.likes || post.likes_count || 0}</span>
                 </button>
                 <button className="flex items-center gap-2 text-gray-500 hover:text-blue-500 transition-all">
                   <MessageCircle className="w-5 h-5" />
-                  <span className="text-sm font-medium">{post.comments_count || 0}</span>
+                  <span className="text-sm font-medium">{post.stats?.comments || post.comments_count || post.comment_count || 0}</span>
                 </button>
               </div>
               <div className="flex items-center gap-3">

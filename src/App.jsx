@@ -68,6 +68,7 @@ const AppLayout = lazy(() => import("./components/AppLayout"));
 // PROFESSIONAL REDESIGN - Clean, modern layout
 const AppLayoutPro = lazy(() => import("./components/AppLayoutPro"));
 const FeedPro = lazy(() => import("./pages/FeedPro"));
+const Subscriptions = lazy(() => import("./pages/Subscriptions"));
 
 function App() {
   return (
@@ -107,6 +108,7 @@ function App() {
                     
                     {/* NEW: Radical Redesign Pages */}
                     <Route path="feed" element={<FeedNew />} />
+                    <Route path="subscriptions" element={<Subscriptions />} />
                     <Route path="messages" element={<MessagesPage />} />
                     <Route path="messages/:userId" element={<MessagesPage />} />
                     <Route path="trader-dashboard" element={<TraderDashboard />} />
