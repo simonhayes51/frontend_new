@@ -13,6 +13,8 @@ import {
   Star,
   ArrowUp,
   ArrowDown,
+  Settings,
+  Save,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../axios';
@@ -28,6 +30,12 @@ export default function TraderDashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('month'); // week, month, year, all
+  const [subscriptionPrices, setSubscriptionPrices] = useState({
+    basic: 2.99,
+    premium: 4.99,
+    elite: 9.99,
+  });
+  const [savingPrices, setSavingPrices] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -51,6 +59,16 @@ export default function TraderDashboard() {
       // Load subscription stats
       const statsRes = await api.get('/api/subscriptions/my-stats');
       setStats(statsRes.data);
+
+      // Load current subscription prices
+      try {
+        const pricesRes = await api.get('/api/traders/subscription-prices');
+        if (pricesRes.data?.prices) {
+          setSubscriptionPrices(pricesRes.data.prices);
+        }
+      } catch (err) {
+        console.log('Using default prices');
+      }
     } catch (error) {
       console.error('Failed to load dashboard:', error);
       toast.error('Failed to load earnings data');
@@ -66,6 +84,20 @@ export default function TraderDashboard() {
       loadDashboardData();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to request payout');
+    }
+  };
+
+  const saveSubscriptionPrices = async () => {
+    setSavingPrices(true);
+    try {
+      await api.post('/api/traders/subscription-prices', {
+        prices: subscriptionPrices,
+      });
+      toast.success('Subscription prices updated!');
+    } catch (error) {
+      toast.error('Failed to update prices');
+    } finally {
+      setSavingPrices(false);
     }
   };
 
@@ -172,6 +204,91 @@ export default function TraderDashboard() {
             icon={<Crown />}
             color="elite"
           />
+        </div>
+
+        {/* Subscription Pricing Settings */}
+        <div className="bg-dark-card border border-white/10 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <Settings className="w-6 h-6 text-brand-cyan" />
+            <h3 className="text-xl font-bold text-white">Subscription Pricing</h3>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* Basic Tier */}
+            <div className="bg-dark-elevated border border-tier-basic/30 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Star className="w-5 h-5 text-tier-basic" />
+                <h4 className="font-bold text-white">Basic Tier</h4>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm text-gray-400">Monthly Price</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-white">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={subscriptionPrices.basic}
+                    onChange={(e) => setSubscriptionPrices({ ...subscriptionPrices, basic: parseFloat(e.target.value) })}
+                    className="flex-1 bg-dark-bg border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tier-basic"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Premium Tier */}
+            <div className="bg-dark-elevated border border-tier-premium/30 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap className="w-5 h-5 text-tier-premium" />
+                <h4 className="font-bold text-white">Premium Tier</h4>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm text-gray-400">Monthly Price</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-white">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={subscriptionPrices.premium}
+                    onChange={(e) => setSubscriptionPrices({ ...subscriptionPrices, premium: parseFloat(e.target.value) })}
+                    className="flex-1 bg-dark-bg border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tier-premium"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Elite Tier */}
+            <div className="bg-dark-elevated border border-tier-elite/30 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Crown className="w-5 h-5 text-tier-elite" />
+                <h4 className="font-bold text-white">Elite Tier</h4>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm text-gray-400">Monthly Price</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-white">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={subscriptionPrices.elite}
+                    onChange={(e) => setSubscriptionPrices({ ...subscriptionPrices, elite: parseFloat(e.target.value) })}
+                    className="flex-1 bg-dark-bg border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tier-elite"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={saveSubscriptionPrices}
+            disabled={savingPrices}
+            className="mt-6 w-full md:w-auto bg-gradient-brand text-white px-6 py-3 rounded-xl font-bold hover:shadow-glow-cyan transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <Save className="w-5 h-5" />
+            {savingPrices ? 'Saving...' : 'Save Pricing'}
+          </button>
         </div>
 
         {/* Main Content Grid */}

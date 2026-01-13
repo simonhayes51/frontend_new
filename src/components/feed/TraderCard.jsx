@@ -1,6 +1,6 @@
 import { Star, TrendingUp, Users, CheckCircle2 } from "lucide-react";
 import { GradientButton } from "../ui/GradientButton";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const tierColors = {
   bronze: "from-amber-700 to-amber-500",
@@ -19,8 +19,16 @@ const tierBadgeColors = {
 };
 
 export function TraderCard({ trader }) {
+  const navigate = useNavigate();
+
+  const handleViewProfile = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(`/trader/${trader.id}`);
+  };
+
   return (
-    <Link to={`/traders/${trader.id}`} className="block group relative bg-card border border-border rounded-xl p-4 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
+    <div className="block group relative bg-card border border-border rounded-xl p-4 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
       {/* Tier Glow Effect */}
       <div
         className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl -z-10 bg-gradient-to-r ${tierColors[trader.tier]}`}
@@ -70,16 +78,16 @@ export function TraderCard({ trader }) {
         {/* Subscribe Button */}
         <div className="flex flex-col items-end gap-1">
           {trader.isSubscribed ? (
-            <GradientButton variant="ghost" size="sm">
+            <GradientButton variant="ghost" size="sm" onClick={handleViewProfile}>
               Subscribed
             </GradientButton>
           ) : (
-            <GradientButton size="sm">
+            <GradientButton size="sm" onClick={handleViewProfile}>
               ${trader.subscriptionPrice}/mo
             </GradientButton>
           )}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
