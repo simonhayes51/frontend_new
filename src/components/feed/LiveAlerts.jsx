@@ -27,8 +27,8 @@ export function LiveAlerts() {
         .map(post => ({
           id: post.id,
           type: post.post_type === 'quick_flip' ? 'buy' : 'sell',
-          player: post.player_name || extractPlayerName(post.content),
-          price: post.buy_price || post.sell_price || 0,
+          player: post.player_name || post.player?.name || extractPlayerName(post.content),
+          price: getAlertPrice(post),
           trader: post.author?.username || 'Unknown',
           time: formatTime(post.created_at),
         }));
@@ -56,6 +56,29 @@ export function LiveAlerts() {
     if (diff < 60) return `${diff}m ago`;
     if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
     return `${Math.floor(diff / 1440)}d ago`;
+  };
+
+  const getAlertPrice = (post) => {
+    if (post.post_type === 'quick_flip') {
+      return {
+        min: post.buy_range_min ?? post.buy_price ?? 0,
+        max: post.buy_range_max ?? post.buy_price ?? 0,
+      };
+    }
+
+    const target = post.sell_target ?? post.sell_price ?? 0;
+    return { min: target, max: target };
+  };
+
+  const formatAlertPrice = (price) => {
+    const min = Number(price.min) || 0;
+    const max = Number(price.max) || 0;
+    if (!min && !max) return 'TBD';
+    const formatValue = (value) => `${(value / 1000).toFixed(0)}k`;
+    if (min && max && min !== max) {
+      return `${formatValue(min)} - ${formatValue(max)}`;
+    }
+    return formatValue(max || min);
   };
 
   if (loading) {
@@ -113,7 +136,7 @@ export function LiveAlerts() {
               </div>
               <div className="text-right flex-shrink-0">
                 <p className="text-sm font-semibold text-foreground">
-                  {alert.price > 0 ? `${(alert.price / 1000).toFixed(0)}k` : 'TBD'}
+                  {formatAlertPrice(alert.price)}
                 </p>
                 <p className="text-[10px] text-muted-foreground">{alert.time}</p>
               </div>

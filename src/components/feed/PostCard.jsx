@@ -76,13 +76,41 @@ export function PostCard({ post, onUpdate }) {
   // Extract trade info if available
   const trade = (post.post_type === 'quick_flip' || post.post_type === 'prediction') ? {
     type: post.post_type === 'quick_flip' ? 'buy' : 'sell',
-    player: post.player_name || 'Player',
-    price: post.buy_range_min || post.buy_range_max || post.sell_target || 0,
+    player: post.player_name || post.player?.name || extractPlayerName(post.content),
+    price: getTradePrice(post),
     result: post.profit ? {
       profit: post.profit,
       percentage: post.profit_percentage || 0,
     } : null,
   } : null;
+
+  function extractPlayerName(content) {
+    if (!content) return 'Player';
+    const match = content.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
+    return match ? match[0] : 'Player';
+  }
+
+  function getTradePrice(postData) {
+    if (postData.post_type === 'quick_flip') {
+      return {
+        min: postData.buy_range_min ?? postData.buy_price ?? 0,
+        max: postData.buy_range_max ?? postData.buy_price ?? 0,
+      };
+    }
+
+    const target = postData.sell_target ?? postData.sell_price ?? 0;
+    return { min: target, max: target };
+  }
+
+  function formatTradePrice(price) {
+    const min = Number(price.min) || 0;
+    const max = Number(price.max) || 0;
+    if (!min && !max) return 'TBD';
+    if (min && max && min !== max) {
+      return `${min.toLocaleString()} - ${max.toLocaleString()}`;
+    }
+    return (max || min).toLocaleString();
+  }
 
   return (
     <article className="bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-border/80">
@@ -173,7 +201,7 @@ export function PostCard({ post, onUpdate }) {
               <div>
                 <p className="font-semibold text-foreground">{trade.player}</p>
                 <p className="text-sm text-muted-foreground">
-                  {trade.type === "buy" ? "Buy" : "Sell"} @ {trade.price > 0 ? trade.price.toLocaleString() : 'TBD'} coins
+                  {trade.type === "buy" ? "Buy" : "Sell"} @ {formatTradePrice(trade.price)} coins
                 </p>
               </div>
             </div>
