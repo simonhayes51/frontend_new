@@ -1,14 +1,18 @@
-import { useState, useEffect } from "react";
-import { Search, Bell, MessageCircle, Plus, Zap } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, Bell, MessageCircle, Plus, Zap, User, BarChart3, Settings as SettingsIcon, LogOut, ChevronDown } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 export function TopBar() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [liveCount, setLiveCount] = useState(0);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const menuRef = useRef(null);
+
+  const isTrader = user?.account_type === 'trader' || user?.is_trader;
 
   useEffect(() => {
     // Simulate live count - in production, this would come from WebSocket or API
@@ -20,6 +24,18 @@ export function TopBar() {
     return () => clearInterval(interval);
   }, []);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleCreatePost = () => {
     // Scroll to top of feed page to focus on create post input
     if (location.pathname === '/') {
@@ -27,6 +43,11 @@ export function TopBar() {
     } else {
       navigate('/');
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   return (
@@ -82,23 +103,86 @@ export function TopBar() {
             <span className="absolute top-1 right-1 w-2 h-2 bg-secondary rounded-full" />
           </button>
 
-          {/* User Avatar */}
-          <button 
-            onClick={() => navigate('/settings')}
-            className="flex items-center gap-2 p-1 rounded-lg hover:bg-muted transition-colors"
-          >
-            {user?.avatar_url ? (
-              <img 
-                src={user.avatar_url} 
-                alt={user.username} 
-                className="w-8 h-8 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                <Zap className="w-4 h-4 text-primary-foreground" />
+          {/* User Avatar with Dropdown */}
+          <div className="relative" ref={menuRef}>
+            <button 
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-2 p-1 rounded-lg hover:bg-muted transition-colors"
+            >
+              {user?.avatar_url ? (
+                <img 
+                  src={user.avatar_url} 
+                  alt={user.username} 
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-primary-foreground" />
+                </div>
+              )}
+              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Dropdown Menu */}
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-lg py-1 z-50">
+                {/* User Info */}
+                <div className="px-4 py-3 border-b border-border">
+                  <p className="font-semibold text-foreground">{user?.username || 'User'}</p>
+                  <p className="text-xs text-muted-foreground">@{user?.username?.toLowerCase() || 'user'}</p>
+                </div>
+
+                {/* Menu Items */}
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      navigate('/profile');
+                      setShowUserMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                  >
+                    <User className="w-4 h-4" />
+                    User Profile
+                  </button>
+
+                  {isTrader && (
+                    <button
+                      onClick={() => {
+                        navigate('/trader-dashboard');
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                    >
+                      <BarChart3 className="w-4 h-4" />
+                      Trader Panel
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      navigate('/settings');
+                      setShowUserMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                  >
+                    <SettingsIcon className="w-4 h-4" />
+                    Settings
+                  </button>
+                </div>
+
+                {/* Logout */}
+                <div className="border-t border-border py-1">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Log Out
+                  </button>
+                </div>
               </div>
             )}
-          </button>
+          </div>
         </div>
       </div>
     </header>
