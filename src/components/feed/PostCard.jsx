@@ -196,6 +196,32 @@ export function PostCard({ post, onUpdate }) {
     return (max || min).toLocaleString();
   }
 
+  function parseTradeTimestamp(value) {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    if (typeof value === "number" && value > 10_000_000_000) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    if (typeof value === "string") {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    return null;
+  }
+
+  const buyTimestamp = parseTradeTimestamp(
+    postState.buy_at || postState.buy_timestamp || postState.buy_time || postState.created_at || postState.timestamp
+  );
+  const sellTimestamp = parseTradeTimestamp(
+    postState.sell_timestamp ||
+      postState.sell_time ||
+      postState.sold_at ||
+      postState.closed_at ||
+      postState.sell_at
+  );
+  const sellPrice = postState.sell_target ?? postState.sell_price ?? null;
+
   useEffect(() => {
     let active = true;
 
@@ -242,16 +268,21 @@ export function PostCard({ post, onUpdate }) {
 
   const handleEditSubmit = async () => {
     try {
+      const toNumberOrString = (value) => {
+        if (value === "" || value === null || value === undefined) return undefined;
+        const asNumber = Number(value);
+        return Number.isNaN(asNumber) ? value : asNumber;
+      };
       const payload = {
         title: editDraft.title || undefined,
         content: editDraft.content,
         post_type: editDraft.post_type,
         player_name: editDraft.player_name || undefined,
         player_card_id: editDraft.player_card_id || undefined,
-        buy_range_min: editDraft.buy_range_min === "" ? undefined : Number(editDraft.buy_range_min),
-        buy_range_max: editDraft.buy_range_max === "" ? undefined : Number(editDraft.buy_range_max),
-        sell_target: editDraft.sell_target === "" ? undefined : Number(editDraft.sell_target),
-        sell_at: editDraft.sell_at === "" ? undefined : Number(editDraft.sell_at),
+        buy_range_min: toNumberOrString(editDraft.buy_range_min),
+        buy_range_max: toNumberOrString(editDraft.buy_range_max),
+        sell_target: toNumberOrString(editDraft.sell_target),
+        sell_at: toNumberOrString(editDraft.sell_at),
         confidence_level:
           editDraft.confidence_level === "" ? undefined : Number(editDraft.confidence_level),
         tags: editDraft.tags
@@ -441,9 +472,24 @@ export function PostCard({ post, onUpdate }) {
                   )}
                   <p className="text-lg font-semibold text-foreground truncate">{trade.player}</p>
                 </div>
-                <p className="text-base text-muted-foreground">
-                  {trade.type === "buy" ? "Buy" : "Sell"} @ {formatTradePrice(trade.price)} coins
-                </p>
+                <div className="text-base text-muted-foreground space-y-1">
+                  <p>
+                    Buy @ {formatTradePrice(trade.price)} coins
+                    {buyTimestamp && (
+                      <span className="ml-2 text-xs text-muted-foreground/80">
+                        {formatTime(buyTimestamp)}
+                      </span>
+                    )}
+                  </p>
+                  <p>
+                    Sell @ {sellPrice ? Number(sellPrice).toLocaleString() : "TBD"} coins
+                    {sellTimestamp && (
+                      <span className="ml-2 text-xs text-muted-foreground/80">
+                        {formatTime(sellTimestamp)}
+                      </span>
+                    )}
+                  </p>
+                </div>
               </div>
             </div>
             {trade.result && (

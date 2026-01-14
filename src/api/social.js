@@ -60,7 +60,7 @@ export const updatePost = async (postId, payload) => {
   try {
     return await tryPatch([`/api/feed/posts/${postId}`], payload);
   } catch (error) {
-    if (error?.response?.status !== 404) throw error;
+    if (![404, 405].includes(error?.response?.status)) throw error;
     return tryPost([`/api/social/posts/${postId}`], payload);
   }
 };
