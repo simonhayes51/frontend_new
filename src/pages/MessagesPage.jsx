@@ -91,6 +91,8 @@ export default function MessagesPage() {
     try {
       const response = await api.post('/api/messages/conversations', {
         recipient_id: recipientId,
+        recipientId,
+        user_id: recipientId,
       });
       const conversation = response.data || {};
       if (conversation.id) {
