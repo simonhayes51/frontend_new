@@ -81,6 +81,19 @@ export function PostCard({ post, onUpdate }) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editDraft, setEditDraft] = useState(() => buildEditDraft(post));
 
+  useEffect(() => {
+    setPostState(post);
+    setLiked(post.user_has_liked || false);
+    setSaved(post.is_saved || false);
+    setLikeCount(post.likes_count || post.likes || 0);
+    setShareCount(post.shares_count || post.shares || 0);
+    setCommentCount(post.comments_count || post.comments || 0);
+    setViewCount(post.views_count || post.views || 0);
+    if (!showEditModal) {
+      setEditDraft(buildEditDraft(post));
+    }
+  }, [post, showEditModal]);
+
   const handleLike = async () => {
     try {
       const { data } = await reactToPost(postState.id, "like");
@@ -221,22 +234,30 @@ export function PostCard({ post, onUpdate }) {
   const shouldTruncate = isArticle && postState.content && postState.content.length > contentPreviewLength;
   
   // Extract trade info if available
-  const trade = (post.post_type === 'quick_flip' || post.post_type === 'prediction') ? {
-    type: post.post_type === 'quick_flip' ? 'buy' : 'sell',
-    player: post.player_name || post.player?.name || extractPlayerName(post.content),
-    price: getTradePrice(post),
-    image:
-      post.player?.image_url ||
-      post.player?.image ||
-      post.player_image_url ||
-      post.card_image_url ||
-      post.player?.card_image_url ||
-      null,
-    result: post.profit ? {
-      profit: post.profit,
-      percentage: post.profit_percentage || 0,
-    } : null,
-  } : null;
+  const trade =
+    postState.post_type === 'quick_flip' || postState.post_type === 'prediction'
+      ? {
+          type: postState.post_type === 'quick_flip' ? 'buy' : 'sell',
+          player:
+            postState.player_name ||
+            postState.player?.name ||
+            extractPlayerName(postState.content),
+          price: getTradePrice(postState),
+          image:
+            postState.player?.image_url ||
+            postState.player?.image ||
+            postState.player_image_url ||
+            postState.card_image_url ||
+            postState.player?.card_image_url ||
+            null,
+          result: postState.profit
+            ? {
+                profit: postState.profit,
+                percentage: postState.profit_percentage || 0,
+              }
+            : null,
+        }
+      : null;
 
   function extractPlayerName(content) {
     if (!content) return 'Player';
