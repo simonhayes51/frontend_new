@@ -21,6 +21,20 @@ const tryPost = async (paths, payload) => {
   throw lastError;
 };
 
+const tryPatch = async (paths, payload) => {
+  let lastError;
+  for (const path of paths) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      return await socialRequest({ method: "patch", url: path, data: payload });
+    } catch (error) {
+      if (error?.response?.status !== 404) throw error;
+      lastError = error;
+    }
+  }
+  throw lastError;
+};
+
 const tryGet = async (paths, config) => {
   let lastError;
   for (const path of paths) {
@@ -42,37 +56,32 @@ export const getFeed = (params) =>
   );
 export const createPost = (payload) =>
   tryPost(["/api/feed", "/api/social/feed", "/api/social/posts"], payload);
-export const updatePost = (postId, payload) =>
-  tryPost([`/api/feed/${postId}`, `/api/social/posts/${postId}`], payload);
+export const updatePost = async (postId, payload) => {
+  try {
+    return await tryPatch([`/api/feed/posts/${postId}`], payload);
+  } catch (error) {
+    if (error?.response?.status !== 404) throw error;
+    return tryPost([`/api/social/posts/${postId}`], payload);
+  }
+};
 export const deletePost = (postId) =>
   socialRequest({ method: "delete", url: `/api/feed/${postId}` });
 
 export const reactToPost = (postId, reaction) =>
-  tryPost(
-    [
-      `/api/interactions/posts/${postId}/reactions`,
-      `/api/social/interactions/posts/${postId}/reactions`,
-    ],
-    { reaction }
-  );
+  socialRequest({
+    method: "post",
+    url: `/api/social/posts/${postId}/reactions`,
+    data: { reaction: reaction || "like" },
+  });
+
+export const removePostReaction = (postId) =>
+  socialRequest({ method: "delete", url: `/api/social/posts/${postId}/reactions` });
 
 export const getPostComments = (postId, params) =>
-  tryGet(
-    [
-      `/api/interactions/posts/${postId}/comments`,
-      `/api/social/interactions/posts/${postId}/comments`,
-    ],
-    { params }
-  );
+  socialRequest({ method: "get", url: `/api/social/posts/${postId}/comments`, params });
 
 export const addPostComment = (postId, payload) =>
-  tryPost(
-    [
-      `/api/interactions/posts/${postId}/comments`,
-      `/api/social/interactions/posts/${postId}/comments`,
-    ],
-    payload
-  );
+  socialRequest({ method: "post", url: `/api/social/posts/${postId}/comments`, data: payload });
 
 export const updateComment = (commentId, payload) =>
   tryPost(
@@ -94,6 +103,12 @@ export const reactToComment = (commentId) =>
     ],
     {}
   );
+
+export const sharePost = (postId) =>
+  socialRequest({ method: "post", url: `/api/social/posts/${postId}/share` });
+
+export const viewPost = (postId) =>
+  socialRequest({ method: "post", url: `/api/social/posts/${postId}/view` });
 
 export const getConversations = () =>
   tryGet(["/api/messages/conversations", "/api/social/messages/conversations"]);

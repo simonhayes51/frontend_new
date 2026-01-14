@@ -38,17 +38,27 @@ export default function FeedPro() {
 
   const handleLike = async (postId) => {
     try {
-      await reactToPost(postId, 'like');
-      setPosts(posts.map(p => 
-        p.id === postId 
-          ? { 
-              ...p, 
-              likes_count: (p.likes_count || 0) + 1, 
-              user_reaction: 'like',
-              stats: { ...p.stats, likes: (p.stats?.likes || 0) + 1 }
-            }
-          : p
-      ));
+      const { data } = await reactToPost(postId, 'like');
+      setPosts((prev) =>
+        prev.map((post) => {
+          if (post.id !== postId) return post;
+          const wasLiked = post.user_reaction === 'like';
+          const nextLiked = data?.removed === undefined ? !wasLiked : !data.removed;
+          const baseLikes = post.stats?.likes ?? post.likes_count ?? 0;
+          const nextLikes =
+            data?.stats?.likes ?? data?.likes_count ?? (nextLiked ? baseLikes + 1 : Math.max(0, baseLikes - 1));
+          return {
+            ...post,
+            user_reaction: nextLiked ? 'like' : null,
+            likes_count: data?.likes_count ?? post.likes_count,
+            stats: {
+              ...post.stats,
+              ...data?.stats,
+              likes: nextLikes,
+            },
+          };
+        })
+      );
     } catch (error) {
       console.error('Like failed:', error);
       toast.error('Failed to like post');
