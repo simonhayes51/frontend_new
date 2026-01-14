@@ -96,6 +96,17 @@ export default function Feed() {
     }
   };
 
+  const handlePostUpdate = (updatedPost) => {
+    if (!updatedPost) {
+      loadPosts();
+      return;
+    }
+    setPosts((prev) => {
+      const filtered = prev.filter((post) => post.id !== updatedPost.id);
+      return [updatedPost, ...filtered];
+    });
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -209,7 +220,7 @@ export default function Feed() {
                 <div className="text-center py-8 text-muted-foreground">Loading posts...</div>
               ) : posts.length > 0 ? (
                 posts.map((post) => (
-                  <PostCard key={post.id} post={post} onUpdate={loadPosts} />
+                  <PostCard key={post.id} post={post} onUpdate={handlePostUpdate} />
                 ))
               ) : (
                 <div className="text-center py-12 bg-card border border-border rounded-xl">

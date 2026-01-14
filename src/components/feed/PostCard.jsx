@@ -253,8 +253,7 @@ export function PostCard({ post, onUpdate }) {
       post_type: postState.post_type || "tip",
       player_name: postState.player_name || "",
       player_card_id: postState.player_card_id || "",
-      buy_range_min: postState.buy_range_min ?? "",
-      buy_range_max: postState.buy_range_max ?? "",
+      buy_price: postState.buy_range_min ?? postState.buy_price ?? "",
       sell_target: postState.sell_target ?? "",
       sell_at: postState.sell_at ?? "",
       confidence_level: postState.confidence_level ?? "",
@@ -273,16 +272,20 @@ export function PostCard({ post, onUpdate }) {
         const asNumber = Number(value);
         return Number.isNaN(asNumber) ? value : asNumber;
       };
+      const buyPrice = editDraft.buy_price;
+      const sellTarget = editDraft.sell_target;
+      const sellAt = editDraft.sell_at;
+      const hasSellSignal = Boolean(sellTarget || sellAt);
       const payload = {
         title: editDraft.title || undefined,
         content: editDraft.content,
-        post_type: editDraft.post_type,
+        post_type: hasSellSignal ? "prediction" : editDraft.post_type,
         player_name: editDraft.player_name || undefined,
         player_card_id: editDraft.player_card_id || undefined,
-        buy_range_min: toNumberOrString(editDraft.buy_range_min),
-        buy_range_max: toNumberOrString(editDraft.buy_range_max),
-        sell_target: toNumberOrString(editDraft.sell_target),
-        sell_at: toNumberOrString(editDraft.sell_at),
+        buy_range_min: toNumberOrString(buyPrice),
+        buy_range_max: toNumberOrString(buyPrice),
+        sell_target: toNumberOrString(sellTarget),
+        sell_at: toNumberOrString(sellAt),
         confidence_level:
           editDraft.confidence_level === "" ? undefined : Number(editDraft.confidence_level),
         tags: editDraft.tags
@@ -301,7 +304,11 @@ export function PostCard({ post, onUpdate }) {
         setPostState((prev) => ({ ...prev, ...nextPost }));
       }
       setShowEditModal(false);
-      onUpdate?.();
+      if (hasSellSignal && nextPost) {
+        onUpdate?.(nextPost);
+      } else {
+        onUpdate?.();
+      }
       toast.success("Post updated");
     } catch (error) {
       console.error("Failed to update post:", error);
@@ -654,19 +661,11 @@ export function PostCard({ post, onUpdate }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <input
-                  value={editDraft.buy_range_min}
+                  value={editDraft.buy_price}
                   onChange={(e) =>
-                    setEditDraft((prev) => ({ ...prev, buy_range_min: e.target.value }))
+                    setEditDraft((prev) => ({ ...prev, buy_price: e.target.value }))
                   }
-                  placeholder="Buy range min"
-                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
-                />
-                <input
-                  value={editDraft.buy_range_max}
-                  onChange={(e) =>
-                    setEditDraft((prev) => ({ ...prev, buy_range_max: e.target.value }))
-                  }
-                  placeholder="Buy range max"
+                  placeholder="Buy price"
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
                 />
                 <input
@@ -682,9 +681,11 @@ export function PostCard({ post, onUpdate }) {
                   onChange={(e) =>
                     setEditDraft((prev) => ({ ...prev, sell_at: e.target.value }))
                   }
-                  placeholder="Sell at"
+                  placeholder="Sell at (timestamp)"
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <input
                   value={editDraft.confidence_level}
                   onChange={(e) =>
