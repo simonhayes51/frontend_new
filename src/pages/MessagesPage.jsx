@@ -195,6 +195,10 @@ export default function MessagesPage() {
     };
   };
 
+  const safeConversations = normalizeArray(conversations);
+  const safeMessages = normalizeArray(messages);
+  const safeSearchResults = normalizeArray(searchResults);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-dark-bg flex items-center justify-center">
@@ -211,7 +215,7 @@ export default function MessagesPage() {
         <div className="p-4 border-b border-white/10">
           <h2 className="text-xl font-bold text-white">Messages</h2>
           <p className="text-sm text-gray-500 mt-1">
-            {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
+            {safeConversations.length} conversation{safeConversations.length !== 1 ? 's' : ''}
           </p>
           <div className="mt-4">
             <div className="relative">
@@ -228,9 +232,9 @@ export default function MessagesPage() {
                 </div>
               )}
             </div>
-            {searchResults.length > 0 && (
+            {safeSearchResults.length > 0 && (
               <div className="mt-2 rounded-lg border border-white/10 bg-dark-elevated max-h-56 overflow-y-auto">
-                {searchResults.map((user) => (
+                {safeSearchResults.map((user) => (
                   <button
                     key={user.id}
                     type="button"
@@ -257,13 +261,13 @@ export default function MessagesPage() {
 
         {/* Conversation List */}
         <div className="flex-1 overflow-y-auto">
-          {conversations.length === 0 ? (
+          {safeConversations.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <p>No messages yet</p>
               <p className="text-sm mt-2">Subscribe to traders to start chatting</p>
             </div>
           ) : (
-            conversations.map((conversation) => (
+            safeConversations.map((conversation) => (
               <ConversationItem
                 key={conversation.id || getConversationUserId(conversation)}
                 conversation={conversation}
@@ -306,14 +310,14 @@ export default function MessagesPage() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.length === 0 ? (
+            {safeMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-500">
                 <Lock className="w-12 h-12 mb-3 opacity-50" />
                 <p>Start a conversation</p>
                 <p className="text-sm mt-1">Send your first message</p>
               </div>
             ) : (
-              messages.map((message, idx) => (
+              safeMessages.map((message, idx) => (
                 <MessageBubble
                   key={idx}
                   message={message}
