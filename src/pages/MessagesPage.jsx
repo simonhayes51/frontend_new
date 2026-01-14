@@ -52,7 +52,8 @@ export default function MessagesPage() {
       setSearching(true);
       try {
         const response = await api.get(`/api/messages/search?query=${encodeURIComponent(searchQuery)}`);
-        setSearchResults(normalizeArray(response.data?.results || response.data?.users));
+        const data = response?.data || {};
+        setSearchResults(normalizeArray(data.results || data.users));
       } catch (error) {
         console.error('Failed to search users:', error);
       } finally {
@@ -70,7 +71,8 @@ export default function MessagesPage() {
   const loadConversations = async () => {
     try {
       const response = await api.get('/api/messages/conversations');
-      const list = normalizeArray(response.data?.conversations || response.data);
+      const data = response?.data || {};
+      const list = normalizeArray(data.conversations || data);
       setConversations(list);
       
       if (userId) {
@@ -97,7 +99,7 @@ export default function MessagesPage() {
         user_id: recipientId,
         content: initialContent?.trim() ? initialContent.trim() : undefined,
       });
-      const conversation = response.data || {};
+      const conversation = response?.data || {};
       if (conversation.id) {
         setActiveConversationId(conversation.id);
         setActiveChat(buildActiveChat(conversation));
@@ -113,7 +115,8 @@ export default function MessagesPage() {
   const loadMessages = async (conversationId) => {
     try {
       const response = await api.get(`/api/messages/conversations/${conversationId}/messages`);
-      setMessages(normalizeArray(response.data?.messages || response.data));
+      const data = response?.data || {};
+      setMessages(normalizeArray(data.messages || data));
     } catch (error) {
       console.error('Failed to load messages:', error);
       toast.error('Failed to load messages');
