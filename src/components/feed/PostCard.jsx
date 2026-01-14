@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Heart,
   MessageCircle,
@@ -15,11 +15,36 @@ import { GradientButton } from "../ui/GradientButton";
 import { reactToPost, savePost, unsavePost } from "../../api/social";
 import toast from "react-hot-toast";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+const buildProxy = (url) => `${API_BASE}/img?url=${encodeURIComponent(url)}`;
+const PLACEHOLDER = "/img/card-placeholder.png";
+
+const normalizeForSearch = (value = "") =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+const searchPlayers = async (query) => {
+  if (!query.trim()) return [];
+  const qNorm = normalizeForSearch(query);
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/search-players?q=${encodeURIComponent(query)}&q_norm=${encodeURIComponent(qNorm)}`,
+      { credentials: "include" }
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.players || [];
+  } catch (error) {
+    console.error("Search failed:", error);
+    return [];
+  }
+};
+
 export function PostCard({ post, onUpdate }) {
   const [liked, setLiked] = useState(post.user_has_liked || false);
   const [saved, setSaved] = useState(post.is_saved || false);
   const [likeCount, setLikeCount] = useState(post.likes_count || post.likes || 0);
   const [expanded, setExpanded] = useState(false);
+  const [tradeImage, setTradeImage] = useState(null);
 
   const handleLike = async () => {
     try {
@@ -76,13 +101,66 @@ export function PostCard({ post, onUpdate }) {
   // Extract trade info if available
   const trade = (post.post_type === 'quick_flip' || post.post_type === 'prediction') ? {
     type: post.post_type === 'quick_flip' ? 'buy' : 'sell',
-    player: post.player_name || 'Player',
-    price: post.buy_range_min || post.buy_range_max || post.sell_target || 0,
+    player: post.player_name || post.player?.name || extractPlayerName(post.content),
+    price: getTradePrice(post),
+    image:
+      post.player?.image_url ||
+      post.player?.image ||
+      post.player_image_url ||
+      post.card_image_url ||
+      post.player?.card_image_url ||
+      null,
     result: post.profit ? {
       profit: post.profit,
       percentage: post.profit_percentage || 0,
     } : null,
   } : null;
+
+  function extractPlayerName(content) {
+    if (!content) return 'Player';
+    const match = content.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
+    return match ? match[0] : 'Player';
+  }
+
+  function getTradePrice(postData) {
+    if (postData.post_type === 'quick_flip') {
+      return {
+        min: postData.buy_range_min ?? postData.buy_price ?? 0,
+        max: postData.buy_range_max ?? postData.buy_price ?? 0,
+      };
+    }
+
+    const target = postData.sell_target ?? postData.sell_price ?? 0;
+    return { min: target, max: target };
+  }
+
+  function formatTradePrice(price) {
+    const min = Number(price.min) || 0;
+    const max = Number(price.max) || 0;
+    if (!min && !max) return 'TBD';
+    if (min && max && min !== max) {
+      return `${min.toLocaleString()} - ${max.toLocaleString()}`;
+    }
+    return (max || min).toLocaleString();
+  }
+
+  useEffect(() => {
+    let active = true;
+
+    const loadTradeImage = async () => {
+      setTradeImage(null);
+      if (!trade || trade.image || !trade.player) return;
+      const players = await searchPlayers(trade.player);
+      if (!active) return;
+      const match = players[0];
+      setTradeImage(match?.image_url || match?.card_image_url || null);
+    };
+
+    loadTradeImage();
+    return () => {
+      active = false;
+    };
+  }, [trade?.player, trade?.image]);
 
   return (
     <article className="bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-border/80">
@@ -156,24 +234,56 @@ export function PostCard({ post, onUpdate }) {
 
       {/* Trade Signal */}
       {trade && !isLocked && (
-        <div className="mx-4 mb-3 p-3 bg-muted/50 border border-border rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div
-                className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  trade.type === "buy" ? "bg-success/20" : "bg-destructive/20"
-                }`}
-              >
-                {trade.type === "buy" ? (
-                  <TrendingUp className="w-5 h-5 text-success" />
-                ) : (
-                  <TrendingDown className="w-5 h-5 text-destructive" />
-                )}
+        <div className="mx-4 mb-4 rounded-2xl border border-border/50 bg-muted/30 px-5 py-5 shadow-[0_0_30px_rgba(0,0,0,0.15)]">
+          <div
+            className={`flex items-center justify-between gap-6 border-l-4 pl-4 ${
+              trade.type === "buy" ? "border-success/60" : "border-destructive/60"
+            }`}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-28 w-20 rounded-xl border border-border/40 bg-black/30 p-2">
+                <img
+                  src={tradeImage || trade.image || PLACEHOLDER}
+                  alt={trade.player}
+                  className="h-full w-full object-contain"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    const targetImage = tradeImage || trade.image;
+                    if (!img.dataset.triedProxy && targetImage) {
+                      img.dataset.triedProxy = "1";
+                      img.src = buildProxy(targetImage);
+                    } else {
+                      img.src = PLACEHOLDER;
+                    }
+                  }}
+                  referrerPolicy="no-referrer"
+                />
               </div>
-              <div>
-                <p className="font-semibold text-foreground">{trade.player}</p>
-                <p className="text-sm text-muted-foreground">
-                  {trade.type === "buy" ? "Buy" : "Sell"} @ {trade.price > 0 ? trade.price.toLocaleString() : 'TBD'} coins
+              <div className="min-w-0 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      trade.type === "buy"
+                        ? "bg-success/15 text-success"
+                        : "bg-destructive/15 text-destructive"
+                    }`}
+                  >
+                    {trade.type === "buy" ? (
+                      <TrendingUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <TrendingDown className="w-3.5 h-3.5" />
+                    )}
+                    {trade.type === "buy" ? "Buy" : "Sell"}
+                  </span>
+                  <p className="text-xl font-semibold text-foreground truncate">{trade.player}</p>
+                </div>
+                <p className="text-base text-muted-foreground">
+                  {trade.type === "buy" ? (
+                    <span className="text-success font-semibold">Buy</span>
+                  ) : (
+                    <span className="text-destructive font-semibold">Sell</span>
+                  )}{" "}
+                  @ {formatTradePrice(trade.price)} coins
                 </p>
               </div>
             </div>
