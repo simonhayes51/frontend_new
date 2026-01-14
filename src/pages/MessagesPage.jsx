@@ -31,7 +31,7 @@ export default function MessagesPage() {
   const [searching, setSearching] = useState(false);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const messagesEndRef = useRef(null);
-  const normalizeArray = (value) => (Array.isArray(value) ? value : []);
+  const normalizeArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
 
   useEffect(() => {
     loadConversations();
@@ -195,9 +195,9 @@ export default function MessagesPage() {
     };
   };
 
-  const safeConversations = normalizeArray(conversations);
-  const safeMessages = normalizeArray(messages);
-  const safeSearchResults = normalizeArray(searchResults);
+  const safeConversations = normalizeArray(conversations).filter((item) => typeof item === 'object');
+  const safeMessages = normalizeArray(messages).filter((item) => typeof item === 'object');
+  const safeSearchResults = normalizeArray(searchResults).filter((item) => typeof item === 'object');
 
   if (loading) {
     return (
@@ -469,6 +469,7 @@ function resolveIsOwnMessage(message, activeChat) {
 }
 
 function formatTime(timestamp) {
+  if (!timestamp) return '';
   const date = new Date(timestamp);
   const now = new Date();
   const diff = now - date;
