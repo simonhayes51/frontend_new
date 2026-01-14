@@ -87,12 +87,13 @@ export default function MessagesPage() {
     }
   };
 
-  const ensureConversation = async (recipientId) => {
+  const ensureConversation = async (recipientId, initialContent) => {
     try {
       const response = await api.post('/api/messages/conversations', {
         recipient_id: recipientId,
         recipientId,
         user_id: recipientId,
+        content: initialContent?.trim() ? initialContent.trim() : undefined,
       });
       const conversation = response.data || {};
       if (conversation.id) {
@@ -121,6 +122,11 @@ export default function MessagesPage() {
     e.preventDefault();
     if (!newMessage.trim()) return;
     if (!activeConversationId) {
+      if (userId) {
+        await ensureConversation(userId, newMessage);
+        setNewMessage('');
+        return;
+      }
       toast.error('Select or start a conversation first.');
       return;
     }
