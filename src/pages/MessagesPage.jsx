@@ -26,7 +26,12 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [activeConversationId, setActiveConversationId] = useState(null);
   const messagesEndRef = useRef(null);
+  const normalizeArray = (value) => (Array.isArray(value) ? value : []);
 
   useEffect(() => {
     loadConversations();
@@ -34,9 +39,29 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (userId) {
-      loadMessages(userId);
+      ensureConversation(userId);
     }
   }, [userId]);
+
+  useEffect(() => {
+    const timeout = setTimeout(async () => {
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        return;
+      }
+      setSearching(true);
+      try {
+        const response = await api.get(`/api/messages/search?query=${encodeURIComponent(searchQuery)}`);
+        setSearchResults(normalizeArray(response.data?.results || response.data?.users));
+      } catch (error) {
+        console.error('Failed to search users:', error);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
 
   useEffect(() => {
     scrollToBottom();
@@ -45,11 +70,17 @@ export default function MessagesPage() {
   const loadConversations = async () => {
     try {
       const response = await api.get('/api/messages/conversations');
-      setConversations(response.data.conversations || []);
+      const list = normalizeArray(response.data?.conversations || response.data);
+      setConversations(list);
       
       if (userId) {
-        const chat = response.data.conversations.find(c => c.user_id === userId);
-        setActiveChat(chat || { user_id: userId, username: 'User' });
+        const chat = list.find(
+          (c) => String(getConversationUserId(c)) === String(userId)
+        );
+        if (chat?.id) {
+          setActiveConversationId(chat.id);
+          setActiveChat(buildActiveChat(chat));
+        }
       }
     } catch (error) {
       console.error('Failed to load conversations:', error);
@@ -58,10 +89,31 @@ export default function MessagesPage() {
     }
   };
 
-  const loadMessages = async (chatUserId) => {
+  const ensureConversation = async (recipientId, initialContent) => {
     try {
-      const response = await api.get(`/api/messages/${chatUserId}`);
-      setMessages(response.data.messages || []);
+      const response = await api.post('/api/messages/conversations', {
+        recipient_id: recipientId,
+        recipientId,
+        user_id: recipientId,
+        content: initialContent?.trim() ? initialContent.trim() : undefined,
+      });
+      const conversation = response.data || {};
+      if (conversation.id) {
+        setActiveConversationId(conversation.id);
+        setActiveChat(buildActiveChat(conversation));
+        await loadMessages(conversation.id);
+        loadConversations();
+      }
+    } catch (error) {
+      console.error('Failed to start conversation:', error);
+      toast.error('Failed to start conversation');
+    }
+  };
+
+  const loadMessages = async (conversationId) => {
+    try {
+      const response = await api.get(`/api/messages/conversations/${conversationId}/messages`);
+      setMessages(normalizeArray(response.data?.messages || response.data));
     } catch (error) {
       console.error('Failed to load messages:', error);
       toast.error('Failed to load messages');
@@ -71,14 +123,24 @@ export default function MessagesPage() {
   const sendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
+    if (!activeConversationId) {
+      if (userId) {
+        await ensureConversation(userId, newMessage);
+        setNewMessage('');
+        return;
+      }
+      toast.error('Select or start a conversation first.');
+      return;
+    }
 
     try {
-      await api.post(`/api/messages/${userId}`, {
+      await api.post(`/api/messages/conversations/${activeConversationId}/messages`, {
         content: newMessage,
       });
       
       setNewMessage('');
-      loadMessages(userId);
+      loadMessages(activeConversationId);
+      loadConversations();
     } catch (error) {
       toast.error('Failed to send message');
     }
@@ -89,8 +151,48 @@ export default function MessagesPage() {
   };
 
   const selectConversation = (conversation) => {
-    setActiveChat(conversation);
-    navigate(`/messages/${conversation.user_id}`);
+    const active = buildActiveChat(conversation);
+    setActiveChat(active);
+    setActiveConversationId(conversation.id);
+    if (active?.user_id) {
+      navigate(`/messages/${active.user_id}`);
+    }
+    if (conversation.id) {
+      loadMessages(conversation.id);
+    }
+  };
+
+  const handleUserSelect = (user) => {
+    setSearchQuery('');
+    setSearchResults([]);
+    ensureConversation(user.id);
+  };
+
+  const getConversationUserId = (conversation) => {
+    return (
+      conversation?.user_id ||
+      conversation?.recipient_id ||
+      conversation?.other_user_id ||
+      conversation?.participant?.id ||
+      conversation?.other_user?.id ||
+      conversation?.recipient?.id ||
+      conversation?.participants?.[0]?.id
+    );
+  };
+
+  const buildActiveChat = (conversation) => {
+    const participant =
+      conversation?.participant ||
+      conversation?.other_user ||
+      conversation?.recipient ||
+      conversation?.participants?.[0] ||
+      {};
+    return {
+      user_id: getConversationUserId(conversation),
+      username: conversation?.username || participant?.username || 'User',
+      avatar_url: conversation?.avatar_url || participant?.avatar_url,
+      is_online: conversation?.is_online || participant?.is_online,
+    };
   };
 
   if (loading) {
@@ -111,6 +213,46 @@ export default function MessagesPage() {
           <p className="text-sm text-gray-500 mt-1">
             {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
           </p>
+          <div className="mt-4">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search users..."
+                className="w-full bg-dark-elevated border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-brand-cyan"
+              />
+              {searching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                  Searching...
+                </div>
+              )}
+            </div>
+            {searchResults.length > 0 && (
+              <div className="mt-2 rounded-lg border border-white/10 bg-dark-elevated max-h-56 overflow-y-auto">
+                {searchResults.map((user) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => handleUserSelect(user)}
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-white/5"
+                  >
+                    <img
+                      src={user.avatar_url || '/server-logo.png'}
+                      alt={user.username}
+                      className="w-8 h-8 rounded-full"
+                    />
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-white truncate">{user.username}</div>
+                      {user.global_name && (
+                        <div className="text-xs text-gray-400 truncate">{user.global_name}</div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Conversation List */}
@@ -123,9 +265,10 @@ export default function MessagesPage() {
           ) : (
             conversations.map((conversation) => (
               <ConversationItem
-                key={conversation.user_id}
+                key={conversation.id || getConversationUserId(conversation)}
                 conversation={conversation}
-                active={activeChat?.user_id === conversation.user_id}
+                display={buildActiveChat(conversation)}
+                active={activeChat?.user_id === getConversationUserId(conversation)}
                 onClick={() => selectConversation(conversation)}
               />
             ))
@@ -174,7 +317,7 @@ export default function MessagesPage() {
                 <MessageBubble
                   key={idx}
                   message={message}
-                  isOwn={message.from_me}
+                  isOwn={resolveIsOwnMessage(message, activeChat)}
                 />
               ))
             )}
@@ -246,7 +389,7 @@ export default function MessagesPage() {
   );
 }
 
-function ConversationItem({ conversation, active, onClick }) {
+function ConversationItem({ conversation, display, active, onClick }) {
   return (
     <motion.div
       whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
@@ -258,8 +401,8 @@ function ConversationItem({ conversation, active, onClick }) {
       <div className="flex items-center gap-3">
         <div className="relative">
           <img
-            src={conversation.avatar_url || '/server-logo.png'}
-            alt={conversation.username}
+            src={display.avatar_url || '/server-logo.png'}
+            alt={display.username}
             className="w-12 h-12 rounded-full"
           />
           {conversation.unread_count > 0 && (
@@ -272,7 +415,7 @@ function ConversationItem({ conversation, active, onClick }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
             <h4 className="font-semibold text-white truncate">
-              {conversation.username}
+              {display.username}
             </h4>
             {conversation.last_message_at && (
               <span className="text-xs text-gray-500">
@@ -310,6 +453,15 @@ function MessageBubble({ message, isOwn }) {
       </div>
     </div>
   );
+}
+
+function resolveIsOwnMessage(message, activeChat) {
+  if (typeof message.from_me === 'boolean') return message.from_me;
+  if (typeof message.is_own === 'boolean') return message.is_own;
+  if (message.sender_id && activeChat?.user_id) {
+    return String(message.sender_id) !== String(activeChat.user_id);
+  }
+  return false;
 }
 
 function formatTime(timestamp) {

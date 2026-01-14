@@ -18,6 +18,10 @@ import {
   Award,
   Calendar,
   MapPin,
+  Globe,
+  Twitter,
+  Youtube,
+  Twitch,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../axios';
@@ -38,6 +42,35 @@ export default function TraderProfileNew() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [activeTab, setActiveTab] = useState('posts'); // posts, about, media
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
+
+  const normalizeUrl = (value) => {
+    if (!value) return '';
+    if (value.startsWith('http://') || value.startsWith('https://')) return value;
+    return `https://${value}`;
+  };
+
+  const socialLinks = [
+    {
+      label: 'Website',
+      value: trader?.website_url,
+      icon: Globe,
+    },
+    {
+      label: 'Twitter',
+      value: trader?.twitter_url,
+      icon: Twitter,
+    },
+    {
+      label: 'YouTube',
+      value: trader?.youtube_url,
+      icon: Youtube,
+    },
+    {
+      label: 'Twitch',
+      value: trader?.twitch_url,
+      icon: Twitch,
+    },
+  ].filter((item) => item.value);
 
   useEffect(() => {
     loadTraderProfile();
@@ -124,7 +157,14 @@ export default function TraderProfileNew() {
     <div className="min-h-screen bg-dark-bg">
       {/* Cover Photo */}
       <div className="relative h-64 md:h-80 bg-gradient-brand overflow-hidden">
-        <div className="absolute inset-0 bg-black/20" />
+        {trader.header_image_url && (
+          <img
+            src={trader.header_image_url}
+            alt={`${trader.username} header`}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+        <div className="absolute inset-0 bg-black/40" />
         
         {/* Back button */}
         <button
@@ -167,6 +207,27 @@ export default function TraderProfileNew() {
                     </h1>
                     {trader.bio && (
                       <p className="text-gray-400 max-w-2xl">{trader.bio}</p>
+                    )}
+                    {(trader.location || trader.website_url) && (
+                      <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-gray-400">
+                        {trader.location && (
+                          <span className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-brand-cyan" />
+                            {trader.location}
+                          </span>
+                        )}
+                        {trader.website_url && (
+                          <a
+                            href={normalizeUrl(trader.website_url)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 text-brand-cyan hover:text-brand-cyan/80 transition-colors"
+                          >
+                            <Globe className="w-4 h-4" />
+                            {trader.website_url}
+                          </a>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -340,6 +401,32 @@ export default function TraderProfileNew() {
               <p className="text-gray-400 mb-6">
                 {trader.bio || 'No bio available'}
               </p>
+
+              {socialLinks.length > 0 && (
+                <>
+                  <h4 className="text-lg font-bold text-white mb-3">Social Links</h4>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {socialLinks.map((link) => {
+                      const Icon = link.icon;
+                      return (
+                        <a
+                          key={link.label}
+                          href={normalizeUrl(link.value)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-gray-300 hover:bg-white/10 transition-all"
+                        >
+                          <Icon className="w-5 h-5 text-brand-cyan" />
+                          <div>
+                            <div className="text-sm font-semibold text-white">{link.label}</div>
+                            <div className="text-xs text-gray-400 break-all">{link.value}</div>
+                          </div>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
               
               {trader.specialties && trader.specialties.length > 0 && (
                 <>
