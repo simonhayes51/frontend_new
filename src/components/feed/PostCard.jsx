@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   Heart,
   MessageCircle,
@@ -59,41 +59,6 @@ export function PostCard({ post, onUpdate }) {
   const [viewCount, setViewCount] = useState(post.views_count || post.views || 0);
   const [expanded, setExpanded] = useState(false);
   const [tradeImage, setTradeImage] = useState(null);
-  const [showComments, setShowComments] = useState(false);
-  const [comments, setComments] = useState([]);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const [commentDraft, setCommentDraft] = useState("");
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editDraft, setEditDraft] = useState({});
-
-  useEffect(() => {
-    setPostState(post);
-    setLiked(post.user_has_liked || false);
-    setSaved(post.is_saved || false);
-    setLikeCount(post.likes_count || post.likes || 0);
-    setShareCount(post.shares_count || post.shares || 0);
-    setCommentCount(post.comments_count || post.comments || 0);
-    setViewCount(post.views_count || post.views || 0);
-  }, [post]);
-
-  useEffect(() => {
-    let active = true;
-    const trackView = async () => {
-      try {
-        const { data } = await viewPost(post.id);
-        if (!active) return;
-        const nextViews =
-          data?.stats?.views ?? data?.views_count ?? data?.views ?? viewCount + 1;
-        setViewCount(nextViews);
-      } catch (error) {
-        console.error("Failed to track view:", error);
-      }
-    };
-    trackView();
-    return () => {
-      active = false;
-    };
-  }, [post.id]);
 
   const handleLike = async () => {
     try {
@@ -151,19 +116,21 @@ export function PostCard({ post, onUpdate }) {
   const shouldTruncate = isArticle && postState.content && postState.content.length > contentPreviewLength;
   
   // Extract trade info if available
-  const trade = (postState.post_type === 'quick_flip' || postState.post_type === 'prediction') ? {
-    type: postState.post_type === 'quick_flip' ? 'buy' : 'sell',
-    player: postState.player_name || postState.player?.name || extractPlayerName(postState.content),
-    buyPrice: getTradeBuyPrice(postState),
-    sellPrice: getTradeSellPrice(postState),
+  const trade = (post.post_type === 'quick_flip' || post.post_type === 'prediction') ? {
+    type: post.post_type === 'quick_flip' ? 'buy' : 'sell',
+    player: post.player_name || post.player?.name || extractPlayerName(post.content),
+    price: getTradePrice(post),
     image:
-      postState.player?.image_url ||
-      postState.player?.image ||
-      postState.player_image_url ||
-      postState.card_image_url ||
-      postState.player?.card_image_url ||
+      post.player?.image_url ||
+      post.player?.image ||
+      post.player_image_url ||
+      post.card_image_url ||
+      post.player?.card_image_url ||
       null,
-    result: buildTradeResult(postState),
+    result: post.profit ? {
+      profit: post.profit,
+      percentage: post.profit_percentage || 0,
+    } : null,
   } : null;
 
   function extractPlayerName(content) {
@@ -172,15 +139,16 @@ export function PostCard({ post, onUpdate }) {
     return match ? match[0] : 'Player';
   }
 
-  function getTradeBuyPrice(postData) {
-    return {
-      min: postData.buy_range_min ?? postData.buy_price ?? 0,
-      max: postData.buy_range_max ?? postData.buy_price ?? 0,
-    };
-  }
+  function getTradePrice(postData) {
+    if (postData.post_type === 'quick_flip') {
+      return {
+        min: postData.buy_range_min ?? postData.buy_price ?? 0,
+        max: postData.buy_range_max ?? postData.buy_price ?? 0,
+      };
+    }
 
-  function getTradeSellPrice(postData) {
-    return postData.sell_target ?? postData.sell_price ?? 0;
+    const target = postData.sell_target ?? postData.sell_price ?? 0;
+    return { min: target, max: target };
   }
 
   function formatTradePrice(price) {
@@ -192,55 +160,6 @@ export function PostCard({ post, onUpdate }) {
     }
     return (max || min).toLocaleString();
   }
-
-  function formatTradeNumber(value) {
-    const number = Number(value);
-    if (!number) return "TBD";
-    return number.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  }
-
-  function buildTradeResult(postData) {
-    if (postData.profit !== undefined && postData.profit !== null) {
-      return {
-        profit: Number(postData.profit),
-        percentage: Number(postData.profit_percentage) || 0,
-      };
-    }
-    const buyValue = Number(
-      postData.buy_range_min ?? postData.buy_range_max ?? postData.buy_price ?? 0
-    );
-    const sellValue = Number(postData.sell_target ?? postData.sell_price ?? 0);
-    if (!buyValue || !sellValue) return null;
-    const profit = sellValue - buyValue - sellValue * 0.05;
-    const percentage = buyValue ? (profit / buyValue) * 100 : 0;
-    return { profit, percentage };
-  }
-
-  function parseTradeTimestamp(value) {
-    if (!value) return null;
-    if (value instanceof Date) return value;
-    if (typeof value === "number" && value > 10_000_000_000) {
-      const date = new Date(value);
-      return Number.isNaN(date.getTime()) ? null : date;
-    }
-    if (typeof value === "string") {
-      const date = new Date(value);
-      return Number.isNaN(date.getTime()) ? null : date;
-    }
-    return null;
-  }
-
-  const buyTimestamp = parseTradeTimestamp(
-    postState.buy_at || postState.buy_timestamp || postState.buy_time || postState.created_at || postState.timestamp
-  );
-  const sellTimestamp = parseTradeTimestamp(
-    postState.sell_timestamp ||
-      postState.sell_time ||
-      postState.sold_at ||
-      postState.closed_at ||
-      postState.sell_at
-  );
-  const sellPrice = postState.sell_target ?? postState.sell_price ?? null;
 
   useEffect(() => {
     let active = true;
@@ -259,136 +178,6 @@ export function PostCard({ post, onUpdate }) {
       active = false;
     };
   }, [trade?.player, trade?.image]);
-
-  const tagsLabel = useMemo(() => {
-    const tags = postState.tags || [];
-    if (!Array.isArray(tags)) return "";
-    return tags.join(", ");
-  }, [postState.tags]);
-
-  const openEditModal = () => {
-    setEditDraft({
-      title: postState.title || "",
-      content: postState.content || "",
-      post_type: postState.post_type || "tip",
-      player_name: postState.player_name || "",
-      player_card_id: postState.player_card_id || "",
-      buy_price: postState.buy_range_min ?? postState.buy_price ?? "",
-      sell_target: postState.sell_target ?? "",
-      sell_at: postState.sell_at ?? "",
-      confidence_level: postState.confidence_level ?? "",
-      tags: tagsLabel,
-      image_url: postState.image_url || "",
-      premium: postState.premium ?? postState.is_premium ?? false,
-      expires_in_hours: postState.expires_in_hours ?? "",
-    });
-    setShowEditModal(true);
-  };
-
-  const handleEditSubmit = async () => {
-    try {
-      const toNumberOrString = (value) => {
-        if (value === "" || value === null || value === undefined) return undefined;
-        const asNumber = Number(value);
-        return Number.isNaN(asNumber) ? value : asNumber;
-      };
-      const buyPrice = editDraft.buy_price;
-      const sellTarget = editDraft.sell_target;
-      const sellAt = editDraft.sell_at;
-      const hasSellSignal = Boolean(sellTarget || sellAt);
-      const payload = {
-        title: editDraft.title || undefined,
-        content: editDraft.content,
-        post_type: hasSellSignal ? "prediction" : editDraft.post_type,
-        player_name: editDraft.player_name || undefined,
-        player_card_id: editDraft.player_card_id || undefined,
-        buy_range_min: toNumberOrString(buyPrice),
-        buy_range_max: toNumberOrString(buyPrice),
-        sell_target: toNumberOrString(sellTarget),
-        sell_at: toNumberOrString(sellAt),
-        confidence_level:
-          editDraft.confidence_level === "" ? undefined : Number(editDraft.confidence_level),
-        tags: editDraft.tags
-          ? editDraft.tags.split(",").map((tag) => tag.trim()).filter(Boolean)
-          : undefined,
-        image_url: editDraft.image_url || undefined,
-        premium: !!editDraft.premium,
-        expires_in_hours:
-          editDraft.expires_in_hours === ""
-            ? undefined
-            : Number(editDraft.expires_in_hours),
-      };
-      const { data } = await updatePost(postState.id, payload);
-      const nextPost = data?.post || data;
-      if (nextPost) {
-        setPostState((prev) => ({ ...prev, ...nextPost }));
-      }
-      setShowEditModal(false);
-      if (hasSellSignal && nextPost) {
-        onUpdate?.(nextPost);
-      } else {
-        onUpdate?.();
-      }
-      toast.success("Post updated");
-    } catch (error) {
-      console.error("Failed to update post:", error);
-      toast.error("Failed to update post");
-    }
-  };
-
-  const toggleComments = async () => {
-    if (showComments) {
-      setShowComments(false);
-      return;
-    }
-    setShowComments(true);
-    if (comments.length) return;
-    setCommentsLoading(true);
-    try {
-      const { data } = await getPostComments(postState.id);
-      const items = Array.isArray(data)
-        ? data
-        : data?.comments || data?.items || data?.results || [];
-      setComments(items);
-    } catch (error) {
-      console.error("Failed to load comments:", error);
-      toast.error("Failed to load comments");
-    } finally {
-      setCommentsLoading(false);
-    }
-  };
-
-  const handleAddComment = async () => {
-    if (!commentDraft.trim()) {
-      toast.error("Write a comment first");
-      return;
-    }
-    try {
-      const { data } = await addPostComment(postState.id, { content: commentDraft.trim() });
-      const newComment = data?.comment || data;
-      if (newComment) {
-        setComments((prev) => [newComment, ...prev]);
-        setCommentCount((prev) => prev + 1);
-      }
-      setCommentDraft("");
-    } catch (error) {
-      console.error("Failed to add comment:", error);
-      toast.error("Failed to add comment");
-    }
-  };
-
-  const handleShare = async () => {
-    try {
-      const { data } = await sharePost(postState.id);
-      const nextShares =
-        data?.stats?.shares ?? data?.shares_count ?? data?.shares ?? shareCount + 1;
-      setShareCount(nextShares);
-      toast.success("Post shared");
-    } catch (error) {
-      console.error("Failed to share post:", error);
-      toast.error("Failed to share post");
-    }
-  };
 
   return (
     <article className="bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-border/80">
@@ -465,14 +254,14 @@ export function PostCard({ post, onUpdate }) {
 
       {/* Trade Signal */}
       {trade && !isLocked && (
-        <div className="mx-4 mb-4 rounded-2xl border border-border/50 bg-muted/20 px-4 py-4">
+        <div className="mx-4 mb-4 rounded-2xl border border-border/50 bg-muted/30 px-5 py-5 shadow-[0_0_30px_rgba(0,0,0,0.15)]">
           <div
-            className={`flex items-center justify-between gap-5 border-l-4 pl-4 ${
+            className={`flex items-center justify-between gap-6 border-l-4 pl-4 ${
               trade.type === "buy" ? "border-success/60" : "border-destructive/60"
             }`}
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-24 w-16 rounded-lg border border-border/40 bg-black/20 p-1">
+              <div className="h-28 w-20 rounded-xl border border-border/40 bg-black/30 p-2">
                 <img
                   src={tradeImage || trade.image || PLACEHOLDER}
                   alt={trade.player}
@@ -490,33 +279,32 @@ export function PostCard({ post, onUpdate }) {
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 space-y-2">
                 <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      trade.type === "buy"
+                        ? "bg-success/15 text-success"
+                        : "bg-destructive/15 text-destructive"
+                    }`}
+                  >
+                    {trade.type === "buy" ? (
+                      <TrendingUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <TrendingDown className="w-3.5 h-3.5" />
+                    )}
+                    {trade.type === "buy" ? "Buy" : "Sell"}
+                  </span>
+                  <p className="text-xl font-semibold text-foreground truncate">{trade.player}</p>
+                </div>
+                <p className="text-base text-muted-foreground">
                   {trade.type === "buy" ? (
-                    <TrendingUp className="w-5 h-5 text-success" />
+                    <span className="text-success font-semibold">Buy</span>
                   ) : (
-                    <TrendingDown className="w-5 h-5 text-destructive" />
-                  )}
-                  <p className="text-lg font-semibold text-foreground truncate">{trade.player}</p>
-                </div>
-                <div className="text-base text-muted-foreground space-y-1">
-                  <p>
-                    Buy @ {formatTradePrice(trade.buyPrice)} coins
-                    {buyTimestamp && (
-                      <span className="ml-2 text-xs text-muted-foreground/80">
-                        {formatTime(buyTimestamp)}
-                      </span>
-                    )}
-                  </p>
-                  <p>
-                    Sell @ {formatTradeNumber(trade.sellPrice || sellPrice)} coins
-                    {sellTimestamp && (
-                      <span className="ml-2 text-xs text-muted-foreground/80">
-                        {formatTime(sellTimestamp)}
-                      </span>
-                    )}
-                  </p>
-                </div>
+                    <span className="text-destructive font-semibold">Sell</span>
+                  )}{" "}
+                  @ {formatTradePrice(trade.price)} coins
+                </p>
               </div>
             </div>
             {trade.result && (
