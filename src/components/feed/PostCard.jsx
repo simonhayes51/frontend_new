@@ -154,7 +154,8 @@ export function PostCard({ post, onUpdate }) {
   const trade = (postState.post_type === 'quick_flip' || postState.post_type === 'prediction') ? {
     type: postState.post_type === 'quick_flip' ? 'buy' : 'sell',
     player: postState.player_name || postState.player?.name || extractPlayerName(postState.content),
-    price: getTradePrice(postState),
+    buyPrice: getTradeBuyPrice(postState),
+    sellPrice: getTradeSellPrice(postState),
     image:
       postState.player?.image_url ||
       postState.player?.image ||
@@ -162,10 +163,7 @@ export function PostCard({ post, onUpdate }) {
       postState.card_image_url ||
       postState.player?.card_image_url ||
       null,
-    result: postState.profit ? {
-      profit: postState.profit,
-      percentage: postState.profit_percentage || 0,
-    } : null,
+    result: buildTradeResult(postState),
   } : null;
 
   function extractPlayerName(content) {
@@ -174,16 +172,15 @@ export function PostCard({ post, onUpdate }) {
     return match ? match[0] : 'Player';
   }
 
-  function getTradePrice(postData) {
-    if (postData.post_type === 'quick_flip') {
-      return {
-        min: postData.buy_range_min ?? postData.buy_price ?? 0,
-        max: postData.buy_range_max ?? postData.buy_price ?? 0,
-      };
-    }
+  function getTradeBuyPrice(postData) {
+    return {
+      min: postData.buy_range_min ?? postData.buy_price ?? 0,
+      max: postData.buy_range_max ?? postData.buy_price ?? 0,
+    };
+  }
 
-    const target = postData.sell_target ?? postData.sell_price ?? 0;
-    return { min: target, max: target };
+  function getTradeSellPrice(postData) {
+    return postData.sell_target ?? postData.sell_price ?? 0;
   }
 
   function formatTradePrice(price) {
@@ -194,6 +191,29 @@ export function PostCard({ post, onUpdate }) {
       return `${min.toLocaleString()} - ${max.toLocaleString()}`;
     }
     return (max || min).toLocaleString();
+  }
+
+  function formatTradeNumber(value) {
+    const number = Number(value);
+    if (!number) return "TBD";
+    return number.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+
+  function buildTradeResult(postData) {
+    if (postData.profit !== undefined && postData.profit !== null) {
+      return {
+        profit: Number(postData.profit),
+        percentage: Number(postData.profit_percentage) || 0,
+      };
+    }
+    const buyValue = Number(
+      postData.buy_range_min ?? postData.buy_range_max ?? postData.buy_price ?? 0
+    );
+    const sellValue = Number(postData.sell_target ?? postData.sell_price ?? 0);
+    if (!buyValue || !sellValue) return null;
+    const profit = sellValue - buyValue - sellValue * 0.05;
+    const percentage = buyValue ? (profit / buyValue) * 100 : 0;
+    return { profit, percentage };
   }
 
   function parseTradeTimestamp(value) {
@@ -481,7 +501,7 @@ export function PostCard({ post, onUpdate }) {
                 </div>
                 <div className="text-base text-muted-foreground space-y-1">
                   <p>
-                    Buy @ {formatTradePrice(trade.price)} coins
+                    Buy @ {formatTradePrice(trade.buyPrice)} coins
                     {buyTimestamp && (
                       <span className="ml-2 text-xs text-muted-foreground/80">
                         {formatTime(buyTimestamp)}
@@ -489,7 +509,7 @@ export function PostCard({ post, onUpdate }) {
                     )}
                   </p>
                   <p>
-                    Sell @ {sellPrice ? Number(sellPrice).toLocaleString() : "TBD"} coins
+                    Sell @ {formatTradeNumber(trade.sellPrice || sellPrice)} coins
                     {sellTimestamp && (
                       <span className="ml-2 text-xs text-muted-foreground/80">
                         {formatTime(sellTimestamp)}
@@ -509,11 +529,11 @@ export function PostCard({ post, onUpdate }) {
               >
                 <p className="font-bold">
                   {trade.result.profit > 0 ? "+" : ""}
-                  {trade.result.profit.toLocaleString()}
+                  {trade.result.profit.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs">
                   {trade.result.percentage > 0 ? "+" : ""}
-                  {trade.result.percentage}%
+                  {trade.result.percentage.toFixed(2)}%
                 </p>
               </div>
             )}
