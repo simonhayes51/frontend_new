@@ -48,9 +48,12 @@ export function PostCard({ post, onUpdate }) {
 
   const handleLike = async () => {
     try {
-      await reactToPost(post.id, liked ? "unlike" : "like");
-      setLiked(!liked);
-      setLikeCount(prev => liked ? prev - 1 : prev + 1);
+      const { data } = await reactToPost(post.id, "like");
+      const nextLiked = data?.removed === undefined ? !liked : !data.removed;
+      const nextCount =
+        data?.stats?.likes ?? data?.likes_count ?? (nextLiked ? likeCount + 1 : likeCount - 1);
+      setLiked(nextLiked);
+      setLikeCount(Math.max(0, nextCount));
     } catch (error) {
       console.error("Failed to like post:", error);
       toast.error("Failed to like post");
