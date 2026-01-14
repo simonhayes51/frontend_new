@@ -50,6 +50,21 @@ const searchPlayers = async (query) => {
 };
 
 export function PostCard({ post, onUpdate }) {
+  const buildEditDraft = (source) => ({
+    title: source?.title || "",
+    content: source?.content || "",
+    post_type: source?.post_type || "tip",
+    player_name: source?.player_name || "",
+    buy_price: source?.buy_price ?? "",
+    sell_target: source?.sell_target ?? "",
+    sell_at: source?.sell_at ?? "",
+    confidence_level: source?.confidence_level ?? "",
+    tags: Array.isArray(source?.tags) ? source.tags.join(", ") : source?.tags || "",
+    image_url: source?.image_url || "",
+    expires_in_hours: source?.expires_in_hours ?? "",
+    premium: source?.premium ?? source?.visibility === "premium",
+  });
+
   const [postState, setPostState] = useState(post);
   const [liked, setLiked] = useState(post.user_has_liked || false);
   const [saved, setSaved] = useState(post.is_saved || false);
@@ -59,6 +74,12 @@ export function PostCard({ post, onUpdate }) {
   const [viewCount, setViewCount] = useState(post.views_count || post.views || 0);
   const [expanded, setExpanded] = useState(false);
   const [tradeImage, setTradeImage] = useState(null);
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editDraft, setEditDraft] = useState(() => buildEditDraft(post));
 
   const handleLike = async () => {
     try {
@@ -86,6 +107,90 @@ export function PostCard({ post, onUpdate }) {
     } catch (error) {
       console.error("Failed to save post:", error);
       toast.error("Failed to save post");
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      const { data } = await sharePost(postState.id);
+      const nextCount = data?.stats?.shares ?? data?.shares_count ?? shareCount + 1;
+      setShareCount(Math.max(0, nextCount));
+      if (navigator?.share) {
+        await navigator.share({
+          title: postState.title || "Check out this post",
+          text: postState.content?.slice(0, 120),
+          url: window.location.href,
+        });
+      } else if (navigator?.clipboard) {
+        await navigator.clipboard.writeText(window.location.href);
+        toast.success("Link copied to clipboard");
+      } else {
+        toast.success("Post shared");
+      }
+    } catch (error) {
+      console.error("Failed to share post:", error);
+      toast.error("Failed to share post");
+    }
+  };
+
+  const toggleComments = async () => {
+    const nextShow = !showComments;
+    setShowComments(nextShow);
+    if (!nextShow || commentsLoading || comments.length) return;
+    setCommentsLoading(true);
+    try {
+      const { data } = await getPostComments(postState.id);
+      const nextComments = data?.comments || data?.results || data || [];
+      setComments(Array.isArray(nextComments) ? nextComments : []);
+    } catch (error) {
+      console.error("Failed to load comments:", error);
+      toast.error("Failed to load comments");
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const handleAddComment = async () => {
+    const trimmed = commentDraft.trim();
+    if (!trimmed) return;
+    try {
+      const { data } = await addPostComment(postState.id, { content: trimmed });
+      const newComment = data?.comment || data;
+      if (newComment) {
+        setComments((prev) => [newComment, ...prev]);
+      }
+      setCommentCount((prev) => prev + 1);
+      setCommentDraft("");
+    } catch (error) {
+      console.error("Failed to add comment:", error);
+      toast.error("Failed to add comment");
+    }
+  };
+
+  const openEditModal = () => {
+    setEditDraft(buildEditDraft(postState));
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async () => {
+    try {
+      const tags = editDraft.tags
+        ? editDraft.tags.split(",").map((tag) => tag.trim()).filter(Boolean)
+        : [];
+      const payload = {
+        ...editDraft,
+        tags,
+        premium: !!editDraft.premium,
+      };
+      const { data } = await updatePost(postState.id, payload);
+      const updated = data?.post || data || payload;
+      setPostState((prev) => ({ ...prev, ...updated }));
+      onUpdate?.(updated);
+      toast.success("Post updated");
+      setShowEditModal(false);
+    } catch (error) {
+      console.error("Failed to update post:", error);
+      toast.error("Failed to update post");
     }
   };
 
@@ -178,6 +283,27 @@ export function PostCard({ post, onUpdate }) {
       active = false;
     };
   }, [trade?.player, trade?.image]);
+
+  useEffect(() => {
+    let active = true;
+    const registerView = async () => {
+      try {
+        const { data } = await viewPost(postState.id);
+        const nextCount = data?.stats?.views ?? data?.views_count ?? data?.views;
+        if (active && typeof nextCount === "number") {
+          setViewCount(nextCount);
+        }
+      } catch (error) {
+        console.error("Failed to record view:", error);
+      }
+    };
+    if (postState?.id) {
+      registerView();
+    }
+    return () => {
+      active = false;
+    };
+  }, [postState?.id]);
 
   return (
     <article className="bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-border/80">
