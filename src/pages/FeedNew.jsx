@@ -17,6 +17,7 @@ import {
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import UserHoverCard from '../components/UserHoverCard';
+import { reactToPost } from '../api/social';
 import api from '../axios';
 
 /**
@@ -182,17 +183,20 @@ function StoryCircle({ story, onClick }) {
 
 function PostCard({ post }) {
   const navigate = useNavigate();
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(post.user_reaction === 'like' || post.user_has_liked || false);
   const [saved, setSaved] = useState(false);
+  const [likesCount, setLikesCount] = useState(post.likes_count || post.likes || 0);
   const [showComments, setShowComments] = useState(false);
   const [isBlurred, setIsBlurred] = useState(post.is_premium && !post.has_access);
 
   const handleLike = async () => {
     try {
-      await api.post(`/api/interactions/posts/${post.id}/reactions`, {
-        reaction_type: liked ? null : 'like',
-      });
-      setLiked(!liked);
+      const { data } = await reactToPost(post.id, 'like');
+      const nextLiked = data?.removed === undefined ? !liked : !data.removed;
+      const nextLikes =
+        data?.stats?.likes ?? data?.likes_count ?? (nextLiked ? likesCount + 1 : Math.max(0, likesCount - 1));
+      setLiked(nextLiked);
+      setLikesCount(nextLikes);
     } catch (error) {
       toast.error('Failed to like post');
     }
@@ -327,7 +331,7 @@ function PostCard({ post }) {
             }`}
           >
             <Heart className={`w-7 h-7 ${liked ? 'fill-current' : 'group-hover:scale-110'} transition-transform`} />
-            <span className="font-semibold">{post.likes_count || 0}</span>
+            <span className="font-semibold">{likesCount}</span>
           </button>
 
           <button
