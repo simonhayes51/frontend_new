@@ -152,21 +152,31 @@ const FeedPanel = ({ user, headline = "Share a trading update" }) => {
     try {
       const { data } = await reactToPost(postId, reaction);
       
-      if (data?.removed) {
-        setUserReactions((prev) => {
+      const removed = data?.removed ?? currentReaction === reaction;
+      setUserReactions((prev) => {
+        if (removed) {
           const next = { ...prev };
           delete next[postId];
           return next;
-        });
-      } else {
-        setUserReactions((prev) => ({ ...prev, [postId]: reaction }));
-      }
+        }
+        return { ...prev, [postId]: reaction };
+      });
       
       const stats = data?.stats || data?.post?.stats;
       if (stats) {
         updatePostStats(postId, stats);
       } else {
-        await loadFeed();
+        const current = posts.find((post) => post.id === postId);
+        const currentStats = getPostStats(current || {});
+        if (reaction === "like") {
+          const delta = removed ? -1 : 1;
+          updatePostStats(postId, { likes: Math.max(0, currentStats.likes + delta) });
+        } else if (reaction === "dislike") {
+          const delta = removed ? -1 : 1;
+          updatePostStats(postId, { dislikes: Math.max(0, currentStats.dislikes + delta) });
+        } else {
+          await loadFeed();
+        }
       }
       
     } catch (error) {
