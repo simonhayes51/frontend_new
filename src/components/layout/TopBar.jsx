@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Search, Bell, MessageCircle, Plus, Zap, User, BarChart3, Settings as SettingsIcon, LogOut, ChevronDown } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useNotifications } from "../../context/NotificationContext";
 import { getUnreadMessageCount } from "../../api/social";
 
 export function TopBar() {
@@ -9,6 +10,7 @@ export function TopBar() {
   const [liveCount, setLiveCount] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [messageUnreadCount, setMessageUnreadCount] = useState(0);
+  const { unreadCount: notificationUnreadCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
@@ -121,7 +123,9 @@ export function TopBar() {
             className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
           >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-secondary rounded-full" />
+            {notificationUnreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-secondary rounded-full" />
+            )}
           </button>
 
           {/* User Avatar with Dropdown */}
