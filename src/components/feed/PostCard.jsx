@@ -55,9 +55,11 @@ export function PostCard({ post, onUpdate }) {
     content: source?.content || "",
     post_type: source?.post_type || "tip",
     player_name: source?.player_name || "",
-    buy_price: source?.buy_price ?? "",
+    buy_price:
+      source?.buy_price ??
+      source?.buy_range_min ??
+      "",
     sell_target: source?.sell_target ?? "",
-    sell_at: source?.sell_at ?? "",
     confidence_level: source?.confidence_level ?? "",
     tags: Array.isArray(source?.tags) ? source.tags.join(", ") : source?.tags || "",
     image_url: source?.image_url || "",
@@ -191,10 +193,45 @@ export function PostCard({ post, onUpdate }) {
         ? editDraft.tags.split(",").map((tag) => tag.trim()).filter(Boolean)
         : [];
       const payload = {
-        ...editDraft,
+        title: editDraft.title || undefined,
+        content: editDraft.content,
+        post_type: editDraft.post_type || postState.post_type,
+        image_url: editDraft.image_url || undefined,
+        expires_in_hours: editDraft.expires_in_hours
+          ? parseInt(editDraft.expires_in_hours, 10)
+          : undefined,
         tags,
-        premium: !!editDraft.premium,
+        is_premium: !!editDraft.premium,
       };
+
+      if (payload.post_type === "quick_flip" || payload.post_type === "prediction") {
+        if (editDraft.player_name) {
+          payload.player_name = editDraft.player_name;
+        }
+
+        if (editDraft.buy_price !== "") {
+          const buy = Number(editDraft.buy_price);
+          if (!Number.isNaN(buy) && buy > 0) {
+            payload.buy_range_min = buy;
+            payload.buy_range_max = buy;
+          }
+        }
+
+        if (editDraft.sell_target !== "") {
+          const sell = Number(editDraft.sell_target);
+          if (!Number.isNaN(sell) && sell > 0) {
+            payload.sell_target = sell;
+          }
+        }
+
+        if (editDraft.confidence_level !== "") {
+          const conf = Number(editDraft.confidence_level);
+          if (!Number.isNaN(conf)) {
+            payload.confidence_level = conf;
+          }
+        }
+      }
+
       const { data } = await updatePost(postState.id, payload);
       const updated = data?.post || data || payload;
       setPostState((prev) => ({ ...prev, ...updated }));
