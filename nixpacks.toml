@@ -1,8 +1,8 @@
 [phases.setup]
-nixpkgs = ["nodejs_18", "serve"]
+nixpkgs = ["nodejs_18"]
 
 [phases.build]
-cmds = ["npm install", "npm run build"]
+cmds = ["npm ci", "npm run build"]
 
 [phases.start]
 cmd = "serve -s dist -l ${PORT:-8080} --single"
