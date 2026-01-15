@@ -9,7 +9,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
   },
+
   server: {
     host: true,
     port: process.env.PORT ? parseInt(process.env.PORT, 10) : 5173,
@@ -29,10 +31,7 @@ export default defineConfig({
           "react-vendor": ["react", "react-dom"],
           "router-vendor": ["react-router-dom"],
           "chart-vendor": ["recharts"],
-
-          // IMPORTANT:
           // Removed "http-vendor": ["axios"]
-          // because it was creating a separate axios chunk and letting rogue imports bypass your safe base.
         },
       },
     },
