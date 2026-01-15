@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 // Config
-const API_BASE = import.meta.env.VITE_API_BASE ?? "https://api.futhub.co.uk";
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "https://api.futhub.co.uk").replace(/\/$/, "");
 
 // Small utils
 const cx = (...xs) => xs.filter(Boolean).join(" ");
