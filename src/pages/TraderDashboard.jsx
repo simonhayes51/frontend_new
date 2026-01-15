@@ -58,7 +58,7 @@ export default function TraderDashboard() {
     setLoading(true);
     try {
       // Load earnings summary
-      const earningsRes = await api.get(`/api/traders/earnings?range=${timeRange}`);
+      const earningsRes = await api.get(`/api/traders/analytics?range=${timeRange}`);
       setEarnings(earningsRes.data);
 
       // Load subscriber breakdown
