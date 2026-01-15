@@ -74,6 +74,7 @@ export default function TraderProfileNew() {
   ].filter((item) => item.value);
 
   useEffect(() => {
+    if (!traderId || traderId === 'undefined' || traderId === 'null') return;
     loadTraderProfile();
   }, [traderId]);
 
@@ -136,6 +137,7 @@ export default function TraderProfileNew() {
   };
 
   const handleMessage = () => {
+    if (!traderId || traderId === 'undefined' || traderId === 'null') return;
     navigate(`/messages/${traderId}`);
   };
 
