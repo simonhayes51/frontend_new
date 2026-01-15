@@ -89,7 +89,7 @@ export default function MobileDrawer({ open, onClose }) {
           </div>
 
           <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-            {navSections.map((section) => (
+            {displaySections.map((section) => (
               <div key={section.id} className="space-y-2">
                 {section.title && (
                   <p className="text-xs uppercase tracking-wider text-white/50 px-2">
