@@ -1,81 +1,21 @@
 import { useState, useEffect } from "react";
 import { Bell, Heart, MessageCircle, UserPlus, TrendingUp, DollarSign, CheckCircle, X } from "lucide-react";
 import toast from "react-hot-toast";
-import {
-  getNotifications,
-  markNotificationRead,
-  markAllNotificationsRead,
-  deleteNotification as deleteNotificationApi,
-} from "../api/social";
+import { useNotifications } from "../context/NotificationContext";
 
 export default function Notifications() {
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const {
+    notifications,
+    loading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification: deleteNotificationApi,
+  } = useNotifications();
   const [filter, setFilter] = useState("all");
 
-  useEffect(() => {
-    loadNotifications();
-  }, []);
-
-  const loadNotifications = async () => {
-    setLoading(true);
-    try {
-      const { data } = await getNotifications();
-      const rawList = Array.isArray(data)
-        ? data
-        : data?.notifications || data?.items || data?.results || [];
-
-      const mapped = (rawList || []).map((n) => ({
-        id: n.id,
-        type: n.type || n.category || "general",
-        title: n.title || "Notification",
-        message: n.message || n.text || "",
-        time: n.time_ago || n.time || n.created_at || "",
-        read: !!(n.read || n.is_read || n.seen),
-        avatar: n.actor_avatar || n.avatar_url || n.user_avatar || n.user_image || "",
-      }));
-
-      setNotifications(mapped);
-    } catch (error) {
-      console.error("Failed to load notifications:", error);
-      toast.error("Failed to load notifications");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const markAsRead = async (id) => {
-    try {
-      await markNotificationRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-      );
-    } catch (error) {
-      console.error("Failed to mark as read:", error);
-      toast.error("Failed to mark notification as read");
-    }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      await markAllNotificationsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      toast.success("All notifications marked as read");
-    } catch (error) {
-      console.error("Failed to mark all as read:", error);
-      toast.error("Failed to mark all as read");
-    }
-  };
-
   const handleDeleteNotification = async (id) => {
-    try {
-      await deleteNotificationApi(id);
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-      toast.success("Notification deleted");
-    } catch (error) {
-      console.error("Failed to delete notification:", error);
-      toast.error("Failed to delete notification");
-    }
+    // Wrapper to match previous interface if needed, but context handles toast
+    await deleteNotificationApi(id);
   };
 
   const getIcon = (type) => {
