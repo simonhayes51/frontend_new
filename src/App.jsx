@@ -65,6 +65,7 @@ const FeedNew = lazy(() => import("./pages/FeedNew"));
 const TraderProfileNew = lazy(() => import("./pages/TraderProfileNew"));
 const MessagesPage = lazy(() => import("./pages/MessagesPage"));
 const TraderDashboard = lazy(() => import("./pages/TraderDashboard"));
+const BecomeTrader = lazy(() => import("./pages/BecomeTrader"));
 const AppLayout = lazy(() => import("./components/AppLayout"));
 
 // PROFESSIONAL REDESIGN - Clean, modern layout
@@ -117,6 +118,7 @@ function App() {
                     <Route path="messages" element={<MessagesPage />} />
                     <Route path="messages/:userId" element={<MessagesPage />} />
                     <Route path="trader-dashboard" element={<TraderDashboard />} />
+                    <Route path="become-trader" element={<BecomeTrader />} />
                     <Route path="trader/:traderId" element={<TraderProfileNew />} />
 
                     {/* Free tier pages */}
