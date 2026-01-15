@@ -49,6 +49,20 @@ const tryGet = async (paths, config) => {
   throw lastError;
 };
 
+const tryDelete = async (paths) => {
+  let lastError;
+  for (const path of paths) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      return await socialRequest({ method: "delete", url: path });
+    } catch (error) {
+      if (![404, 405].includes(error?.response?.status)) throw error;
+      lastError = error;
+    }
+  }
+  throw lastError;
+};
+
 export const getFeed = (params) =>
   tryGet(
     ["/api/feed", "/api/social/feed", "/api/social/posts"],
@@ -166,6 +180,39 @@ export const searchMessageUsers = (query) =>
 
 export const getUnreadMessageCount = () =>
   tryGet(["/api/messages/unread-count", "/api/social/messages/unread-count"]);
+
+export const getNotifications = (params) =>
+  tryGet(
+    ["/api/notifications", "/api/social/notifications"],
+    { params }
+  );
+
+export const markNotificationRead = (notificationId) =>
+  tryPost(
+    [
+      `/api/notifications/${notificationId}/read`,
+      `/api/social/notifications/${notificationId}/read`,
+    ],
+    {}
+  );
+
+export const markAllNotificationsRead = () =>
+  tryPost(
+    ["/api/notifications/read-all", "/api/social/notifications/read-all"],
+    {}
+  );
+
+export const deleteNotification = (notificationId) =>
+  tryDelete([
+    `/api/notifications/${notificationId}`,
+    `/api/social/notifications/${notificationId}`,
+  ]);
+
+export const getUnreadNotificationCount = () =>
+  tryGet([
+    "/api/notifications/unread-count",
+    "/api/social/notifications/unread-count",
+  ]);
 
 export const getTraders = (params) =>
   tryGet(["/api/traders", "/api/social/traders"], { params });
