@@ -72,31 +72,18 @@ export function TradeSignalModal({ isOpen, onClose, onSubmit }) {
 
     try {
       const confidenceMap = { low: 33, medium: 66, high: 90 };
-      const payload = {
+      
+      await onSubmit({
         post_type: signalData.signal_type === "buy" ? "quick_flip" : "prediction",
         content: signalData.notes || `${signalData.signal_type === "buy" ? "Buy" : "Sell"} signal for ${signalData.player_name}`,
         player_name: signalData.player_name,
+        buy_range_min: signalData.buy_price ? parseInt(signalData.buy_price) : undefined,
+        buy_range_max: signalData.buy_price ? parseInt(signalData.buy_price) : undefined,
+        sell_target: signalData.sell_price ? parseInt(signalData.sell_price) : undefined,
         confidence_level: confidenceMap[signalData.confidence] || 66,
-        player_image_url: selectedPlayer?.image_url || null,
-        card_image_url: selectedPlayer?.card_image_url || null,
-      };
-
-      if (signalData.buy_price !== "") {
-        const buyPrice = Number(signalData.buy_price);
-        if (!Number.isNaN(buyPrice)) {
-          payload.buy_range_min = buyPrice;
-          payload.buy_range_max = buyPrice;
-        }
-      }
-
-      if (signalData.sell_price !== "") {
-        const sellPrice = Number(signalData.sell_price);
-        if (!Number.isNaN(sellPrice)) {
-          payload.sell_target = sellPrice;
-        }
-      }
-
-      await onSubmit(payload);
+        player_image_url: selectedPlayer?.image_url || undefined,
+        card_image_url: selectedPlayer?.card_image_url || undefined,
+      });
       
       toast.success("Trade signal posted!");
       setSignalData({
