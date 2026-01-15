@@ -1,5 +1,3 @@
-// src/App.jsx
-
 import { lazy, Suspense } from "react";
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
@@ -92,17 +90,15 @@ function App() {
                   {/* NEW: Radical Redesign Landing */}
                   <Route path="/new" element={<LandingPageNew />} />
 
-                  {/* Protected shell */}
+                  {/* Protected shell - Now open to public */}
                   <Route
                     path="/"
                     element={
-                      <PrivateRoute>
-                        <SettingsProvider>
-                          <DashboardProvider>
-                            <MainLayout />
-                          </DashboardProvider>
-                        </SettingsProvider>
-                      </PrivateRoute>
+                      <SettingsProvider>
+                        <DashboardProvider>
+                          <MainLayout />
+                        </DashboardProvider>
+                      </SettingsProvider>
                     }
                   >
                     {/* ✅ Feed is now the default landing page */}
@@ -237,11 +233,11 @@ function App() {
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
-            </div>
-          </Router>
-        </NotificationProvider>
-      </EntitlementsProvider>
-    </AuthProvider>
+              </div>
+            </Router>
+          </NotificationProvider>
+        </EntitlementsProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }
