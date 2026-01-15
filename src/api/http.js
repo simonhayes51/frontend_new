@@ -1,30 +1,4 @@
-// src/api/http.js
-
-// Normalise base like: https://api.futhub.co.uk (no trailing slash)
-const ENV_API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
-const SAME_ORIGIN = typeof window !== "undefined" ? window.location.origin : "";
-
-const resolveApiBase = () => {
-  if (ENV_API_BASE) {
-    if (!SAME_ORIGIN) return ENV_API_BASE;
-    try {
-      const envHost = new URL(ENV_API_BASE).host;
-      const originHost = new URL(SAME_ORIGIN).host;
-      if (
-        envHost === "api.futhub.co.uk" &&
-        (originHost === "app.futhub.co.uk" || originHost.endsWith(".futhub.co.uk"))
-      ) {
-        return SAME_ORIGIN;
-      }
-    } catch (error) {
-      return ENV_API_BASE;
-    }
-    return ENV_API_BASE;
-  }
-  return SAME_ORIGIN;
-};
-
-const API_BASE = resolveApiBase();
+import { API_BASE } from "../lib/apiBase";
 
 // Join base + path and attach query params
 function buildUrl(path, query) {
@@ -98,33 +72,35 @@ export async function apiFetch(path, opts = {}) {
     res = await doFetch(url, init);
   } catch (e) {
     if (retry > 0) {
-      await new Promise((r) => setTimeout(r, retryDelayMs));
-      res = await doFetch(url, init);
-    } else {
-      throw e;
+      if (typeof window !== "undefined") {
+         console.warn(`[apiFetch] Network error, retrying in ${retryDelayMs}ms...`, e);
+      }
+      await new Promise(r => setTimeout(r, retryDelayMs));
+      return apiFetch(path, { ...opts, retry: retry - 1 });
     }
+    throw e;
   }
 
-  const ct = res.headers.get("content-type") || "";
-  const isJson = ct.includes("application/json");
-  const data = isJson ? await res.json().catch(() => null) : await res.text();
-
+  // Handle HTTP errors
   if (!res.ok) {
-    const msg =
-      (data && (data.detail || data.error || data.message)) ||
-      `${res.status} ${res.statusText}`;
-    throw new Error(`${msg} @ ${url}`);
+    const text = await res.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      // ignore
+    }
+    const msg = json?.detail || json?.message || text.slice(0, 200);
+    const err = new Error(msg);
+    err.status = res.status;
+    err.data = json;
+    throw err;
   }
 
-  return isJson ? (data ?? {}) : data;
-}
-
-// Optional: tiny helper for GET with query
-export function get(path, query, opts) {
-  return apiFetch(path, { ...opts, method: "GET", query });
-}
-
-// Optional: tiny helper for POST JSON
-export function post(path, body, opts) {
-  return apiFetch(path, { ...opts, method: "POST", body });
+  // Success
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) {
+    return await res.json();
+  }
+  return await res.text();
 }
