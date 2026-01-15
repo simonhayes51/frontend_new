@@ -1,9 +1,9 @@
-// src/axios.js
 import axios from "axios";
+import { API_BASE } from "./lib/apiBase";
 
 /**
  * Axios instance with:
- * - Base URL from VITE_API_URL (fallback: https://api.futhub.co.uk)
+ * - Base URL from VITE_API_URL (via apiBase.js)
  * - withCredentials cookies (Starlette session)
  * - 10s timeout
  * - Idempotent GET retries (max 2; exponential backoff + jitter)
@@ -15,28 +15,16 @@ import axios from "axios";
  * To change max retries per request: api.get("/x", { __maxRetries: 1 })
  */
 
-const FALLBACK_API = "https://api.futhub.co.uk";
-const ENV_API =
-  (import.meta.env?.VITE_API_URL && import.meta.env.VITE_API_URL.replace(/\/$/, "")) || "";
-const SAME_ORIGIN = typeof window !== "undefined" ? window.location.origin : "";
-
-const resolveBaseUrl = () => {
-  if (ENV_API) return ENV_API;
-  return SAME_ORIGIN || FALLBACK_API;
-};
-
-const base = resolveBaseUrl();
-
 if (import.meta.env.DEV) {
   console.log("🔧 Axios env:", {
     VITE_API_URL: import.meta.env?.VITE_API_URL,
-    base,
+    base: API_BASE,
     mode: import.meta.env.MODE,
   });
 }
 
 const api = axios.create({
-  baseURL: base, // no trailing slash; callers pass "/api/..."
+  baseURL: API_BASE || "https://api.futhub.co.uk", // no trailing slash; callers pass "/api/..."
   withCredentials: true,
   timeout: 10000,
 });
@@ -98,88 +86,54 @@ api.interceptors.request.use(
     if (config.__maxRetries == null) config.__maxRetries = 2; // GET/HEAD/OPTIONS only
 
     if (import.meta.env.DEV) {
-      console.log(`[axios] → ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+      // console.log(`[Axios] ${config.method.toUpperCase()} ${config.url}`, config);
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response (success)
+// Response
 api.interceptors.response.use(
-  (response) => {
-    if (import.meta.env.DEV) {
-      console.log("[axios] ←", response.status, response.config.url);
-    }
-    return response;
-  },
-
-  // Response (error) + retry + premium gate
+  (response) => response,
   async (error) => {
-    const cfg = error.config || {};
-    const method = (cfg.method || "get").toLowerCase();
-    const status = error.response?.status;
-    const detail = error.response?.data?.detail;
-
-    const rawMessage =
-      (typeof detail === "string" && detail) ||
-      detail?.message ||
-      error.message;
-
-    if (import.meta.env.DEV) {
-      console.error("🚨 Axios error:", {
-        status,
-        message: rawMessage,
-        url: cfg.url,
-        baseURL: cfg.baseURL,
-      });
-    }
-
-    // --- 402 Premium gate ---
-    if (status === 402 && detail?.feature) {
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("premium:blocked", { detail }));
-      }
-      const enhanced402 = { ...error, userMessage: getUserFriendlyMessage(402, detail?.message) };
-      return Promise.reject(enhanced402);
-    }
-
-    if (status === 401) {
-      if (!cfg.__skipAuthRedirect && typeof window !== "undefined") {
-        window.location.hash = "/login";
-      }
-      const enhanced401 = { ...error, userMessage: getUserFriendlyMessage(401) };
-      return Promise.reject(enhanced401);
-    }
-
-    // --- 429: honour Retry-After for idempotent methods ---
-    if (status === 429 && IDEMPOTENT.has(method) && !cfg.__noRetry) {
-      const waitMs = parseRetryAfter(error.response.headers?.["retry-after"]) ??
-                     backoff(cfg.__retryCount || 0);
-      if ((cfg.__retryCount || 0) < (cfg.__maxRetries || 0)) {
-        cfg.__retryCount = (cfg.__retryCount || 0) + 1;
-        await sleep(waitMs);
-        return api(cfg);
+    const config = error.config || {};
+    
+    // 1. Handle 429 Retry-After
+    if (error.response?.status === 429) {
+      const retryAfter = parseRetryAfter(error.response.headers["retry-after"]);
+      if (retryAfter !== null && config.__retryCount < (config.__maxRetries || 2)) {
+        config.__retryCount += 1;
+        await sleep(retryAfter);
+        return api(config);
       }
     }
 
-    // --- Network/timeout/5xx: retry idempotent methods ---
-    const isNetworkError = !error.response;
-    const isTimeout = error.code === "ECONNABORTED";
-    const is5xx = status >= 500 && status <= 599;
+    // 2. Handle Idempotent Network/5xx Retries
+    const shouldRetry =
+      !config.__noRetry &&
+      config.__retryCount < (config.__maxRetries || 2) &&
+      IDEMPOTENT.has(config.method?.toLowerCase()) &&
+      (!error.response || (error.response.status >= 500 && error.response.status < 600));
 
-    if ((isNetworkError || isTimeout || is5xx) && IDEMPOTENT.has(method) && !cfg.__noRetry) {
-      if ((cfg.__retryCount || 0) < (cfg.__maxRetries || 0)) {
-        const attempt = cfg.__retryCount || 0;
-        cfg.__retryCount = attempt + 1;
-        await sleep(backoff(attempt));
-        return api(cfg);
-      }
+    if (shouldRetry) {
+      config.__retryCount += 1;
+      const delay = backoff(config.__retryCount - 1);
+      // console.log(`[Axios] Retrying ${config.url} (attempt ${config.__retryCount}) in ${delay}ms`);
+      await sleep(delay);
+      return api(config);
     }
 
-    // Normalise and bubble up
-    const enhancedError = { ...error, userMessage: typeof rawMessage === 'object' ? JSON.stringify(rawMessage) : getUserFriendlyMessage(status, rawMessage) };
-    return Promise.reject(enhancedError);
+    // 3. Handle 402 Payment Required -> Global Event
+    if (error.response?.status === 402) {
+      window.dispatchEvent(new CustomEvent("premium:blocked", { detail: error }));
+    }
+
+    // 4. Normalize Error Message
+    const serverMsg = error.response?.data?.detail || error.response?.data?.message;
+    error.userMessage = getUserFriendlyMessage(error.response?.status, serverMsg);
+
+    return Promise.reject(error);
   }
 );
 
