@@ -102,6 +102,19 @@ export default function TraderProfileNew() {
     }
   };
 
+  const handleUnsubscribe = async () => {
+    if (!traderId) return;
+    try {
+      await unsubscribeFromTrader(traderId);
+      setIsSubscribed(false);
+      toast.success('Unfollowed successfully');
+      loadTraderProfile();
+    } catch (error) {
+      console.error('Unsubscribe error:', error);
+      toast.error('Failed to unfollow');
+    }
+  };
+
   const handleSubscribe = (tier = 'free') => {
     if (tier === 'free') {
       subscribeToTrader('free');
@@ -314,8 +327,11 @@ export default function TraderProfileNew() {
                         <DollarSign className="w-5 h-5" />
                         Tip
                       </button>
-                      <button className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all">
-                        <Check className="w-5 h-5" />
+                      <button 
+                        onClick={handleUnsubscribe}
+                        className="px-6 py-3 bg-white/5 hover:bg-red-500/20 text-white hover:text-red-400 rounded-xl transition-all font-semibold"
+                      >
+                        Unfollow
                       </button>
                     </>
                   ) : (
