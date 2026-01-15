@@ -113,6 +113,9 @@ export default function TraderProfileNew() {
   const subscribeToTrader = async (tier) => {
     try {
       if (tier === 'free') {
+        if (!traderId || traderId === 'undefined' || traderId === 'null') {
+          throw new Error('Missing trader id');
+        }
         await api.post('/api/subscriptions/subscribe', { trader_id: traderId, tier: 'free' });
         toast.success(`Followed successfully!`);
         setIsSubscribed(true);
