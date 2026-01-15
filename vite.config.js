@@ -10,11 +10,6 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
 
-      // Force ALL `import axios from "axios"` to use your hardened client
-      axios: path.resolve(__dirname, "./src/axios.js"),
-    },
-  },
-
   server: {
     host: true,
     port: process.env.PORT ? parseInt(process.env.PORT, 10) : 5173,
