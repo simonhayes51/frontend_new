@@ -217,7 +217,9 @@ function PostCard({ post }) {
   };
 
   const handleSubscribe = () => {
-    navigate(`/trader/${post.user_id}`);
+    const tid = post.trader_id ?? post.user_id ?? post.author_id ?? post.id;
+    if (!tid || tid === "undefined" || tid === "null") return;
+    navigate(`/trader/${tid}`);
   };
 
   return (
