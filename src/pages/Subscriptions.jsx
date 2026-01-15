@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { Crown, Users, TrendingUp, Star, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { getTraders, subscribeToTrader, unsubscribeFromTrader } from '../api/social';
+import api from '../axios';
+import { getTraders, subscribeToTrader, unsubscribeFromTrader, getMySubscriptions } from '../api/social';
 
 /**
  * Subscriptions Page - Browse and manage trader subscriptions
@@ -21,11 +22,16 @@ export default function Subscriptions() {
   const loadTraders = async () => {
     setLoading(true);
     try {
-      const { data } = await getTraders({
-        subscribed: filter === 'subscribed',
-        verified: filter === 'verified',
-      });
-      setTraders(data?.traders || data || []);
+      if (filter === 'subscribed') {
+        const { data } = await getMySubscriptions();
+        // Handle if API returns { subscriptions: [...] } or just [...]
+        setTraders(data?.subscriptions?.map(sub => sub.trader || sub) || data || []);
+      } else {
+        const { data } = await getTraders({
+          verified: filter === 'verified',
+        });
+        setTraders(data?.traders || data || []);
+      }
     } catch (error) {
       console.error('Failed to load traders:', error);
       toast.error('Failed to load traders');
@@ -40,8 +46,8 @@ export default function Subscriptions() {
         await unsubscribeFromTrader(traderId);
         toast.success('Unsubscribed!');
       } else {
-        await subscribeToTrader(traderId);
-        toast.success('Subscribed!');
+        await api.post('/api/subscriptions/subscribe', { trader_id: traderId, tier: 'free' });
+        toast.success('Following!');
       }
       loadTraders();
     } catch (error) {
