@@ -9,7 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-
+  },
   server: {
     host: true,
     port: process.env.PORT ? parseInt(process.env.PORT, 10) : 5173,
