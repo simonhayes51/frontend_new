@@ -24,7 +24,9 @@ export function TraderCard({ trader }) {
   const handleViewProfile = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    navigate(`/trader/${trader.id}`);
+    const tid = trader.trader_id ?? trader.user_id ?? trader.id;
+    if (!tid || tid === "undefined" || tid === "null") return;
+    navigate(`/trader/${tid}`);
   };
 
   return (
