@@ -97,7 +97,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = () => {
-    window.location.href = `${api.defaults.baseURL}/api/login`;
+    const explicitApi =
+      (import.meta.env?.VITE_API_URL && import.meta.env.VITE_API_URL.replace(/\/$/, "")) ||
+      "";
+    const loginBase = explicitApi || api.defaults.baseURL;
+    window.location.href = `${loginBase}/api/login`;
   };
 
   const logout = async () => {
