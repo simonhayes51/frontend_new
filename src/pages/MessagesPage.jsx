@@ -116,7 +116,10 @@ export default function MessagesPage() {
     try {
       const response = await api.get(`/api/messages/conversations/${conversationId}/messages`);
       const data = response?.data || {};
-      setMessages(normalizeArray(data.messages || data));
+      const list = Array.isArray(data)
+        ? data
+        : data.messages || data.items || data.results || [];
+      setMessages(normalizeArray(list));
     } catch (error) {
       console.error('Failed to load messages:', error);
       toast.error('Failed to load messages');
