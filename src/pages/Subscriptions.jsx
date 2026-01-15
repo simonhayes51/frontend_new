@@ -27,9 +27,14 @@ export default function Subscriptions() {
         // Handle if API returns { subscriptions: [...] } or just [...]
         setTraders(data?.subscriptions?.map(sub => sub.trader || sub) || data || []);
       } else {
-        const { data } = await getTraders({
-          verified: filter === 'verified',
-        });
+        // Only send verified param if we are filtering by verified
+        // Otherwise sending verified: false might filter for unverified traders only
+        const params = {};
+        if (filter === 'verified') {
+          params.verified = true;
+        }
+        
+        const { data } = await getTraders(params);
         setTraders(data?.traders || data || []);
       }
     } catch (error) {
