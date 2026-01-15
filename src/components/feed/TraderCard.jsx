@@ -1,6 +1,9 @@
 import { Star, TrendingUp, Users, CheckCircle2 } from "lucide-react";
 import { GradientButton } from "../ui/GradientButton";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import toast from "react-hot-toast";
+import { subscribeToTrader, unsubscribeFromTrader } from "../../api/social";
 
 const tierColors = {
   bronze: "from-amber-700 to-amber-500",
@@ -20,13 +23,40 @@ const tierBadgeColors = {
 
 export function TraderCard({ trader }) {
   const navigate = useNavigate();
+  const [isSubscribed, setIsSubscribed] = useState(!!trader.isSubscribed);
+
+  const getTraderId = () => {
+    const tid = trader.trader_id ?? trader.user_id ?? trader.id;
+    if (!tid || tid === "undefined" || tid === "null") return null;
+    return tid;
+  };
 
   const handleViewProfile = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const tid = trader.trader_id ?? trader.user_id ?? trader.id;
-    if (!tid || tid === "undefined" || tid === "null") return;
+    const tid = getTraderId();
+    if (!tid) return;
     navigate(`/trader/${tid}`);
+  };
+
+  const handleToggleFollow = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const tid = getTraderId();
+    if (!tid) return;
+
+    try {
+      if (isSubscribed) {
+        await unsubscribeFromTrader(tid);
+        setIsSubscribed(false);
+      } else {
+        await subscribeToTrader(tid);
+        setIsSubscribed(true);
+      }
+    } catch (error) {
+      console.error("Follow toggle failed:", error);
+      toast.error("Failed to update follow status");
+    }
   };
 
   return (
@@ -77,17 +107,15 @@ export function TraderCard({ trader }) {
           </div>
         </div>
 
-        {/* Subscribe Button */}
+        {/* Follow Button */}
         <div className="flex flex-col items-end gap-1">
-          {trader.isSubscribed ? (
-            <GradientButton variant="ghost" size="sm" onClick={handleViewProfile}>
-              Subscribed
-            </GradientButton>
-          ) : (
-            <GradientButton size="sm" onClick={handleViewProfile}>
-              ${trader.subscriptionPrice}/mo
-            </GradientButton>
-          )}
+          <GradientButton
+            size="sm"
+            variant={isSubscribed ? "ghost" : "default"}
+            onClick={handleToggleFollow}
+          >
+            {isSubscribed ? "Following" : "Follow"}
+          </GradientButton>
         </div>
       </div>
     </div>
