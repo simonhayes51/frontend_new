@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { Search, Bell, MessageCircle, Plus, Zap, User, BarChart3, Settings as SettingsIcon, LogOut, ChevronDown } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { getUnreadMessageCount } from "../../api/social";
 
 export function TopBar() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [liveCount, setLiveCount] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [messageUnreadCount, setMessageUnreadCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
@@ -50,6 +52,23 @@ export function TopBar() {
     navigate('/login');
   };
 
+  useEffect(() => {
+    const loadUnread = async () => {
+      try {
+        const { data } = await getUnreadMessageCount();
+        const count =
+          data?.count ??
+          data?.unread_count ??
+          data?.unread ??
+          0;
+        setMessageUnreadCount(count || 0);
+      } catch (error) {
+        setMessageUnreadCount(0);
+      }
+    };
+    loadUnread();
+  }, []);
+
   return (
     <header className="h-16 bg-card/50 backdrop-blur-lg border-b border-border sticky top-0 z-50">
       <div className="h-full px-6 flex items-center justify-between gap-4">
@@ -92,7 +111,9 @@ export function TopBar() {
             className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
           >
             <MessageCircle className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+            {messageUnreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+            )}
           </button>
 
           <button 
