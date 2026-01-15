@@ -23,8 +23,10 @@ if (import.meta.env.DEV) {
   });
 }
 
+const SAFE_BASE = (API_BASE || "https://api.futhub.co.uk").replace(/^http:\/\//, "https://");
+
 const api = axios.create({
-  baseURL: (API_BASE || "https://api.futhub.co.uk").replace(/^http:\/\//, "https://"),
+  baseURL: SAFE_BASE,
   withCredentials: true,
   timeout: 10000,
 });
@@ -80,6 +82,12 @@ api.interceptors.request.use(
     config.headers["Accept"] = config.headers["Accept"] || "application/json";
     if (!config.headers["Content-Type"] && !(config.data instanceof FormData)) {
       config.headers["Content-Type"] = "application/json";
+    }
+
+    // force HTTPS in non-DEV
+    if (!import.meta.env.DEV) {
+      if (typeof config.baseURL === "string") config.baseURL = config.baseURL.replace(/^http:\/\//, "https://");
+      if (typeof config.url === "string") config.url = config.url.replace(/^http:\/\//, "https://");
     }
 
     // ensure no double slashes in path (keeps protocol intact)
