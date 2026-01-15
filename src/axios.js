@@ -16,10 +16,31 @@ import axios from "axios";
  */
 
 const FALLBACK_API = "https://api.futhub.co.uk";
+const ENV_API =
+  (import.meta.env?.VITE_API_URL && import.meta.env.VITE_API_URL.replace(/\/$/, "")) || "";
+const SAME_ORIGIN = typeof window !== "undefined" ? window.location.origin : "";
 
-const base =
-  (import.meta.env?.VITE_API_URL && import.meta.env.VITE_API_URL.replace(/\/$/, "")) ||
-  FALLBACK_API;
+const resolveBaseUrl = () => {
+  if (ENV_API) {
+    if (!SAME_ORIGIN) return ENV_API;
+    try {
+      const envHost = new URL(ENV_API).host;
+      const originHost = new URL(SAME_ORIGIN).host;
+      if (
+        envHost === "api.futhub.co.uk" &&
+        (originHost === "app.futhub.co.uk" || originHost.endsWith(".futhub.co.uk"))
+      ) {
+        return SAME_ORIGIN;
+      }
+    } catch (error) {
+      return ENV_API;
+    }
+    return ENV_API;
+  }
+  return SAME_ORIGIN || FALLBACK_API;
+};
+
+const base = resolveBaseUrl();
 
 if (import.meta.env.DEV) {
   console.log("🔧 Axios env:", {
