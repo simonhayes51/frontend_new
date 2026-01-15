@@ -298,6 +298,11 @@ export function PostCard({ post, onUpdate }) {
         }
       : null;
 
+  const netProfit =
+    trade && trade.buyPrice && trade.sellPrice && !trade.result
+      ? calculateNetProfit(trade.buyPrice, trade.sellPrice)
+      : null;
+
   function extractPlayerName(content) {
     if (!content) return "Player";
     const match = content.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
@@ -341,6 +346,20 @@ export function PostCard({ post, onUpdate }) {
       return `${min.toLocaleString()} - ${max.toLocaleString()}`;
     }
     return (max || min).toLocaleString();
+  }
+
+  function calculateNetProfit(buyPrice, sellPrice) {
+    if (!buyPrice || !sellPrice) return null;
+    const buy =
+      Number(buyPrice.max ?? buyPrice.min ?? 0) || 0;
+    const sell =
+      Number(sellPrice.min ?? sellPrice.max ?? 0) || 0;
+    if (!buy || !sell) return null;
+    const gross = sell - buy;
+    const tax = gross * 0.05;
+    const net = gross - tax;
+    if (!Number.isFinite(net)) return null;
+    return Math.round(net);
   }
 
   useEffect(() => {
@@ -520,6 +539,13 @@ export function PostCard({ post, onUpdate }) {
                           · {formatTime(trade.sellTimestamp)}
                         </span>
                       )}
+                    </div>
+                  )}
+                  {typeof netProfit === "number" && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-success">
+                        Profit: {netProfit.toLocaleString()} coins
+                      </span>
                     </div>
                   )}
                 </div>
