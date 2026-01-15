@@ -1,5 +1,4 @@
 // src/main.jsx
-import "./bootstrap"; // <-- must be FIRST import
 
 import React from "react";
 import { createRoot } from "react-dom/client";
