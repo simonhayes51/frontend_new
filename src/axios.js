@@ -2,8 +2,8 @@
 import axios from "axios";
 
 /**
- * Working Axios instance with:
- * - Base URL from VITE_API_URL (fallback: https://api.futhub.co.uk)  ✅ (no SAME_ORIGIN guessing)
+ * Axios instance with:
+ * - Base URL from VITE_API_URL (fallback: https://api.futhub.co.uk)
  * - withCredentials cookies (Starlette session)
  * - 10s timeout
  * - Idempotent GET retries (max 2; exponential backoff + jitter)
@@ -11,17 +11,36 @@ import axios from "axios";
  * - Premium gate (HTTP 402) → dispatches `premium:blocked` event
  * - Normalised error: err.userMessage
  *
- * Per-request opts:
- * - Disable retries: api.get("/x", { __noRetry: true })
- * - Change max retries: api.get("/x", { __maxRetries: 1 })
- * - Skip auth redirect: api.get("/x", { __skipAuthRedirect: true })
+ * To disable retries per request: api.get("/x", { __noRetry: true })
+ * To change max retries per request: api.get("/x", { __maxRetries: 1 })
  */
 
 const FALLBACK_API = "https://api.futhub.co.uk";
 const ENV_API =
   (import.meta.env?.VITE_API_URL && import.meta.env.VITE_API_URL.replace(/\/$/, "")) || "";
+const SAME_ORIGIN = typeof window !== "undefined" ? window.location.origin : "";
 
-const base = ENV_API || FALLBACK_API;
+const resolveBaseUrl = () => {
+  if (ENV_API) {
+    if (!SAME_ORIGIN) return ENV_API;
+    try {
+      const envHost = new URL(ENV_API).host;
+      const originHost = new URL(SAME_ORIGIN).host;
+      if (
+        envHost === "api.futhub.co.uk" &&
+        (originHost === "app.futhub.co.uk" || originHost.endsWith(".futhub.co.uk"))
+      ) {
+        return SAME_ORIGIN;
+      }
+    } catch (error) {
+      return ENV_API;
+    }
+    return ENV_API;
+  }
+  return SAME_ORIGIN || FALLBACK_API;
+};
+
+const base = resolveBaseUrl();
 
 if (import.meta.env.DEV) {
   console.log("🔧 Axios env:", {
@@ -41,16 +60,14 @@ const api = axios.create({
 
 const IDEMPOTENT = new Set(["get", "head", "options"]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
 const backoff = (attempt) => {
   // attempt 0 → 300ms, 1 → 600ms, 2 → 1200ms (+ jitter 0–150ms)
-  const baseMs = 300 * Math.pow(2, attempt);
-  return baseMs + Math.floor(Math.random() * 150);
+  const base = 300 * Math.pow(2, attempt);
+  return base + Math.floor(Math.random() * 150);
 };
 
 function parseRetryAfter(headerValue) {
   if (!headerValue) return null;
-
   // If number → seconds
   const asNum = Number(headerValue);
   if (!Number.isNaN(asNum)) return Math.max(0, asNum * 1000);
@@ -66,50 +83,15 @@ function parseRetryAfter(headerValue) {
 
 function getUserFriendlyMessage(status, originalMessage) {
   switch (status) {
-    case 401:
-      return "Please log in to continue";
-    case 402:
-      return "This feature requires Premium";
-    case 403:
-      return "You do not have permission to perform this action";
-    case 404:
-      return "The requested resource was not found";
-    case 429:
-      return "You’re doing that too fast. Please try again in a moment";
-    case 500:
-      return "Server error. Please try again later";
-    case undefined:
-      return "Network error. Please check your connection";
-    default:
-      return originalMessage || "An unexpected error occurred";
+    case 401: return "Please log in to continue";
+    case 402: return "This feature requires Premium";
+    case 403: return "You do not have permission to perform this action";
+    case 404: return "The requested resource was not found";
+    case 429: return "You’re doing that too fast. Please try again in a moment";
+    case 500: return "Server error. Please try again later";
+    case undefined: return "Network error. Please check your connection";
+    default: return originalMessage || "An unexpected error occurred";
   }
-}
-
-function isOnLoginRoute() {
-  if (typeof window === "undefined") return false;
-
-  const path = window.location.pathname || "";
-  const hash = window.location.hash || "";
-  const href = window.location.href || "";
-
-  // Covers:
-  // - /login
-  // - #/login (hash routers)
-  // - .../login?... etc
-  return (
-    path === "/login" ||
-    hash.includes("/login") ||
-    href.includes("/login")
-  );
-}
-
-function redirectToLogin() {
-  if (typeof window === "undefined") return;
-  if (isOnLoginRoute()) return;
-
-  // Prefer a hard navigation to break SPA loops and reset state.
-  // Use replace() to avoid stacking history.
-  window.location.replace("/login");
 }
 
 // -------- interceptors -------------------------------------------------------
@@ -117,9 +99,6 @@ function redirectToLogin() {
 // Request
 api.interceptors.request.use(
   (config) => {
-    // Ensure headers exist
-    config.headers = config.headers || {};
-
     // default headers
     config.headers["Accept"] = config.headers["Accept"] || "application/json";
     if (!config.headers["Content-Type"] && !(config.data instanceof FormData)) {
@@ -136,13 +115,12 @@ api.interceptors.request.use(
     if (import.meta.env.DEV) {
       console.log(`[axios] → ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
     }
-
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response (success + error)
+// Response (success)
 api.interceptors.response.use(
   (response) => {
     if (import.meta.env.DEV) {
@@ -151,6 +129,7 @@ api.interceptors.response.use(
     return response;
   },
 
+  // Response (error) + retry + premium gate
   async (error) => {
     const cfg = error.config || {};
     const method = (cfg.method || "get").toLowerCase();
@@ -180,11 +159,9 @@ api.interceptors.response.use(
       return Promise.reject(enhanced402);
     }
 
-    // --- 401: redirect to login (loop-safe) ---
     if (status === 401) {
-      // Allow callers to opt out (e.g., on login endpoint or silent auth probes)
-      if (!cfg.__skipAuthRedirect) {
-        redirectToLogin();
+      if (!cfg.__skipAuthRedirect && typeof window !== "undefined") {
+        window.location.hash = "/login";
       }
       const enhanced401 = { ...error, userMessage: getUserFriendlyMessage(401) };
       return Promise.reject(enhanced401);
@@ -192,10 +169,8 @@ api.interceptors.response.use(
 
     // --- 429: honour Retry-After for idempotent methods ---
     if (status === 429 && IDEMPOTENT.has(method) && !cfg.__noRetry) {
-      const waitMs =
-        parseRetryAfter(error.response?.headers?.["retry-after"]) ??
-        backoff(cfg.__retryCount || 0);
-
+      const waitMs = parseRetryAfter(error.response.headers?.["retry-after"]) ??
+                     backoff(cfg.__retryCount || 0);
       if ((cfg.__retryCount || 0) < (cfg.__maxRetries || 0)) {
         cfg.__retryCount = (cfg.__retryCount || 0) + 1;
         await sleep(waitMs);
@@ -206,7 +181,7 @@ api.interceptors.response.use(
     // --- Network/timeout/5xx: retry idempotent methods ---
     const isNetworkError = !error.response;
     const isTimeout = error.code === "ECONNABORTED";
-    const is5xx = typeof status === "number" && status >= 500 && status <= 599;
+    const is5xx = status >= 500 && status <= 599;
 
     if ((isNetworkError || isTimeout || is5xx) && IDEMPOTENT.has(method) && !cfg.__noRetry) {
       if ((cfg.__retryCount || 0) < (cfg.__maxRetries || 0)) {
