@@ -296,6 +296,9 @@ export const checkSubscriptionStatus = (traderId) =>
 export const tipPost = (postId, amount) =>
   tryPost(["/api/subscriptions/tip"], { post_id: postId, amount });
 
+export const getMySubscriptions = () =>
+  tryGet(["/api/subscriptions/mine", "/api/social/subscriptions/mine"]);
+
 export const savePost = (postId) =>
   tryPost([`/api/subscriptions/save-post/${postId}`], {});
 
