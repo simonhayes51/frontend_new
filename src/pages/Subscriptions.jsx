@@ -61,7 +61,7 @@ export default function Subscriptions() {
         if (!traderId || traderId === 'undefined' || traderId === 'null') {
           throw new Error('Missing trader id');
         }
-        await api.post('/api/subscriptions/subscribe', { trader_id: traderId, tier: 'free' });
+        await subscribeToTrader(traderId);
         toast.success('Following!');
       }
       loadTraders();
