@@ -23,6 +23,8 @@ export const navSections = [
       { label: "Feed", path: "/", icon: Home, primary: true },
       { label: "Dashboard", path: "/dashboard", icon: BarChart3, primary: true },
       { label: "Traders", path: "/subscriptions", icon: Users, primary: true },
+      { label: "Trader Dashboard", path: "/trader-dashboard", icon: BarChart3, primary: true },
+      { label: "Become a Trader", path: "/become-trader", icon: TrendingUp, primary: true },
       { label: "Trending Traders", path: "/subscriptions", icon: Flame },
     ],
   },
