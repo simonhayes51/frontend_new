@@ -5,4 +5,4 @@ nixpkgs = ["nodejs_18", "serve"]
 cmds = ["npm install", "npm run build"]
 
 [phases.start]
-cmd = "npx serve -s dist -l 8080"
+cmd = "serve -s dist -l ${PORT:-8080} --single"
