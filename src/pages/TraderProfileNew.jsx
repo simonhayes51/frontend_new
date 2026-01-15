@@ -26,6 +26,7 @@ import {
 import toast from 'react-hot-toast';
 import api from '../axios';
 import { getTraderProfile } from '../api/traders';
+import { subscribeToTrader, unsubscribeFromTrader } from '../api/social';
 import { createCheckoutSession } from '../api/billing';
 import UserHoverCard from '../components/UserHoverCard';
 
@@ -117,19 +118,19 @@ export default function TraderProfileNew() {
 
   const handleSubscribe = (tier = 'free') => {
     if (tier === 'free') {
-      subscribeToTrader('free');
+      handleTierSubscribe('free');
     } else {
       setShowSubscribeModal(true);
     }
   };
 
-  const subscribeToTrader = async (tier) => {
+  const handleTierSubscribe = async (tier) => {
     try {
       if (tier === 'free') {
         if (!traderId || traderId === 'undefined' || traderId === 'null') {
           throw new Error('Missing trader id');
         }
-        await api.post('/api/subscriptions/subscribe', { trader_id: traderId, tier: 'free' });
+        await subscribeToTrader(traderId);
         toast.success(`Followed successfully!`);
         setIsSubscribed(true);
         setShowSubscribeModal(false);
