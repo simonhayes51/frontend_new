@@ -236,7 +236,7 @@ export default function MessagesPage() {
   return (
     <div className="h-screen bg-dark-bg flex overflow-hidden">
       {/* Conversations List */}
-      <div className={`${activeChat && userId ? 'hidden md:flex' : 'flex'} w-full md:w-80 border-r border-white/10 flex-col bg-dark-card`}>
+      <div className={`${activeChat ? 'hidden md:flex' : 'flex'} w-full md:w-80 border-r border-white/10 flex-col bg-dark-card`}>
         {/* Header */}
         <div className="p-4 border-b border-white/10">
           <h2 className="text-xl font-bold text-white">Messages</h2>
@@ -307,7 +307,7 @@ export default function MessagesPage() {
       </div>
 
       {/* Chat Area */}
-      {activeChat && userId ? (
+      {activeChat ? (
         <div className="flex-1 flex flex-col">
           {/* Chat Header */}
           <div className="p-4 border-b border-white/10 bg-dark-card flex items-center gap-3">
