@@ -15,27 +15,39 @@ import {
   ArrowDown,
   Settings,
   Save,
+  BarChart2,
+  PieChart,
+  Layout,
+  Check
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../axios';
+import { getTraderMe, updateTraderMe, getTraderAnalytics } from '../api/traders';
 
 /**
  * Transfer Traders - Trader Earnings Dashboard
  * OnlyFans-style earnings overview for traders
  */
 export default function TraderDashboard() {
+  const [activeTab, setActiveTab] = useState('overview'); // overview, analytics, settings
   const [earnings, setEarnings] = useState(null);
   const [subscribers, setSubscribers] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('month'); // week, month, year, all
-  const [subscriptionPrices, setSubscriptionPrices] = useState({
-    basic: 2.99,
-    premium: 4.99,
-    elite: 9.99,
+  
+  // Settings State
+  const [profileData, setProfileData] = useState({
+    bio: '',
+    specialties: [],
+    pricing: {
+      basic: 2.99,
+      premium: 4.99,
+      elite: 9.99
+    }
   });
-  const [savingPrices, setSavingPrices] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -60,18 +72,26 @@ export default function TraderDashboard() {
       const statsRes = await api.get('/api/subscriptions/my-stats');
       setStats(statsRes.data);
 
-      // Load current subscription prices
+      // Load profile settings
       try {
-        const pricesRes = await api.get('/api/traders/subscription-prices');
-        if (pricesRes.data?.prices) {
-          setSubscriptionPrices(pricesRes.data.prices);
+        const profileRes = await getTraderMe();
+        if (profileRes.data) {
+          setProfileData({
+            bio: profileRes.data.bio || '',
+            specialties: profileRes.data.specialties || [],
+            pricing: profileRes.data.subscription_prices || {
+              basic: 2.99,
+              premium: 4.99,
+              elite: 9.99
+            }
+          });
         }
       } catch (err) {
-        console.log('Using default prices');
+        console.log('Using default profile settings');
       }
     } catch (error) {
       console.error('Failed to load dashboard:', error);
-      toast.error('Failed to load earnings data');
+      toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -87,20 +107,20 @@ export default function TraderDashboard() {
     }
   };
 
-  const saveSubscriptionPrices = async () => {
-    setSavingPrices(true);
+  const handleSaveSettings = async () => {
+    setSavingSettings(true);
     try {
-      await api.post('/api/traders/subscription-prices', {
-        prices: subscriptionPrices,
+      await updateTraderMe({
+        bio: profileData.bio,
+        specialties: profileData.specialties,
+        subscription_prices: profileData.pricing
       });
-      toast.success('Subscription prices updated!');
+      toast.success('Settings updated successfully!');
     } catch (error) {
-      console.error('Error saving prices:', error);
-      // Fallback: save to localStorage if backend not implemented yet
-      localStorage.setItem('trader_subscription_prices', JSON.stringify(subscriptionPrices));
-      toast.success('Subscription prices saved locally (backend endpoint pending)');
+      console.error('Error saving settings:', error);
+      toast.error('Failed to update settings');
     } finally {
-      setSavingPrices(false);
+      setSavingSettings(false);
     }
   };
 
@@ -116,6 +136,20 @@ export default function TraderDashboard() {
   const availableBalance = earnings?.available || 0;
   const pendingBalance = earnings?.pending || 0;
 
+  const specialtiesList = [
+    'Flipping', 'Investments', 'SBC Solutions', 'Gameplay Tips', 
+    'Icon Trading', 'Live Sniping', 'Market Analysis', 'Low Budget'
+  ];
+
+  const handleSpecialtyToggle = (spec) => {
+    setProfileData(prev => ({
+      ...prev,
+      specialties: prev.specialties.includes(spec)
+        ? prev.specialties.filter(s => s !== spec)
+        : [...prev.specialties, spec]
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-dark-bg p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -123,240 +157,281 @@ export default function TraderDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-brand bg-clip-text text-transparent">
-              Earnings Dashboard
+              Trader Dashboard
             </h1>
-            <p className="text-gray-400 mt-1">Track your revenue and subscribers</p>
+            <p className="text-gray-400 mt-1">Manage your business</p>
           </div>
           
-          {/* Time Range Selector */}
-          <div className="flex gap-2 bg-dark-card border border-white/10 rounded-xl p-1">
-            {['week', 'month', 'year', 'all'].map((range) => (
+          {/* Tabs */}
+          <div className="flex bg-dark-card border border-white/10 rounded-xl p-1">
+            {[
+              { id: 'overview', label: 'Overview', icon: Layout },
+              { id: 'analytics', label: 'Analytics', icon: BarChart2 },
+              { id: 'settings', label: 'Settings', icon: Settings }
+            ].map(tab => (
               <button
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className={`px-4 py-2 rounded-lg capitalize transition-all ${
-                  timeRange === range
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                  activeTab === tab.id
                     ? 'bg-gradient-brand text-white shadow-glow-cyan'
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
-                {range}
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Earnings Cards */}
-        <div className="grid md:grid-cols-3 gap-6">
-          <EarningsCard
-            title="Total Earnings"
-            amount={totalEarnings}
-            change={earnings?.growth || 0}
-            icon={<DollarSign className="w-6 h-6" />}
-            gradient="from-brand-cyan to-brand-blue"
-          />
-          <EarningsCard
-            title="Available Balance"
-            amount={availableBalance}
-            subtitle="Ready for payout"
-            icon={<CreditCard className="w-6 h-6" />}
-            gradient="from-brand-purple to-brand-pink"
-            action={
-              availableBalance > 0 && (
-                <button
-                  onClick={requestPayout}
-                  className="mt-3 w-full bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-semibold transition-all"
-                >
-                  Request Payout
-                </button>
-              )
-            }
-          />
-          <EarningsCard
-            title="Pending"
-            amount={pendingBalance}
-            subtitle="Processing"
-            icon={<Calendar className="w-6 h-6" />}
-            gradient="from-tier-elite to-yellow-500"
-          />
-        </div>
-
-        {/* Subscriber Stats */}
-        <div className="grid md:grid-cols-4 gap-6">
-          <StatCard
-            title="Total Subscribers"
-            value={stats?.total || 0}
-            icon={<Users />}
-            color="cyan"
-          />
-          <StatCard
-            title="Basic Tier"
-            value={stats?.tier_breakdown?.basic || 0}
-            icon={<Star />}
-            color="blue"
-          />
-          <StatCard
-            title="Premium Tier"
-            value={stats?.tier_breakdown?.premium || 0}
-            icon={<Zap />}
-            color="purple"
-          />
-          <StatCard
-            title="Elite Tier"
-            value={stats?.tier_breakdown?.elite || 0}
-            icon={<Crown />}
-            color="elite"
-          />
-        </div>
-
-        {/* Subscription Pricing Settings */}
-        <div className="bg-dark-card border border-white/10 rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <Settings className="w-6 h-6 text-brand-cyan" />
-            <h3 className="text-xl font-bold text-white">Subscription Pricing</h3>
-          </div>
-          
-          <div className="grid md:grid-cols-3 gap-6">
-            {/* Basic Tier */}
-            <div className="bg-dark-elevated border border-tier-basic/30 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Star className="w-5 h-5 text-tier-basic" />
-                <h4 className="font-bold text-white">Basic Tier</h4>
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm text-gray-400">Monthly Price</label>
-                <div className="flex items-center gap-2">
-                  <span className="text-white">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={subscriptionPrices.basic}
-                    onChange={(e) => setSubscriptionPrices({ ...subscriptionPrices, basic: parseFloat(e.target.value) })}
-                    className="flex-1 bg-dark-bg border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tier-basic"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Premium Tier */}
-            <div className="bg-dark-elevated border border-tier-premium/30 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-5 h-5 text-tier-premium" />
-                <h4 className="font-bold text-white">Premium Tier</h4>
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm text-gray-400">Monthly Price</label>
-                <div className="flex items-center gap-2">
-                  <span className="text-white">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={subscriptionPrices.premium}
-                    onChange={(e) => setSubscriptionPrices({ ...subscriptionPrices, premium: parseFloat(e.target.value) })}
-                    className="flex-1 bg-dark-bg border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tier-premium"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Elite Tier */}
-            <div className="bg-dark-elevated border border-tier-elite/30 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Crown className="w-5 h-5 text-tier-elite" />
-                <h4 className="font-bold text-white">Elite Tier</h4>
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm text-gray-400">Monthly Price</label>
-                <div className="flex items-center gap-2">
-                  <span className="text-white">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={subscriptionPrices.elite}
-                    onChange={(e) => setSubscriptionPrices({ ...subscriptionPrices, elite: parseFloat(e.target.value) })}
-                    className="flex-1 bg-dark-bg border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tier-elite"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={saveSubscriptionPrices}
-            disabled={savingPrices}
-            className="mt-6 w-full md:w-auto bg-gradient-brand text-white px-6 py-3 rounded-xl font-bold hover:shadow-glow-cyan transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            <Save className="w-5 h-5" />
-            {savingPrices ? 'Saving...' : 'Save Pricing'}
-          </button>
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Recent Transactions */}
-          <div className="lg:col-span-2 bg-dark-card border border-white/10 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-white">Recent Transactions</h3>
-              <button className="text-brand-cyan hover:text-brand-blue transition-colors text-sm font-semibold">
-                View All
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {transactions.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No transactions yet
-                </div>
-              ) : (
-                transactions.map((tx, idx) => (
-                  <TransactionItem key={idx} transaction={tx} />
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Top Supporters */}
-          <div className="bg-dark-card border border-white/10 rounded-2xl p-6">
-            <h3 className="text-xl font-bold text-white mb-6">Top Supporters</h3>
-            
-            <div className="space-y-4">
-              {subscribers
-                .sort((a, b) => (b.total_spent || 0) - (a.total_spent || 0))
-                .slice(0, 5)
-                .map((subscriber, idx) => (
-                  <SupporterItem key={idx} supporter={subscriber} rank={idx + 1} />
+        {/* OVERVIEW TAB */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6 animate-fade-in">
+             <div className="flex items-center justify-end">
+              <div className="flex gap-2 bg-dark-card border border-white/10 rounded-xl p-1">
+                {['week', 'month', 'year', 'all'].map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => setTimeRange(range)}
+                    className={`px-4 py-2 rounded-lg capitalize transition-all ${
+                      timeRange === range
+                        ? 'bg-white/10 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {range}
+                  </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Earnings Cards */}
+            <div className="grid md:grid-cols-3 gap-6">
+              <EarningsCard
+                title="Total Earnings"
+                amount={totalEarnings}
+                change={earnings?.growth || 0}
+                icon={<DollarSign className="w-6 h-6" />}
+                gradient="from-brand-cyan to-brand-blue"
+              />
+              <EarningsCard
+                title="Available Balance"
+                amount={availableBalance}
+                subtitle="Ready for payout"
+                icon={<CreditCard className="w-6 h-6" />}
+                gradient="from-brand-purple to-brand-pink"
+                action={
+                  availableBalance > 0 && (
+                    <button
+                      onClick={requestPayout}
+                      className="mt-3 w-full bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-semibold transition-all"
+                    >
+                      Request Payout
+                    </button>
+                  )
+                }
+              />
+              <EarningsCard
+                title="Pending"
+                amount={pendingBalance}
+                subtitle="Processing"
+                icon={<Calendar className="w-6 h-6" />}
+                gradient="from-tier-elite to-yellow-500"
+              />
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-6">
+              {/* Recent Transactions */}
+              <div className="lg:col-span-2 bg-dark-card border border-white/10 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-white">Recent Transactions</h3>
+                  <button className="text-brand-cyan hover:text-brand-blue transition-colors text-sm font-semibold">
+                    View All
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {transactions.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No transactions yet
+                    </div>
+                  ) : (
+                    transactions.map((tx, idx) => (
+                      <TransactionItem key={idx} transaction={tx} />
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Top Supporters */}
+              <div className="bg-dark-card border border-white/10 rounded-2xl p-6">
+                <h3 className="text-xl font-bold text-white mb-6">Top Supporters</h3>
+                
+                <div className="space-y-4">
+                  {subscribers
+                    .sort((a, b) => (b.total_spent || 0) - (a.total_spent || 0))
+                    .slice(0, 5)
+                    .map((subscriber, idx) => (
+                      <SupporterItem key={idx} supporter={subscriber} rank={idx + 1} />
+                    ))}
+                  
+                  {subscribers.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      No subscribers yet
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ANALYTICS TAB */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-6 animate-fade-in">
+             <div className="grid md:grid-cols-4 gap-6">
+              <StatCard
+                title="Total Subscribers"
+                value={stats?.total || 0}
+                icon={<Users />}
+                color="cyan"
+              />
+              <StatCard
+                title="Basic Tier"
+                value={stats?.tier_breakdown?.basic || 0}
+                icon={<Star />}
+                color="blue"
+              />
+              <StatCard
+                title="Premium Tier"
+                value={stats?.tier_breakdown?.premium || 0}
+                icon={<Zap />}
+                color="purple"
+              />
+              <StatCard
+                title="Elite Tier"
+                value={stats?.tier_breakdown?.elite || 0}
+                icon={<Crown />}
+                color="elite"
+              />
+            </div>
+
+            <div className="bg-dark-card border border-white/10 rounded-2xl p-6">
+              <h3 className="text-xl font-bold text-white mb-6">Audience Growth</h3>
+              <div className="h-64 flex items-center justify-center text-gray-500">
+                Chart placeholder (Add Chart.js or Recharts here)
+              </div>
+            </div>
+            
+             {/* Subscriber List */}
+            <div className="bg-dark-card border border-white/10 rounded-2xl p-6">
+              <h3 className="text-xl font-bold text-white mb-6">All Subscribers</h3>
+              
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {subscribers.map((subscriber, idx) => (
+                  <SubscriberCard key={idx} subscriber={subscriber} />
+                ))}
+              </div>
               
               {subscribers.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  No subscribers yet
+                <div className="text-center py-12 text-gray-500">
+                  <Users className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                  <p>No subscribers yet</p>
                 </div>
               )}
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Subscriber List */}
-        <div className="bg-dark-card border border-white/10 rounded-2xl p-6">
-          <h3 className="text-xl font-bold text-white mb-6">All Subscribers</h3>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {subscribers.map((subscriber, idx) => (
-              <SubscriberCard key={idx} subscriber={subscriber} />
-            ))}
+        {/* SETTINGS TAB */}
+        {activeTab === 'settings' && (
+          <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+             <div className="bg-dark-card border border-white/10 rounded-2xl p-8">
+              <h3 className="text-xl font-bold text-white mb-6">Profile Settings</h3>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Trader Bio</label>
+                  <textarea
+                    value={profileData.bio}
+                    onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
+                    className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-brand-cyan transition-colors h-32 resize-none"
+                    placeholder="Tell subscribers about your trading style..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Specialties</label>
+                  <div className="flex flex-wrap gap-2">
+                    {specialtiesList.map(spec => (
+                      <button
+                        key={spec}
+                        onClick={() => handleSpecialtyToggle(spec)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          profileData.specialties.includes(spec)
+                            ? 'bg-brand-cyan text-dark-bg'
+                            : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                        }`}
+                        disabled={!profileData.specialties.includes(spec) && profileData.specialties.length >= 3}
+                      >
+                        {spec}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+             </div>
+
+             <div className="bg-dark-card border border-white/10 rounded-2xl p-8">
+              <h3 className="text-xl font-bold text-white mb-6">Subscription Pricing</h3>
+              <p className="text-gray-400 mb-6 text-sm">Set the monthly price for each subscription tier.</p>
+              
+              <div className="grid md:grid-cols-3 gap-6">
+                {['basic', 'premium', 'elite'].map(tier => (
+                  <div key={tier} className="bg-dark-elevated border border-white/5 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3 capitalize">
+                      {tier === 'basic' && <Star className="w-5 h-5 text-tier-basic" />}
+                      {tier === 'premium' && <Zap className="w-5 h-5 text-tier-premium" />}
+                      {tier === 'elite' && <Crown className="w-5 h-5 text-tier-elite" />}
+                      <h4 className="font-bold text-white">{tier} Tier</h4>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.99"
+                          value={profileData.pricing[tier]}
+                          onChange={(e) => setProfileData({
+                            ...profileData,
+                            pricing: { ...profileData.pricing, [tier]: parseFloat(e.target.value) }
+                          })}
+                          className="w-full bg-dark-bg border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-cyan"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+             </div>
+
+             <button
+              onClick={handleSaveSettings}
+              disabled={savingSettings}
+              className="w-full bg-gradient-brand text-white font-bold py-4 rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+            >
+              {savingSettings ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Save className="w-5 h-5" /> Save Changes
+                </>
+              )}
+            </button>
           </div>
-          
-          {subscribers.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              <Users className="w-16 h-16 mx-auto mb-4 opacity-30" />
-              <p>No subscribers yet</p>
-              <p className="text-sm mt-2">Share your profile to get started</p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
