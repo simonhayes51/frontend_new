@@ -1,7 +1,30 @@
 // src/api/http.js
 
 // Normalise base like: https://api.futhub.co.uk (no trailing slash)
-const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+const ENV_API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+const SAME_ORIGIN = typeof window !== "undefined" ? window.location.origin : "";
+
+const resolveApiBase = () => {
+  if (ENV_API_BASE) {
+    if (!SAME_ORIGIN) return ENV_API_BASE;
+    try {
+      const envHost = new URL(ENV_API_BASE).host;
+      const originHost = new URL(SAME_ORIGIN).host;
+      if (
+        envHost === "api.futhub.co.uk" &&
+        (originHost === "app.futhub.co.uk" || originHost.endsWith(".futhub.co.uk"))
+      ) {
+        return SAME_ORIGIN;
+      }
+    } catch (error) {
+      return ENV_API_BASE;
+    }
+    return ENV_API_BASE;
+  }
+  return SAME_ORIGIN;
+};
+
+const API_BASE = resolveApiBase();
 
 // Join base + path and attach query params
 function buildUrl(path, query) {
