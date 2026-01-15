@@ -3,16 +3,13 @@ import { API_BASE } from "./lib/apiBase";
 
 /**
  * Axios instance with:
- * - Base URL from VITE_API_URL (via apiBase.js)
+ * - Base URL from API_BASE
  * - withCredentials cookies (Starlette session)
  * - 10s timeout
  * - Idempotent GET retries (max 2; exponential backoff + jitter)
  * - 429 Retry-After honouring
  * - Premium gate (HTTP 402) → dispatches `premium:blocked` event
  * - Normalised error: err.userMessage
- *
- * To disable retries per request: api.get("/x", { __noRetry: true })
- * To change max retries per request: api.get("/x", { __maxRetries: 1 })
  */
 
 if (import.meta.env.DEV) {
@@ -23,7 +20,10 @@ if (import.meta.env.DEV) {
   });
 }
 
-const SAFE_BASE = (API_BASE || "https://api.futhub.co.uk").replace(/^http:\/\//, "https://");
+const SAFE_BASE = String(API_BASE || "https://api.futhub.co.uk").replace(
+  /^http:\/\//i,
+  "https://"
+);
 
 const api = axios.create({
   baseURL: SAFE_BASE,
@@ -40,18 +40,16 @@ if (typeof window !== "undefined") {
 const IDEMPOTENT = new Set(["get", "head", "options"]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const backoff = (attempt) => {
-  // attempt 0 → 300ms, 1 → 600ms, 2 → 1200ms (+ jitter 0–150ms)
   const base = 300 * Math.pow(2, attempt);
   return base + Math.floor(Math.random() * 150);
 };
 
 function parseRetryAfter(headerValue) {
   if (!headerValue) return null;
-  // If number → seconds
+
   const asNum = Number(headerValue);
   if (!Number.isNaN(asNum)) return Math.max(0, asNum * 1000);
 
-  // Otherwise, HTTP-date
   const when = Date.parse(headerValue);
   if (!Number.isNaN(when)) {
     const diff = when - Date.now();
@@ -78,26 +76,32 @@ function getUserFriendlyMessage(status, originalMessage) {
 // Request
 api.interceptors.request.use(
   (config) => {
-    // default headers
-    config.headers["Accept"] = config.headers["Accept"] || "application/json";
-    if (!config.headers["Content-Type"] && !(config.data instanceof FormData)) {
+    // Ensure headers object exists
+    config.headers = config.headers || {};
+    config.headers.Accept = config.headers.Accept || "application/json";
+
+    const isForm = typeof FormData !== "undefined" && config.data instanceof FormData;
+    if (!config.headers["Content-Type"] && !isForm) {
       config.headers["Content-Type"] = "application/json";
     }
 
     // ensure no double slashes in path (keeps protocol intact)
-    if (config.url) config.url = config.url.replace(/([^:]\/)\/+/g, "$1");
+    if (typeof config.url === "string") {
+      config.url = config.url.replace(/([^:]\/)\/+/g, "$1");
+    }
 
     // Hard rewrite (safety net)
-    if (typeof config.baseURL === "string") config.baseURL = config.baseURL.replace(/^http:\/\//, "https://");
-    if (typeof config.url === "string") config.url = config.url.replace(/^http:\/\//, "https://");
+    if (typeof config.baseURL === "string") {
+      config.baseURL = config.baseURL.replace(/^http:\/\//i, "https://");
+    }
+    if (typeof config.url === "string") {
+      config.url = config.url.replace(/^http:\/\//i, "https://");
+    }
 
     // retry metadata
     if (config.__retryCount == null) config.__retryCount = 0;
-    if (config.__maxRetries == null) config.__maxRetries = 2; // GET/HEAD/OPTIONS only
+    if (config.__maxRetries == null) config.__maxRetries = 2;
 
-    if (import.meta.env.DEV) {
-      // console.log(`[Axios] ${config.method.toUpperCase()} ${config.url}`, config);
-    }
     return config;
   },
   (error) => Promise.reject(error)
@@ -108,10 +112,10 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const config = error.config || {};
-    
-    // 1. Handle 429 Retry-After
+
+    // 1) Handle 429 Retry-After
     if (error.response?.status === 429) {
-      const retryAfter = parseRetryAfter(error.response.headers["retry-after"]);
+      const retryAfter = parseRetryAfter(error.response.headers?.["retry-after"]);
       if (retryAfter !== null && config.__retryCount < (config.__maxRetries || 2)) {
         config.__retryCount += 1;
         await sleep(retryAfter);
@@ -119,27 +123,25 @@ api.interceptors.response.use(
       }
     }
 
-    // 2. Handle Idempotent Network/5xx Retries
+    // 2) Handle Idempotent Network/5xx Retries
     const shouldRetry =
       !config.__noRetry &&
       config.__retryCount < (config.__maxRetries || 2) &&
-      IDEMPOTENT.has(config.method?.toLowerCase()) &&
+      IDEMPOTENT.has(String(config.method || "").toLowerCase()) &&
       (!error.response || (error.response.status >= 500 && error.response.status < 600));
 
     if (shouldRetry) {
       config.__retryCount += 1;
-      const delay = backoff(config.__retryCount - 1);
-      // console.log(`[Axios] Retrying ${config.url} (attempt ${config.__retryCount}) in ${delay}ms`);
-      await sleep(delay);
+      await sleep(backoff(config.__retryCount - 1));
       return api(config);
     }
 
-    // 3. Handle 402 Payment Required -> Global Event
-    if (error.response?.status === 402) {
+    // 3) Handle 402 Payment Required -> Global Event
+    if (typeof window !== "undefined" && error.response?.status === 402) {
       window.dispatchEvent(new CustomEvent("premium:blocked", { detail: error }));
     }
 
-    // 4. Normalize Error Message
+    // 4) Normalize Error Message
     const serverMsg = error.response?.data?.detail || error.response?.data?.message;
     error.userMessage = getUserFriendlyMessage(error.response?.status, serverMsg);
 
@@ -148,4 +150,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-
