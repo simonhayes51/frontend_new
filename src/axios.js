@@ -20,23 +20,9 @@ const ENV_API =
   (import.meta.env?.VITE_API_URL && import.meta.env.VITE_API_URL.replace(/\/$/, "")) || "";
 const SAME_ORIGIN = typeof window !== "undefined" ? window.location.origin : "";
 
+// IMPORTANT: Always prefer VITE_API_URL if set, otherwise fall back
 const resolveBaseUrl = () => {
-  if (ENV_API) {
-    if (!SAME_ORIGIN) return ENV_API;
-    try {
-      const envHost = new URL(ENV_API).host;
-      const originHost = new URL(SAME_ORIGIN).host;
-      if (
-        envHost === "api.futhub.co.uk" &&
-        (originHost === "app.futhub.co.uk" || originHost.endsWith(".futhub.co.uk"))
-      ) {
-        return SAME_ORIGIN;
-      }
-    } catch (error) {
-      return ENV_API;
-    }
-    return ENV_API;
-  }
+  if (ENV_API) return ENV_API;
   return SAME_ORIGIN || FALLBACK_API;
 };
 
@@ -99,7 +85,6 @@ function getUserFriendlyMessage(status, originalMessage) {
 // Request
 api.interceptors.request.use(
   (config) => {
-    // default headers
     config.headers["Accept"] = config.headers["Accept"] || "application/json";
     if (!config.headers["Content-Type"] && !(config.data instanceof FormData)) {
       config.headers["Content-Type"] = "application/json";
@@ -159,6 +144,7 @@ api.interceptors.response.use(
       return Promise.reject(enhanced402);
     }
 
+    // --- 401: send to /login via hash (HashRouter) unless explicitly skipped ---
     if (status === 401) {
       if (!cfg.__skipAuthRedirect && typeof window !== "undefined") {
         window.location.hash = "/login";
@@ -169,8 +155,9 @@ api.interceptors.response.use(
 
     // --- 429: honour Retry-After for idempotent methods ---
     if (status === 429 && IDEMPOTENT.has(method) && !cfg.__noRetry) {
-      const waitMs = parseRetryAfter(error.response.headers?.["retry-after"]) ??
-                     backoff(cfg.__retryCount || 0);
+      const waitMs =
+        parseRetryAfter(error.response.headers?.["retry-after"]) ??
+        backoff(cfg.__retryCount || 0);
       if ((cfg.__retryCount || 0) < (cfg.__maxRetries || 0)) {
         cfg.__retryCount = (cfg.__retryCount || 0) + 1;
         await sleep(waitMs);
