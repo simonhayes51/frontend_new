@@ -52,6 +52,7 @@ export const AuthProvider = ({ children }) => {
         try {
           const response = await api.get(path, {
             validateStatus: (status) => status < 500,
+            __skipAuthRedirect: true,
           });
           if (response.status === 401) {
             return { authenticated: false };

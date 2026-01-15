@@ -161,7 +161,9 @@ api.interceptors.response.use(
 
     // --- 401: redirect to login ---
     if (status === 401) {
-      if (typeof window !== "undefined") window.location.href = "/login";
+      if (!cfg.__skipAuthRedirect && typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
       const enhanced401 = { ...error, userMessage: getUserFriendlyMessage(401) };
       return Promise.reject(enhanced401);
     }
