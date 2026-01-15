@@ -53,6 +53,12 @@ export const AuthProvider = ({ children }) => {
           const response = await api.get(path, {
             validateStatus: (status) => status < 500,
             __skipAuthRedirect: true,
+            headers: {
+              "Cache-Control": "no-cache",
+            },
+            params: {
+              _ts: Date.now(),
+            },
           });
           if (response.status === 401) {
             return { authenticated: false };
