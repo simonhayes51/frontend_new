@@ -14,7 +14,7 @@ const tryPost = async (paths, payload) => {
       // eslint-disable-next-line no-await-in-loop
       return await socialRequest({ method: "post", url: path, data: payload });
     } catch (error) {
-      if (error?.response?.status !== 404) throw error;
+      if (![404, 405].includes(error?.response?.status)) throw error;
       lastError = error;
     }
   }
@@ -28,7 +28,7 @@ const tryPatch = async (paths, payload) => {
       // eslint-disable-next-line no-await-in-loop
       return await socialRequest({ method: "patch", url: path, data: payload });
     } catch (error) {
-      if (error?.response?.status !== 404) throw error;
+      if (![404, 405].includes(error?.response?.status)) throw error;
       lastError = error;
     }
   }
