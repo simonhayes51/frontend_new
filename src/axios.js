@@ -24,10 +24,14 @@ if (import.meta.env.DEV) {
 }
 
 const api = axios.create({
-  baseURL: API_BASE || "https://api.futhub.co.uk", // no trailing slash; callers pass "/api/..."
+  baseURL: (API_BASE || "https://api.futhub.co.uk").replace(/^http:\/\//, "https://"),
   withCredentials: true,
   timeout: 10000,
 });
+
+if (typeof window !== "undefined") {
+  window.__API_BASEURL__ = api.defaults.baseURL;
+}
 
 // -------- helpers ------------------------------------------------------------
 
