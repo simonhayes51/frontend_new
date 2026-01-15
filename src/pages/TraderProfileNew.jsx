@@ -25,7 +25,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../axios';
-import { getTraderProfile } from '../api/social';
+import { getTraderProfile } from '../api/traders';
+import { createCheckoutSession } from '../api/billing';
 import UserHoverCard from '../components/UserHoverCard';
 
 /**
@@ -110,11 +111,25 @@ export default function TraderProfileNew() {
 
   const subscribeToTrader = async (tier) => {
     try {
-      await api.post(`/api/subscriptions/tier/${traderId}`, { tier });
-      toast.success(`Subscribed to ${tier} tier!`);
-      setIsSubscribed(true);
-      setShowSubscribeModal(false);
-      loadTraderProfile();
+      if (tier === 'free') {
+        await api.post('/api/subscriptions/subscribe', { trader_id: traderId, tier: 'free' });
+        toast.success(`Followed successfully!`);
+        setIsSubscribed(true);
+        setShowSubscribeModal(false);
+        loadTraderProfile();
+      } else {
+        const res = await createCheckoutSession({
+          traderId: traderId,
+          tier: tier,
+          billingCycle: 'month'
+        });
+        
+        if (res.data?.url) {
+          window.location.href = res.data.url;
+        } else {
+          toast.error("Failed to initiate checkout");
+        }
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to subscribe');
     }
