@@ -57,23 +57,23 @@ export default function TraderDashboard() {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // Load earnings summary
       const earningsRes = await api.get(`/api/traders/analytics?range=${timeRange}`);
       setEarnings(earningsRes.data);
 
-      // Load subscriber breakdown
       const subsRes = await api.get('/api/subscriptions/my-subscribers');
       setSubscribers(subsRes.data.subscribers || []);
 
-      // Load recent transactions
-      const txRes = await api.get('/api/traders/transactions?limit=10');
-      setTransactions(txRes.data.transactions || []);
+      try {
+        const txRes = await api.get('/api/traders/transactions?limit=10');
+        setTransactions(txRes.data.transactions || []);
+      } catch (error) {
+        console.error('Failed to load transactions:', error);
+        setTransactions([]);
+      }
 
-      // Load subscription stats
       const statsRes = await api.get('/api/subscriptions/my-stats');
       setStats(statsRes.data);
 
-      // Load profile settings
       try {
         const profileRes = await getTraderMe();
         if (profileRes.data) {
