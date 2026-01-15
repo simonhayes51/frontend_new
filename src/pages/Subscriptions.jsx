@@ -174,7 +174,7 @@ export default function Subscriptions() {
                         : 'bg-gray-900 text-white hover:bg-gray-800'
                     }`}
                   >
-                    {trader.is_subscribed ? 'Following' : 'Follow'}
+                    {trader.is_subscribed ? 'Unfollow' : 'Follow'}
                   </button>
                 </div>
 
