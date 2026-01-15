@@ -12,7 +12,13 @@ import {
   Lock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../axios';
+import {
+  getConversations,
+  getConversationMessages,
+  sendConversationMessage,
+  startConversation,
+  searchMessageUsers,
+} from '../api/social';
 
 /**
  * Transfer Traders - OnlyFans Style Messaging
@@ -51,7 +57,7 @@ export default function MessagesPage() {
       }
       setSearching(true);
       try {
-        const response = await api.get(`/api/messages/search?query=${encodeURIComponent(searchQuery)}`);
+        const response = await searchMessageUsers(searchQuery);
         const data = response?.data || {};
         setSearchResults(normalizeArray(data.results || data.users));
       } catch (error) {
@@ -70,7 +76,7 @@ export default function MessagesPage() {
 
   const loadConversations = async () => {
     try {
-      const response = await api.get('/api/messages/conversations');
+      const response = await getConversations();
       const data = response?.data || {};
       const list = normalizeArray(data.conversations || data);
       setConversations(list);
@@ -93,7 +99,7 @@ export default function MessagesPage() {
 
   const ensureConversation = async (recipientId, initialContent) => {
     try {
-      const response = await api.post('/api/messages/conversations', {
+      const response = await startConversation({
         recipient_id: recipientId,
         recipientId,
         user_id: recipientId,
@@ -114,7 +120,7 @@ export default function MessagesPage() {
 
   const loadMessages = async (conversationId) => {
     try {
-      const response = await api.get(`/api/messages/conversations/${conversationId}/messages`);
+      const response = await getConversationMessages(conversationId);
       const data = response?.data || {};
       const list = Array.isArray(data)
         ? data
@@ -140,7 +146,7 @@ export default function MessagesPage() {
     }
 
     try {
-      await api.post(`/api/messages/conversations/${activeConversationId}/messages`, {
+      await sendConversationMessage(activeConversationId, {
         content: newMessage,
       });
       
