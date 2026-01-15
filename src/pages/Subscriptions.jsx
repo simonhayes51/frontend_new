@@ -35,7 +35,10 @@ export default function Subscriptions() {
         }
         
         const { data } = await getTraders(params);
-        setTraders(data?.traders || data || []);
+        const items = Array.isArray(data)
+          ? data
+          : data?.traders || data?.items || data?.results || [];
+        setTraders(items);
       }
     } catch (error) {
       console.error('Failed to load traders:', error);
