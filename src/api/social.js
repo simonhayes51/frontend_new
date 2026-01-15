@@ -224,11 +224,8 @@ export const upgradeToTrader = (payload) =>
 
 export const subscribeToTrader = (traderId) =>
   tryPost(
-    [
-      `/api/subscriptions/${traderId}/subscribe`,
-      `/api/social/subscriptions/${traderId}/subscribe`,
-    ],
-    {}
+    ["/api/subscriptions/subscribe", "/api/social/subscriptions/subscribe"],
+    { trader_id: traderId, tier: "free" }
   );
 
 export const unsubscribeFromTrader = (traderId) =>
