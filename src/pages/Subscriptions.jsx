@@ -48,6 +48,10 @@ export default function Subscriptions() {
     }
   };
 
+  const getTraderId = (trader) => {
+    return trader.user_id || trader.id || trader.trader_id;
+  };
+
   const handleSubscribe = async (traderId, isSubscribed) => {
     try {
       if (isSubscribed) {
@@ -118,54 +122,59 @@ export default function Subscriptions() {
 
       {/* Traders Grid */}
       <div className="grid md:grid-cols-2 gap-6">
-        {traders.map((trader) => (
-          <motion.div
-            key={trader.user_id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
-          >
-            {/* Cover */}
-            <div className="h-24 bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500" />
-            
-            {/* Profile */}
-            <div className="p-6 -mt-12">
-              <div className="flex items-start justify-between">
-                <div className="flex gap-4">
-                  <div className="relative">
-                    <img
-                      src={trader.avatar_url || `https://i.pravatar.cc/150?u=${trader.user_id}`}
-                      alt={trader.username}
-                      className="w-20 h-20 rounded-full border-4 border-white shadow-lg cursor-pointer"
-                      onClick={() => navigate(`/trader/${trader.user_id}`)}
-                    />
-                    {trader.verified && (
-                      <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white">
-                        <Crown className="w-4 h-4 text-white" />
-                      </div>
-                    )}
+        {traders.map((trader) => {
+          const tid = getTraderId(trader);
+          return (
+            <motion.div
+              key={tid || Math.random()} 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-3xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
+            >
+              {/* Cover */}
+              <div className="h-24 bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500" />
+              
+              {/* Profile */}
+              <div className="p-6 -mt-12">
+                <div className="flex items-start justify-between">
+                  <div className="flex gap-4">
+                    <div className="relative">
+                      <img
+                        src={trader.avatar_url || `https://i.pravatar.cc/150?u=${tid}`}
+                        alt={trader.username}
+                        className="w-20 h-20 rounded-full border-4 border-white shadow-lg cursor-pointer"
+                        onClick={() => tid && navigate(`/trader/${tid}`)}
+                      />
+                      {trader.verified && (
+                        <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white">
+                          <Crown className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-8">
+                      <h3 
+                        className="font-bold text-gray-900 text-lg cursor-pointer hover:underline"
+                        onClick={() => tid && navigate(`/trader/${tid}`)}
+                      >
+                        {trader.username}
+                      </h3>
+                      <p className="text-gray-500 text-sm">{trader.bio || 'Professional FIFA Trader'}</p>
+                    </div>
                   </div>
-                  <div className="mt-8">
-                    <h3 
-                      className="font-bold text-gray-900 text-lg cursor-pointer hover:underline"
-                      onClick={() => navigate(`/trader/${trader.user_id}`)}
-                    >
-                      {trader.username}
-                    </h3>
-                    <p className="text-gray-500 text-sm">{trader.bio || 'Professional FIFA Trader'}</p>
-                  </div>
+                  <button
+                    onClick={() => tid && handleSubscribe(tid, trader.is_subscribed)}
+                    disabled={!tid}
+                    className={`mt-8 px-6 py-2 rounded-full font-semibold transition-all ${
+                      !tid ? 'opacity-50 cursor-not-allowed' : ''
+                    } ${
+                      trader.is_subscribed
+                        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        : 'bg-gray-900 text-white hover:bg-gray-800'
+                    }`}
+                  >
+                    {trader.is_subscribed ? 'Following' : 'Follow'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleSubscribe(trader.user_id, trader.is_subscribed)}
-                  className={`mt-8 px-6 py-2 rounded-full font-semibold transition-all ${
-                    trader.is_subscribed
-                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      : 'bg-gray-900 text-white hover:bg-gray-800'
-                  }`}
-                >
-                  {trader.is_subscribed ? 'Following' : 'Follow'}
-                </button>
-              </div>
 
               {/* Stats */}
               <div className="mt-6 grid grid-cols-3 gap-4">
