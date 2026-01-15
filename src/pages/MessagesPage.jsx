@@ -19,6 +19,8 @@ import {
   startConversation,
   searchMessageUsers,
   markConversationRead,
+  deleteConversationMessage,
+  clearConversationMessages,
 } from '../api/social';
 
 /**
@@ -144,6 +146,13 @@ export default function MessagesPage() {
       });
       setMessages(ordered);
       await markConversationRead(conversationId);
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          String(conversation.id) === String(conversationId)
+            ? { ...conversation, unread_count: 0 }
+            : conversation
+        )
+      );
     } catch (error) {
       console.error('Failed to load messages:', error);
       toast.error('Failed to load messages');
@@ -189,6 +198,44 @@ export default function MessagesPage() {
     }
     if (conversation.id) {
       loadMessages(conversation.id);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!activeConversationId || !messageId) return;
+    const confirmed = window.confirm('Delete this message? This cannot be undone.');
+    if (!confirmed) return;
+    try {
+      await deleteConversationMessage(activeConversationId, messageId);
+      setMessages((prev) => prev.filter((message) => message.id !== messageId));
+    } catch (error) {
+      toast.error('Failed to delete message');
+    }
+  };
+
+  const handleClearConversation = async () => {
+    if (!activeConversationId) return;
+    const confirmed = window.confirm(
+      'Clear all messages in this conversation? This cannot be undone.'
+    );
+    if (!confirmed) return;
+    try {
+      await clearConversationMessages(activeConversationId);
+      setMessages([]);
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          String(conversation.id) === String(activeConversationId)
+            ? {
+                ...conversation,
+                last_message: null,
+                last_message_at: null,
+                unread_count: 0,
+              }
+            : conversation
+        )
+      );
+    } catch (error) {
+      toast.error('Failed to clear conversation');
     }
   };
 
@@ -333,7 +380,11 @@ export default function MessagesPage() {
                 <p className="text-xs text-green-400">● Online</p>
               )}
             </div>
-            <button className="text-gray-400 hover:text-white">
+            <button
+              type="button"
+              onClick={handleClearConversation}
+              className="text-gray-400 hover:text-white"
+            >
               <MoreVertical className="w-5 h-5" />
             </button>
           </div>
@@ -349,9 +400,10 @@ export default function MessagesPage() {
             ) : (
               safeMessages.map((message, idx) => (
                 <MessageBubble
-                  key={idx}
+                  key={message.id || idx}
                   message={message}
                   isOwn={resolveIsOwnMessage(message, activeChat)}
+                  onDelete={handleDeleteMessage}
                 />
               ))
             )}
@@ -468,7 +520,7 @@ function ConversationItem({ conversation, display, active, onClick }) {
   );
 }
 
-function MessageBubble({ message, isOwn }) {
+function MessageBubble({ message, isOwn, onDelete }) {
   return (
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[70%] ${isOwn ? 'order-2' : 'order-1'}`}>
@@ -484,6 +536,17 @@ function MessageBubble({ message, isOwn }) {
         <p className={`text-xs text-gray-500 mt-1 ${isOwn ? 'text-right' : 'text-left'}`}>
           {formatTime(message.created_at)}
         </p>
+        {isOwn && message.id && (
+          <button
+            type="button"
+            onClick={() => onDelete && onDelete(message.id)}
+            className={`text-[11px] mt-1 text-red-400 hover:text-red-300 ${
+              isOwn ? 'ml-auto block' : ''
+            }`}
+          >
+            Delete
+          </button>
+        )}
       </div>
     </div>
   );
