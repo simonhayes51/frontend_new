@@ -48,16 +48,46 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('🔍 Checking auth status...');
       dispatch({ type: 'SET_LOADING', payload: true });
-      const response = await api.get('/api/me');
-      
-      if (response.data.authenticated) {
-        console.log('✅ User authenticated:', response.data.user_id);
-        dispatch({ 
-          type: 'SET_AUTHENTICATED', 
-          payload: response.data 
+      const tryCheck = async (path) => {
+        try {
+          const response = await api.get(path, {
+            validateStatus: (status) => status < 500,
+            __skipAuthRedirect: true,
+          });
+          if (response.status === 401) {
+            return { authenticated: false };
+          }
+          if (response.status >= 400) {
+            return null;
+          }
+          return response.data || {};
+        } catch (error) {
+          return null;
+        }
+      };
+
+      const authData = (await tryCheck('/api/auth/me')) || (await tryCheck('/api/me'));
+
+      if (!authData) {
+        console.log('❌ Auth check failed: no usable response');
+        dispatch({ type: 'SET_UNAUTHENTICATED' });
+        return;
+      }
+
+      const authenticated =
+        authData.authenticated === true ||
+        !!authData.user_id ||
+        !!authData.user ||
+        !!authData.id;
+
+      if (authenticated) {
+        console.log('✅ User authenticated:', authData.user_id || authData.id);
+        dispatch({
+          type: 'SET_AUTHENTICATED',
+          payload: authData
         });
       } else {
-        console.log('❌ User not authenticated, reason:', response.data.error);
+        console.log('❌ User not authenticated, reason:', authData.error);
         dispatch({ type: 'SET_UNAUTHENTICATED' });
       }
     } catch (error) {
