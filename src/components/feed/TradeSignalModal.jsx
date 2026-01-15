@@ -99,7 +99,7 @@ export function TradeSignalModal({ isOpen, onClose, onSubmit }) {
       onClose();
     } catch (error) {
       console.error("Failed to post signal:", error);
-      toast.error("Failed to post signal");
+      toast.error(error.userMessage || "Failed to post signal");
     }
   };
 
