@@ -87,15 +87,6 @@ api.interceptors.request.use(
     // ensure no double slashes in path (keeps protocol intact)
     if (config.url) config.url = config.url.replace(/([^:]\/)\/+/g, "$1");
 
-    // DEBUG (temporary): show any http URL attempts
-    try {
-      const full = (config.baseURL ? String(config.baseURL) : "") + (config.url ? String(config.url) : "");
-      if (String(config.url || "").startsWith("http://") || String(config.baseURL || "").startsWith("http://") || full.includes("http://api.futhub.co.uk")) {
-        console.log("🚨 AXIOS_HTTP_ATTEMPT", { baseURL: config.baseURL, url: config.url });
-        console.trace("AXIOS_HTTP_STACK");
-      }
-    } catch {}
-
     // Hard rewrite (safety net)
     if (typeof config.baseURL === "string") config.baseURL = config.baseURL.replace(/^http:\/\//, "https://");
     if (typeof config.url === "string") config.url = config.url.replace(/^http:\/\//, "https://");
@@ -157,3 +148,4 @@ api.interceptors.response.use(
 );
 
 export default api;
+
