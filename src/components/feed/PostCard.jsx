@@ -22,7 +22,9 @@ import {
   unsavePost,
   updatePost,
   viewPost,
+  deletePost,
 } from "../../api/social";
+import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -50,6 +52,7 @@ const searchPlayers = async (query) => {
 };
 
 export function PostCard({ post, onUpdate }) {
+  const { user } = useAuth();
   const buildEditDraft = (source) => ({
     title: source?.title || "",
     content: source?.content || "",
@@ -244,6 +247,23 @@ export function PostCard({ post, onUpdate }) {
     }
   };
 
+  const handleDelete = async () => {
+    if (!postState?.id) return;
+    const confirmed = window.confirm(
+      "Delete this post? This cannot be undone."
+    );
+    if (!confirmed) return;
+    try {
+      await deletePost(postState.id);
+      toast.success("Post deleted");
+      setShowEditModal(false);
+      onUpdate?.(null);
+    } catch (error) {
+      console.error("Failed to delete post:", error);
+      toast.error(error.userMessage || "Failed to delete post");
+    }
+  };
+
   const formatTime = (timestamp) => {
     const now = new Date();
     const postTime = new Date(timestamp);
@@ -255,8 +275,17 @@ export function PostCard({ post, onUpdate }) {
     return `${Math.floor(diff / 1440)}d ago`;
   };
 
-  // Map backend data to component structure
   const author = postState.author || postState.trader || {};
+  const userId = user?.user_id || user?.id;
+  const authorId =
+    author.user_id ||
+    author.id ||
+    postState.user_id ||
+    postState.author_id;
+  const canManage =
+    userId &&
+    authorId &&
+    String(userId) === String(authorId);
   const trader = {
     name: author.username || author.name || 'Anonymous',
     username: author.username || 'anonymous',
@@ -431,12 +460,14 @@ export function PostCard({ post, onUpdate }) {
               </div>
             </div>
           </div>
-          <button
-            onClick={openEditModal}
-            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
-          >
-            <MoreHorizontal className="w-5 h-5" />
-          </button>
+          {canManage && (
+            <button
+              onClick={openEditModal}
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+            >
+              <MoreHorizontal className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -665,7 +696,7 @@ export function PostCard({ post, onUpdate }) {
         </div>
       )}
 
-      {showEditModal && (
+      {canManage && showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-4 border-b border-border">
@@ -782,14 +813,22 @@ export function PostCard({ post, onUpdate }) {
                 Premium
               </label>
             </div>
-            <div className="flex items-center justify-end gap-2 p-4 border-t border-border">
+            <div className="flex items-center justify-between gap-2 p-4 border-t border-border">
               <button
-                onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+                onClick={handleDelete}
+                className="px-4 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg"
               >
-                Cancel
+                Delete post
               </button>
-              <GradientButton onClick={handleEditSubmit}>Save changes</GradientButton>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+                <GradientButton onClick={handleEditSubmit}>Save changes</GradientButton>
+              </div>
             </div>
           </div>
         </div>
