@@ -4,6 +4,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Flame,
+  BarChart3,
+  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { navSections } from "../../nav/navConfig";
@@ -11,7 +13,39 @@ import { navSections } from "../../nav/navConfig";
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+
+  const isTrader = user?.account_type === 'trader' || user?.is_trader;
+
+  // Inject trader-specific items into the navigation
+  const displaySections = navSections.map(section => {
+    if (section.id === 'main') {
+      const newItems = [...section.items];
+      // Add Trader Dashboard or Become Trader link
+      if (isTrader) {
+        // Check if already exists to avoid duplication if re-rendering
+        if (!newItems.find(i => i.path === '/trader-dashboard')) {
+          newItems.splice(1, 0, { // Insert after Feed
+            label: "Trader Dashboard",
+            path: "/trader-dashboard",
+            icon: BarChart3,
+            primary: true
+          });
+        }
+      } else {
+        if (!newItems.find(i => i.path === '/become-trader')) {
+          newItems.push({
+            label: "Become a Trader",
+            path: "/become-trader",
+            icon: TrendingUp,
+            primary: true
+          });
+        }
+      }
+      return { ...section, items: newItems };
+    }
+    return section;
+  });
 
   const NavItem = ({ item }) => {
     const isActive = location.pathname === item.path;
