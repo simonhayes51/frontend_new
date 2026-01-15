@@ -114,7 +114,7 @@ export function TraderCard({ trader }) {
             variant={isSubscribed ? "ghost" : "default"}
             onClick={handleToggleFollow}
           >
-            {isSubscribed ? "Following" : "Follow"}
+            {isSubscribed ? "Unfollow" : "Follow"}
           </GradientButton>
         </div>
       </div>
