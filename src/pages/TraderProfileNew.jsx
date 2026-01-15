@@ -79,21 +79,22 @@ export default function TraderProfileNew() {
   const loadTraderProfile = async () => {
     setLoading(true);
     try {
-      // Load trader profile - use exported API function
       const profileRes = await getTraderProfile(traderId);
       setTrader(profileRes.data);
       setIsSubscribed(profileRes.data.is_subscribed || false);
 
-      // Load trader posts
       const postsRes = await api.get(`/api/feed?trader_id=${traderId}`);
       setPosts(postsRes.data.posts || []);
-
-      // Load subscription stats
-      const statsRes = await api.get(`/api/subscriptions/trader/${traderId}/subscription-stats`);
-      setStats(statsRes.data);
     } catch (error) {
       console.error('Failed to load trader:', error);
       toast.error('Failed to load trader profile');
+    }
+
+    try {
+      const statsRes = await api.get(`/api/subscriptions/trader/${traderId}/subscription-stats`);
+      setStats(statsRes.data);
+    } catch (error) {
+      console.error('Failed to load subscription stats:', error);
     } finally {
       setLoading(false);
     }
