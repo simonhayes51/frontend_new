@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { HashRouter as Router, Routes, Route } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { DashboardProvider } from "./context/DashboardContext";
 import { SettingsProvider } from "./context/SettingsContext";
@@ -85,7 +85,8 @@ function App() {
                   {/* Public routes */}
                   <Route path="/login" element={<Login />} />
                   <Route path="/access-denied" element={<AccessDenied />} />
-                  <Route path="/landing" element={<Landing />} />
+                  {/* Landing removed */}
+          <Route path="/landing" element={<Navigate to="/" replace />} />
                   
                   {/* NEW: Radical Redesign Landing */}
                   <Route path="/new" element={<LandingPageNew />} />
