@@ -138,7 +138,11 @@ export default function MessagesPage() {
       const items = Array.isArray(data)
         ? data
         : data?.messages || data?.items || data?.results || [];
-      setMessages(normalizeArray(items));
+      const ordered = normalizeArray(items).slice().sort((a, b) => {
+        if (!a?.created_at || !b?.created_at) return 0;
+        return new Date(a.created_at) - new Date(b.created_at);
+      });
+      setMessages(ordered);
       await markConversationRead(conversationId);
     } catch (error) {
       console.error('Failed to load messages:', error);
