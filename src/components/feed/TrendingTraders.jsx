@@ -13,7 +13,7 @@ export function TrendingTraders() {
 
   const loadTraders = async () => {
     try {
-      const { data } = await getTraders({ verified: true, limit: 3 });
+      const { data } = await getTraders({ verified: true, limit: 50 });
       const items = Array.isArray(data) ? data : data?.traders || [];
       
       // Map to expected format
@@ -25,15 +25,19 @@ export function TrendingTraders() {
           username: trader.username || trader.name || 'trader',
           avatar: trader.avatar_url || `https://i.pravatar.cc/150?u=${trader.user_id || trader.id || 'default'}`,
           verified: trader.verified || false,
-          rating: trader.avg_rating || 4.0,
+          rating: typeof trader.avg_rating === "number" ? trader.avg_rating : 0,
           subscribers: trader.total_followers || 0,
           winRate: trader.win_rate || 0,
           tier: mapTierName(trader.tier),
           subscriptionPrice: getSubscriptionPrice(trader.tier),
           isSubscribed: trader.is_subscribed || false,
         }));
+
+      const topByRating = [...formattedTraders].sort(
+        (a, b) => (b.rating || 0) - (a.rating || 0)
+      ).slice(0, 5);
       
-      setTraders(formattedTraders);
+      setTraders(topByRating);
     } catch (error) {
       console.error("Failed to load traders:", error);
     } finally {
