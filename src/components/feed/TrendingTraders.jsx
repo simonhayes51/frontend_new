@@ -18,12 +18,12 @@ export function TrendingTraders() {
       
       // Map to expected format
       const formattedTraders = items
-        .filter(trader => trader.user_id || trader.id) // Only include traders with valid ID
+        .filter(trader => trader.user_id || trader.id || trader.trader_id) // Only include traders with valid ID
         .map(trader => ({
-          id: trader.user_id || trader.id, // Fallback to id if user_id doesn't exist
+          id: trader.user_id || trader.id || trader.trader_id, // Fallback to id if user_id doesn't exist
           name: trader.username || trader.name || 'Anonymous',
           username: trader.username || trader.name || 'trader',
-          avatar: trader.avatar_url || `https://i.pravatar.cc/150?u=${trader.user_id || trader.id || 'default'}`,
+          avatar: trader.avatar_url || `https://i.pravatar.cc/150?u=${trader.user_id || trader.id || trader.trader_id || 'default'}`,
           verified: trader.verified || false,
           rating: typeof trader.avg_rating === "number" ? trader.avg_rating : 0,
           subscribers: trader.total_followers || 0,
