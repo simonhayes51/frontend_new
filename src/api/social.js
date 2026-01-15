@@ -1,9 +1,8 @@
 import api from "../axios";
 
-const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_API_URL || api.defaults.baseURL || "").replace(
-  /\/$/,
-  ""
-);
+const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_API_URL || api.defaults.baseURL || "")
+  .replace(/\/$/, "")
+  .replace(/^http:\/\//, "https://");
 
 const socialRequest = (config) => api.request({ ...config, baseURL: SOCIAL_BASE });
 
