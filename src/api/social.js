@@ -1,211 +1,283 @@
-import { useState, useEffect, useRef } from "react";
-import { Search, Bell, MessageCircle, Plus, Zap, User, BarChart3, Settings as SettingsIcon, LogOut, ChevronDown } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
-import { getUnreadMessageCount } from "../../api/social";
+import api from "../axios";
 
-export function TopBar() {
-  const [searchFocused, setSearchFocused] = useState(false);
-  const [liveCount, setLiveCount] = useState(0);
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [messageUnreadCount, setMessageUnreadCount] = useState(0);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { user, logout } = useAuth();
-  const menuRef = useRef(null);
+const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_API_URL || api.defaults.baseURL || "").replace(
+  /\/$/,
+  ""
+);
 
-  const isTrader = user?.account_type === 'trader' || user?.is_trader;
+const socialRequest = (config) => api.request({ ...config, baseURL: SOCIAL_BASE });
 
-  useEffect(() => {
-    // Simulate live count - in production, this would come from WebSocket or API
-    const updateLiveCount = () => {
-      setLiveCount(Math.floor(Math.random() * 500) + 2000); // 2000-2500
-    };
-    updateLiveCount();
-    const interval = setInterval(updateLiveCount, 60000); // Update every minute
-    return () => clearInterval(interval);
-  }, []);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setShowUserMenu(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleCreatePost = () => {
-    // Scroll to top of feed page to focus on create post input
-    if (location.pathname === '/') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      navigate('/');
+const tryPost = async (paths, payload) => {
+  let lastError;
+  for (const path of paths) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      return await socialRequest({ method: "post", url: path, data: payload });
+    } catch (error) {
+      if (![404, 405].includes(error?.response?.status)) throw error;
+      lastError = error;
     }
-  };
+  }
+  throw lastError;
+};
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+const tryPatch = async (paths, payload) => {
+  let lastError;
+  for (const path of paths) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      return await socialRequest({ method: "patch", url: path, data: payload });
+    } catch (error) {
+      if (![404, 405].includes(error?.response?.status)) throw error;
+      lastError = error;
+    }
+  }
+  throw lastError;
+};
 
-  useEffect(() => {
-    const loadUnread = async () => {
-      try {
-        const { data } = await getUnreadMessageCount();
-        const count =
-          data?.count ??
-          data?.unread_count ??
-          data?.unread ??
-          0;
-        setMessageUnreadCount(count || 0);
-      } catch (error) {
-        setMessageUnreadCount(0);
-      }
-    };
-    loadUnread();
-  }, []);
+const tryGet = async (paths, config) => {
+  let lastError;
+  for (const path of paths) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      return await socialRequest({ method: "get", url: path, ...config });
+    } catch (error) {
+      if (error?.response?.status !== 404) throw error;
+      lastError = error;
+    }
+  }
+  throw lastError;
+};
 
-  return (
-    <header className="h-16 bg-card/50 backdrop-blur-lg border-b border-border sticky top-0 z-50">
-      <div className="h-full px-6 flex items-center justify-between gap-4">
-        {/* Search */}
-        <div className="flex-1 max-w-xl">
-          <div
-            className={`relative flex items-center transition-all duration-300 ${
-              searchFocused ? "scale-[1.02]" : ""
-            }`}
-          >
-            <Search className="absolute left-3 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search traders, tactics, or posts..."
-              className="w-full h-10 pl-10 pr-4 bg-muted/50 border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-            />
-          </div>
-        </div>
-
-        {/* Live Indicator */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-success/10 border border-success/20 rounded-full">
-          <div className="w-2 h-2 bg-success rounded-full animate-pulse" />
-          <span className="text-xs font-medium text-success">{(liveCount / 1000).toFixed(1)}k Live</span>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleCreatePost}
-            className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
-          >
-            <Plus className="w-4 h-4" />
-            Create Post
-          </button>
-
-          <button 
-            onClick={() => navigate('/messages')}
-            className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
-          >
-            <MessageCircle className="w-5 h-5" />
-            {messageUnreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
-            )}
-          </button>
-
-          <button 
-            onClick={() => navigate('/notifications')}
-            className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
-          >
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-secondary rounded-full" />
-          </button>
-
-          {/* User Avatar with Dropdown */}
-          <div className="relative" ref={menuRef}>
-            <button 
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 p-1 rounded-lg hover:bg-muted transition-colors"
-            >
-              {user?.avatar_url ? (
-                <img 
-                  src={user.avatar_url} 
-                  alt={user.username} 
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-primary-foreground" />
-                </div>
-              )}
-              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Dropdown Menu */}
-            {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-lg py-1 z-50">
-                {/* User Info */}
-                <div className="px-4 py-3 border-b border-border">
-                  <p className="font-semibold text-foreground">{user?.username || 'User'}</p>
-                  <p className="text-xs text-muted-foreground">@{user?.username?.toLowerCase() || 'user'}</p>
-                </div>
-
-                {/* Menu Items */}
-                <div className="py-1">
-                  <button
-                    onClick={() => {
-                      navigate('/profile');
-                      setShowUserMenu(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-                  >
-                    <User className="w-4 h-4" />
-                    User Profile
-                  </button>
-
-                  {isTrader && (
-                    <button
-                      onClick={() => {
-                        navigate('/trader-dashboard');
-                        setShowUserMenu(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-                    >
-                      <BarChart3 className="w-4 h-4" />
-                      Trader Panel
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      navigate('/settings');
-                      setShowUserMenu(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-                  >
-                    <SettingsIcon className="w-4 h-4" />
-                    Settings
-                  </button>
-                </div>
-
-                {/* Logout */}
-                <div className="border-t border-border py-1">
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Log Out
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </header>
+export const getFeed = (params) =>
+  tryGet(
+    ["/api/feed", "/api/social/feed", "/api/social/posts"],
+    { params }
   );
-}
+export const createPost = (payload) =>
+  tryPost(["/api/feed", "/api/social/feed", "/api/social/posts"], payload);
+export const updatePost = async (postId, payload) => {
+  try {
+    return await tryPatch([`/api/feed/posts/${postId}`], payload);
+  } catch (error) {
+    if (![404, 405].includes(error?.response?.status)) throw error;
+    return tryPost([`/api/social/posts/${postId}`], payload);
+  }
+};
+export const deletePost = (postId) =>
+  socialRequest({ method: "delete", url: `/api/feed/${postId}` });
+
+export const reactToPost = (postId, reaction) =>
+  socialRequest({
+    method: "post",
+    url: `/api/social/posts/${postId}/reactions`,
+    data: { reaction: reaction || "like" },
+  });
+
+export const removePostReaction = (postId) =>
+  socialRequest({ method: "delete", url: `/api/social/posts/${postId}/reactions` });
+
+export const getPostComments = (postId, params) =>
+  socialRequest({ method: "get", url: `/api/social/posts/${postId}/comments`, params });
+
+export const addPostComment = (postId, payload) =>
+  socialRequest({ method: "post", url: `/api/social/posts/${postId}/comments`, data: payload });
+
+export const updateComment = (commentId, payload) =>
+  tryPost(
+    [
+      `/api/interactions/comments/${commentId}`,
+      `/api/social/interactions/comments/${commentId}`,
+    ],
+    payload
+  );
+
+export const deleteComment = (commentId) =>
+  socialRequest({ method: "delete", url: `/api/interactions/comments/${commentId}` });
+
+export const reactToComment = (commentId) =>
+  tryPost(
+    [
+      `/api/interactions/comments/${commentId}/like`,
+      `/api/social/interactions/comments/${commentId}/like`,
+    ],
+    {}
+  );
+
+export const sharePost = (postId) =>
+  socialRequest({ method: "post", url: `/api/social/posts/${postId}/share` });
+
+export const viewPost = (postId) =>
+  socialRequest({ method: "post", url: `/api/social/posts/${postId}/view` });
+
+export const getConversations = () =>
+  tryGet(["/api/messages/conversations", "/api/social/messages/conversations"]);
+export const getConversationMessages = (conversationId) =>
+  tryGet([
+    `/api/messages/conversations/${conversationId}/messages`,
+    `/api/social/messages/conversations/${conversationId}/messages`,
+  ]);
+
+export const sendConversationMessage = (conversationId, payload) =>
+  tryPost(
+    [
+      `/api/messages/conversations/${conversationId}/messages`,
+      `/api/social/messages/conversations/${conversationId}/messages`,
+    ],
+    payload
+  );
+
+export const startConversation = (payload) =>
+  tryPost(["/api/messages/conversations", "/api/social/messages/conversations"], payload);
+
+export const deleteConversationMessage = (conversationId, messageId) =>
+  socialRequest({
+    method: "delete",
+    url: `/api/messages/conversations/${conversationId}/messages/${messageId}`,
+  });
+
+export const clearConversationMessages = (conversationId) =>
+  tryPost(
+    [
+      `/api/messages/conversations/${conversationId}/clear`,
+      `/api/social/messages/conversations/${conversationId}/clear`,
+    ],
+    {}
+  );
+
+export const markConversationRead = (conversationId) =>
+  tryPost(
+    [
+      `/api/messages/conversations/${conversationId}/read`,
+      `/api/social/messages/conversations/${conversationId}/read`,
+    ],
+    {}
+  );
+
+export const searchMessageUsers = (query) =>
+  tryGet(
+    [
+      "/api/messages/users/search",
+      "/api/social/messages/users/search",
+      "/api/messages/search/users",
+    ],
+    { params: { q: query, query, username: query } }
+  );
+
+export const getUnreadMessageCount = () =>
+  tryGet(["/api/messages/unread-count", "/api/social/messages/unread-count"]);
+
+export const getTraders = (params) =>
+  tryGet(["/api/traders", "/api/social/traders"], { params });
+export const getTraderProfile = (traderId) => api.get(`/api/traders/${traderId}`);
+export const upgradeToTrader = (payload) =>
+  tryPost(
+    ["/api/traders/upgrade", "/api/traders/request", "/api/traders/apply", "/api/social/traders"],
+    payload
+  );
+
+export const subscribeToTrader = (traderId) =>
+  tryPost(
+    [
+      `/api/subscriptions/${traderId}/subscribe`,
+      `/api/social/subscriptions/${traderId}/subscribe`,
+    ],
+    {}
+  );
+
+export const unsubscribeFromTrader = (traderId) =>
+  tryPost(
+    [
+      `/api/subscriptions/${traderId}/unsubscribe`,
+      `/api/social/subscriptions/${traderId}/unsubscribe`,
+    ],
+    {}
+  );
+
+export const getTraderRatings = (traderId) =>
+  tryGet([`/api/ratings/${traderId}`, `/api/social/ratings/${traderId}`]);
+export const rateTrader = (traderId, payload) =>
+  tryPost([`/api/ratings/${traderId}`, `/api/social/ratings/${traderId}`], payload);
+export const getTopRatedTraders = () =>
+  tryGet(["/api/ratings/leaderboard", "/api/social/ratings/leaderboard"]);
+export const getRecommendedTraders = () =>
+  tryGet(["/api/subscriptions/recommended", "/api/social/subscriptions/recommended"]);
+
+export const getTraderRoleRequests = () =>
+  tryGet([
+    "/api/admin/traders/requests",
+    "/api/traders/requests",
+    "/api/social/traders/requests",
+  ]);
+export const approveTraderRoleRequest = (requestId) =>
+  tryPost(
+    [
+      `/api/admin/traders/requests/${requestId}/approve`,
+      `/api/traders/requests/${requestId}/approve`,
+      `/api/social/traders/requests/${requestId}/approve`,
+    ],
+    {}
+  );
+export const rejectTraderRoleRequest = (requestId) =>
+  tryPost(
+    [
+      `/api/admin/traders/requests/${requestId}/reject`,
+      `/api/traders/requests/${requestId}/reject`,
+      `/api/social/traders/requests/${requestId}/reject`,
+    ],
+    {}
+  );
+export const assignTraderRole = (payload) =>
+  tryPost(
+    ["/api/admin/traders/assign", "/api/traders/assign", "/api/social/traders/assign"],
+    payload
+  );
+
+// ============================================================================
+// NEW: Tier-based subscriptions, tips, and saved posts
+// ============================================================================
+
+export const subscribeToTier = (traderId, tier) =>
+  tryPost([`/api/subscriptions/tier/${traderId}`], { tier });
+
+export const getTraderSubscriptionStats = (traderId) =>
+  tryGet([`/api/subscriptions/trader/${traderId}/subscription-stats`]);
+
+export const checkSubscriptionStatus = (traderId) =>
+  tryGet([`/api/subscriptions/check/${traderId}`]);
+
+export const tipPost = (postId, amount) =>
+  tryPost(["/api/subscriptions/tip"], { post_id: postId, amount });
+
+export const savePost = (postId) =>
+  tryPost([`/api/subscriptions/save-post/${postId}`], {});
+
+export const unsavePost = (postId) =>
+  socialRequest({ method: "delete", url: `/api/subscriptions/save-post/${postId}` });
+
+export const getSavedPosts = (params) =>
+  tryGet(["/api/subscriptions/saved-posts"], { params });
+
+// Content Requests
+export const createContentRequest = (payload) =>
+  tryPost(["/api/content-requests/create"], payload);
+
+export const getTraderContentRequests = (traderId, params) =>
+  tryGet([`/api/content-requests/trader/${traderId}`], { params });
+
+export const upvoteContentRequest = (requestId) =>
+  tryPost([`/api/content-requests/${requestId}/upvote`], {});
+
+export const updateContentRequestStatus = (requestId, status, postId) =>
+  socialRequest({
+    method: "patch",
+    url: `/api/content-requests/${requestId}/status`,
+    data: { status },
+    params: postId ? { post_id: postId } : {},
+  });
+
+export const deleteContentRequest = (requestId) =>
+  socialRequest({ method: "delete", url: `/api/content-requests/${requestId}` });
+
+export const getMyContentRequests = (params) =>
+  tryGet(["/api/content-requests/my-requests"], { params });
