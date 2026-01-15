@@ -176,9 +176,9 @@ export default function UserHoverCard({ userId, username, children, placement = 
                           </button>
                           <button
                             onClick={handleSubscribe}
-                            className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all"
+                            className="px-4 py-2 bg-white/5 hover:bg-red-500/20 text-white hover:text-red-400 rounded-xl transition-all font-semibold"
                           >
-                            <Check className="w-5 h-5" />
+                            Unfollow
                           </button>
                         </>
                       ) : (
