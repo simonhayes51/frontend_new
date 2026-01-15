@@ -124,23 +124,23 @@ export default function Subscriptions() {
       <div className="grid md:grid-cols-2 gap-6">
         {traders.map((trader) => {
           const tid = getTraderId(trader);
+          const fallbackId = trader.user_id || trader.id || trader.trader_id || 'default';
+
           return (
             <motion.div
-              key={tid || Math.random()} 
+              key={tid || fallbackId}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-3xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
             >
-              {/* Cover */}
               <div className="h-24 bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500" />
-              
-              {/* Profile */}
+
               <div className="p-6 -mt-12">
                 <div className="flex items-start justify-between">
                   <div className="flex gap-4">
                     <div className="relative">
                       <img
-                        src={trader.avatar_url || `https://i.pravatar.cc/150?u=${tid}`}
+                        src={trader.avatar_url || `https://i.pravatar.cc/150?u=${fallbackId}`}
                         alt={trader.username}
                         className="w-20 h-20 rounded-full border-4 border-white shadow-lg cursor-pointer"
                         onClick={() => tid && navigate(`/trader/${tid}`)}
@@ -152,13 +152,15 @@ export default function Subscriptions() {
                       )}
                     </div>
                     <div className="mt-8">
-                      <h3 
+                      <h3
                         className="font-bold text-gray-900 text-lg cursor-pointer hover:underline"
                         onClick={() => tid && navigate(`/trader/${tid}`)}
                       >
                         {trader.username}
                       </h3>
-                      <p className="text-gray-500 text-sm">{trader.bio || 'Professional FIFA Trader'}</p>
+                      <p className="text-gray-500 text-sm">
+                        {trader.bio || 'Professional FIFA Trader'}
+                      </p>
                     </div>
                   </div>
                   <button
@@ -176,63 +178,63 @@ export default function Subscriptions() {
                   </button>
                 </div>
 
-              {/* Stats */}
-              <div className="mt-6 grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 text-gray-900 font-bold">
-                    <Users className="w-4 h-4" />
-                    {trader.total_followers || 0}
+                <div className="mt-6 grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-1 text-gray-900 font-bold">
+                      <Users className="w-4 h-4" />
+                      {trader.total_followers || 0}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Followers</p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Followers</p>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-1 text-gray-900 font-bold">
+                      <TrendingUp className="w-4 h-4" />
+                      {trader.total_posts || 0}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Posts</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-1 text-gray-900 font-bold">
+                      <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                      {trader.avg_rating?.toFixed(1) || '0.0'}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Rating</p>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 text-gray-900 font-bold">
-                    <TrendingUp className="w-4 h-4" />
-                    {trader.total_posts || 0}
+
+                {trader.specialties && trader.specialties.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {trader.specialties.slice(0, 3).map((spec, i) => (
+                      <span
+                        key={i}
+                        className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium"
+                      >
+                        {spec}
+                      </span>
+                    ))}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Posts</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 text-gray-900 font-bold">
-                    <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                    {trader.avg_rating?.toFixed(1) || '0.0'}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">Rating</p>
+                )}
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    onClick={() => tid && navigate(`/trader/${tid}`)}
+                    disabled={!tid}
+                    className="flex-1 bg-gray-100 text-gray-900 px-4 py-2 rounded-full font-semibold hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    View Profile
+                  </button>
+                  <button
+                    onClick={() => tid && navigate(`/messages/${tid}`)}
+                    disabled={!tid}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
-
-              {/* Specialties */}
-              {trader.specialties && trader.specialties.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {trader.specialties.slice(0, 3).map((spec, i) => (
-                    <span
-                      key={i}
-                      className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium"
-                    >
-                      {spec}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="mt-6 flex gap-3">
-                <button
-                  onClick={() => navigate(`/trader/${trader.user_id}`)}
-                  className="flex-1 bg-gray-100 text-gray-900 px-4 py-2 rounded-full font-semibold hover:bg-gray-200 transition-all"
-                >
-                  View Profile
-                </button>
-                <button
-                  onClick={() => navigate(`/messages/${trader.user_id}`)}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-all"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
       </div>
 
       {traders.length === 0 && !loading && (
