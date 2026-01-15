@@ -6,6 +6,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { DashboardProvider } from "./context/DashboardContext";
 import { SettingsProvider } from "./context/SettingsContext";
 import { EntitlementsProvider } from "./context/EntitlementsContext";
+import { NotificationProvider } from "./context/NotificationContext";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
@@ -77,9 +78,10 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <EntitlementsProvider>
-          <Router>
-            <div className="bg-black min-h-screen text-white">
-              <Suspense fallback={<Loading />}>
+          <NotificationProvider>
+            <Router>
+              <div className="bg-black min-h-screen text-white">
+                <Suspense fallback={<Loading />}>
                 <Routes>
                   {/* Public routes */}
                   <Route path="/login" element={<Login />} />
@@ -235,8 +237,9 @@ function App() {
               </Suspense>
             </div>
           </Router>
-        </EntitlementsProvider>
-      </AuthProvider>
+        </NotificationProvider>
+      </EntitlementsProvider>
+    </AuthProvider>
     </ErrorBoundary>
   );
 }
