@@ -18,6 +18,7 @@ import {
   sendConversationMessage,
   startConversation,
   searchMessageUsers,
+  markConversationRead,
 } from '../api/social';
 
 /**
@@ -57,9 +58,11 @@ export default function MessagesPage() {
       }
       setSearching(true);
       try {
-        const response = await searchMessageUsers(searchQuery);
-        const data = response?.data || {};
-        setSearchResults(normalizeArray(data.results || data.users));
+        const { data } = await searchMessageUsers(searchQuery);
+        const items = Array.isArray(data)
+          ? data
+          : data?.users || data?.results || [];
+        setSearchResults(normalizeArray(items));
       } catch (error) {
         console.error('Failed to search users:', error);
       } finally {
@@ -76,10 +79,12 @@ export default function MessagesPage() {
 
   const loadConversations = async () => {
     try {
-      const response = await getConversations();
-      const data = response?.data || {};
-      const list = normalizeArray(data.conversations || data);
-      setConversations(list);
+      const { data } = await getConversations();
+      const items = Array.isArray(data)
+        ? data
+        : data?.conversations || data?.items || data?.results || [];
+      const list = normalizeArray(items);
+      setConversations(items);
       
       if (userId) {
         const chat = list.find(
@@ -99,17 +104,26 @@ export default function MessagesPage() {
 
   const ensureConversation = async (recipientId, initialContent) => {
     try {
-      const response = await startConversation({
+      const { data } = await startConversation({
         recipient_id: recipientId,
-        recipientId,
-        user_id: recipientId,
-        content: initialContent?.trim() ? initialContent.trim() : undefined,
       });
-      const conversation = response?.data || {};
+      const conversation = data?.conversation || data || {};
       if (conversation.id) {
         setActiveConversationId(conversation.id);
         setActiveChat(buildActiveChat(conversation));
-        await loadMessages(conversation.id);
+        if (initialContent?.trim()) {
+          const { data: messageData } = await sendConversationMessage(conversation.id, {
+            content: initialContent.trim(),
+          });
+          const sentMessage = messageData?.message || messageData;
+          if (sentMessage) {
+            setMessages([sentMessage]);
+          } else {
+            await loadMessages(conversation.id);
+          }
+        } else {
+          await loadMessages(conversation.id);
+        }
         loadConversations();
       }
     } catch (error) {
@@ -120,12 +134,12 @@ export default function MessagesPage() {
 
   const loadMessages = async (conversationId) => {
     try {
-      const response = await getConversationMessages(conversationId);
-      const data = response?.data || {};
-      const list = Array.isArray(data)
+      const { data } = await getConversationMessages(conversationId);
+      const items = Array.isArray(data)
         ? data
-        : data.messages || data.items || data.results || [];
-      setMessages(normalizeArray(list));
+        : data?.messages || data?.items || data?.results || [];
+      setMessages(normalizeArray(items));
+      await markConversationRead(conversationId);
     } catch (error) {
       console.error('Failed to load messages:', error);
       toast.error('Failed to load messages');
