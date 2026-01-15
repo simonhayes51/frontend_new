@@ -228,21 +228,22 @@ export function PostCard({ post, onUpdate }) {
     tier: (author.tier || 'Free').charAt(0).toUpperCase() + (author.tier || 'free').slice(1),
   };
 
-  const isLocked = postState.is_locked || (postState.visibility === 'premium' && !postState.can_view);
-  const isArticle = postState.post_type === 'analysis';
+  const isLocked = postState.is_locked || (postState.visibility === "premium" && !postState.can_view);
+  const isArticle = postState.post_type === "analysis";
   const contentPreviewLength = 200;
   const shouldTruncate = isArticle && postState.content && postState.content.length > contentPreviewLength;
   
   // Extract trade info if available
   const trade =
-    postState.post_type === 'quick_flip' || postState.post_type === 'prediction'
+    postState.post_type === "quick_flip" || postState.post_type === "prediction"
       ? {
-          type: postState.post_type === 'quick_flip' ? 'buy' : 'sell',
+          type: postState.post_type === "quick_flip" ? "buy" : "sell",
           player:
             postState.player_name ||
             postState.player?.name ||
             extractPlayerName(postState.content),
-          price: getTradePrice(postState),
+          buyPrice: getBuyPrice(postState),
+          sellPrice: getSellPrice(postState),
           image:
             postState.player?.image_url ||
             postState.player?.image ||
@@ -256,31 +257,49 @@ export function PostCard({ post, onUpdate }) {
                 percentage: postState.profit_percentage || 0,
               }
             : null,
+          sellTimestamp: postState.sell_at || postState.closed_at || null,
         }
       : null;
 
   function extractPlayerName(content) {
-    if (!content) return 'Player';
+    if (!content) return "Player";
     const match = content.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
-    return match ? match[0] : 'Player';
+    return match ? match[0] : "Player";
   }
 
-  function getTradePrice(postData) {
-    if (postData.post_type === 'quick_flip') {
-      return {
-        min: postData.buy_range_min ?? postData.buy_price ?? 0,
-        max: postData.buy_range_max ?? postData.buy_price ?? 0,
-      };
-    }
+  function getBuyPrice(postData) {
+    const min =
+      postData.buy_range_min ??
+      postData.buy_price ??
+      null;
+    const max =
+      postData.buy_range_max ??
+      postData.buy_price ??
+      null;
+    if (min == null && max == null) return null;
+    return { min, max };
+  }
 
-    const target = postData.sell_target ?? postData.sell_price ?? 0;
+  function getSellPrice(postData) {
+    const target =
+      postData.sell_target ??
+      postData.sell_price ??
+      null;
+    if (target == null) return null;
     return { min: target, max: target };
+  }
+
+  function hasPrice(price) {
+    if (!price) return false;
+    const min = Number(price.min) || 0;
+    const max = Number(price.max) || 0;
+    return !!(min || max);
   }
 
   function formatTradePrice(price) {
     const min = Number(price.min) || 0;
     const max = Number(price.max) || 0;
-    if (!min && !max) return 'TBD';
+    if (!min && !max) return "TBD";
     if (min && max && min !== max) {
       return `${min.toLocaleString()} - ${max.toLocaleString()}`;
     }
@@ -444,14 +463,29 @@ export function PostCard({ post, onUpdate }) {
                   </span>
                   <p className="text-xl font-semibold text-foreground truncate">{trade.player}</p>
                 </div>
-                <p className="text-base text-muted-foreground">
-                  {trade.type === "buy" ? (
-                    <span className="text-success font-semibold">Buy</span>
-                  ) : (
-                    <span className="text-destructive font-semibold">Sell</span>
-                  )}{" "}
-                  @ {formatTradePrice(trade.price)} coins
-                </p>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  {hasPrice(trade.buyPrice) && (
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-3.5 h-3.5 text-success" />
+                      <span className="font-semibold text-success">
+                        Buy @ {formatTradePrice(trade.buyPrice)} coins
+                      </span>
+                    </div>
+                  )}
+                  {hasPrice(trade.sellPrice) && (
+                    <div className="flex items-center gap-2">
+                      <TrendingDown className="w-3.5 h-3.5 text-destructive" />
+                      <span className="font-semibold text-destructive">
+                        Sell @ {formatTradePrice(trade.sellPrice)} coins
+                      </span>
+                      {trade.sellTimestamp && (
+                        <span className="text-xs text-muted-foreground">
+                          · {formatTime(trade.sellTimestamp)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             {trade.result && (
