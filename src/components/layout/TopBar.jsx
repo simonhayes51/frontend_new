@@ -55,6 +55,7 @@ export function TopBar() {
   };
 
   useEffect(() => {
+    if (!user) return; // Skip if not logged in
     const loadUnread = async () => {
       try {
         const { data } = await getUnreadMessageCount();
@@ -69,7 +70,7 @@ export function TopBar() {
       }
     };
     loadUnread();
-  }, []);
+  }, [user]);
 
   return (
     <header className="h-16 bg-card/50 backdrop-blur-lg border-b border-border sticky top-0 z-50">
@@ -100,35 +101,47 @@ export function TopBar() {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleCreatePost}
-            className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
-          >
-            <Plus className="w-4 h-4" />
-            Create Post
-          </button>
+          {user && (
+            <>
+              <button
+                onClick={handleCreatePost}
+                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
+              >
+                <Plus className="w-4 h-4" />
+                Create Post
+              </button>
 
-          <button 
-            onClick={() => navigate('/messages')}
-            className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
-          >
-            <MessageCircle className="w-5 h-5" />
-            {messageUnreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
-            )}
-          </button>
+              <button 
+                onClick={() => navigate('/messages')}
+                className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+              >
+                <MessageCircle className="w-5 h-5" />
+                {messageUnreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+                )}
+              </button>
 
-          <button 
-            onClick={() => navigate('/notifications')}
-            className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
-          >
-            <Bell className="w-5 h-5" />
-            {notificationUnreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-secondary rounded-full" />
-            )}
-          </button>
+              <button 
+                onClick={() => navigate('/notifications')}
+                className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+              >
+                <Bell className="w-5 h-5" />
+                {notificationUnreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-secondary rounded-full" />
+                )}
+              </button>
+            </>
+          )}
 
           {/* User Avatar with Dropdown */}
+          {!user ? (
+            <button
+              onClick={() => navigate('/login')}
+              className="px-6 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg font-bold hover:opacity-90 transition-all shadow-glow-primary"
+            >
+              Login
+            </button>
+          ) : (
           <div className="relative" ref={menuRef}>
             <button 
               onClick={() => setShowUserMenu(!showUserMenu)}
@@ -202,12 +215,13 @@ export function TopBar() {
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
                   >
                     <LogOut className="w-4 h-4" />
-                    Log Out
+                    Sign Out
                   </button>
                 </div>
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
     </header>
