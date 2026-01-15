@@ -36,6 +36,7 @@ export default function TraderDashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('month'); // week, month, year, all
+  const [profileError, setProfileError] = useState('');
   
   // Settings State
   const [profileData, setProfileData] = useState({
@@ -76,6 +77,7 @@ export default function TraderDashboard() {
       try {
         const profileRes = await getTraderMe();
         if (profileRes.data) {
+          setProfileError('');
           setProfileData({
             bio: profileRes.data.bio || '',
             specialties: profileRes.data.specialties || [],
@@ -87,7 +89,11 @@ export default function TraderDashboard() {
           });
         }
       } catch (err) {
-        console.log('Using default profile settings');
+        if (err?.response?.status === 403 || err?.response?.status === 404) {
+          setProfileError('Trader profile not found. Make sure your trader role has been approved by an admin.');
+        } else {
+          console.log('Using default profile settings');
+        }
       }
     } catch (error) {
       console.error('Failed to load dashboard:', error);
@@ -108,6 +114,10 @@ export default function TraderDashboard() {
   };
 
   const handleSaveSettings = async () => {
+    if (profileError) {
+      toast.error('You need an approved trader profile before saving settings.');
+      return;
+    }
     setSavingSettings(true);
     try {
       await updateTraderMe({
@@ -349,6 +359,11 @@ export default function TraderDashboard() {
           <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
              <div className="bg-dark-card border border-white/10 rounded-2xl p-8">
               <h3 className="text-xl font-bold text-white mb-6">Profile Settings</h3>
+              {profileError && (
+                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/40 text-red-200 text-sm">
+                  {profileError}
+                </div>
+              )}
               
               <div className="space-y-6">
                 <div>
