@@ -53,6 +53,12 @@ export const AuthProvider = ({ children }) => {
           const response = await api.get(path, {
             validateStatus: (status) => status < 500,
             __skipAuthRedirect: true,
+            headers: {
+              "Cache-Control": "no-cache",
+            },
+            params: {
+              _ts: Date.now(),
+            },
           });
           if (response.status === 401) {
             return { authenticated: false };
@@ -97,7 +103,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = () => {
-    window.location.href = `${api.defaults.baseURL}/api/login`;
+    const explicitApi =
+      (import.meta.env?.VITE_API_URL && import.meta.env.VITE_API_URL.replace(/\/$/, "")) ||
+      "";
+    const loginBase = explicitApi || api.defaults.baseURL;
+    window.location.href = `${loginBase}/api/login`;
   };
 
   const logout = async () => {
