@@ -87,10 +87,17 @@ export const AuthProvider = ({ children }) => {
         !!authData.id;
 
       if (authenticated) {
-        console.log('✅ User authenticated:', authData.user_id || authData.id);
+        // Normalize user data: if response contains a nested 'user' object, merge it up
+        // so that TopBar and other components can access properties like avatar_url directly.
+        let userData = authData;
+        if (authData.user && typeof authData.user === 'object') {
+          userData = { ...authData, ...authData.user };
+        }
+
+        console.log('✅ User authenticated:', userData.user_id || userData.id);
         dispatch({
           type: 'SET_AUTHENTICATED',
-          payload: authData
+          payload: userData
         });
       } else {
         console.log('❌ User not authenticated, reason:', authData.error);
