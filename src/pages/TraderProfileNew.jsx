@@ -33,8 +33,10 @@ import {
   getMyTraderRating,
   deleteMyTraderRating,
   rateTrader,
+  checkSubscriptionStatus,
+  getSubscriptionPrice,
 } from '../api/social';
-import { createCheckoutSession } from '../api/billing';
+import { createCheckoutSession, paypalSubscribe } from '../api/billing';
 import UserHoverCard from '../components/UserHoverCard';
 
 /**
@@ -49,8 +51,12 @@ export default function TraderProfileNew() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [subscriptionPrice, setSubscriptionPrice] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('stripe');
+  const [subscribing, setSubscribing] = useState(false);
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const [selectedSubscriptionTier, setSelectedSubscriptionTier] = useState(null);
   const [activeTab, setActiveTab] = useState('posts');
-  const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [ratingSummary, setRatingSummary] = useState(null);
   const [myRating, setMyRating] = useState(null);
   const [ratingValue, setRatingValue] = useState(0);
@@ -108,6 +114,28 @@ export default function TraderProfileNew() {
     try {
       const statsRes = await api.get(`/api/subscriptions/trader/${traderId}/subscription-stats`);
       setStats(statsRes.data);
+
+      try {
+        const priceRes = await getSubscriptionPrice(traderId);
+        if (priceRes?.data) {
+          setSubscriptionPrice(
+            priceRes.data.subscription_price ??
+              priceRes.data.price ??
+              null
+          );
+        }
+      } catch (error) {
+        console.error('Failed to load subscription price:', error);
+      }
+
+      try {
+        const checkRes = await checkSubscriptionStatus(traderId);
+        if (checkRes?.data?.is_subscribed) {
+          setIsSubscribed(true);
+        }
+      } catch (error) {
+        console.error('Failed to check subscription status:', error);
+      }
     } catch (error) {
       console.error('Failed to load subscription stats:', error);
     } finally {
@@ -147,41 +175,88 @@ export default function TraderProfileNew() {
     }
   };
 
-  const handleSubscribe = (tier = 'free') => {
-    if (tier === 'free') {
-      handleTierSubscribe('free');
-    } else {
-      setShowSubscribeModal(true);
+  const handleSubscribe = async (usePaymentMethod = null) => {
+    if (!traderId || traderId === 'undefined' || traderId === 'null') return;
+    setSubscribing(true);
+    const method = usePaymentMethod || paymentMethod;
+
+    try {
+      const checkRes = await checkSubscriptionStatus(traderId);
+      if (checkRes?.data?.is_subscribed) {
+        setIsSubscribed(true);
+        toast.success('Already subscribed');
+        return;
+      }
+
+      const price =
+        Number(
+          subscriptionPrice ??
+            trader?.subscription_price ??
+            0
+        ) || 0;
+
+      if (!price || price <= 0) {
+        await subscribeToTrader(traderId);
+        toast.success('Followed successfully');
+        setIsSubscribed(true);
+        loadTraderProfile();
+        return;
+      }
+
+      if (method === 'paypal') {
+        const res = await paypalSubscribe({ trader_id: traderId });
+        const data = res?.data || {};
+        if (data.id) {
+          sessionStorage.setItem('paypal_subscription_id', data.id);
+        }
+        const approvalUrl = data.approval_url || data.url;
+        if (approvalUrl) {
+          window.location.href = approvalUrl;
+          return;
+        }
+        toast.error('Failed to start PayPal checkout');
+        return;
+      }
+
+      const successUrl = `${window.location.origin}/#/subscription/success?trader=${traderId}`;
+      const cancelUrl = `${window.location.origin}/#/trader/${traderId}`;
+      const res = await createCheckoutSession({
+        traderId,
+        successUrl,
+        cancelUrl,
+      });
+      const url =
+        res?.data?.url ||
+        res?.data?.checkoutUrl ||
+        res?.data?.checkout_url;
+      if (url) {
+        window.location.href = url;
+      } else {
+        toast.error('Failed to initiate checkout');
+      }
+    } catch (error) {
+      const message =
+        error?.response?.data?.detail ||
+        error?.response?.data?.message ||
+        error.userMessage ||
+        'Failed to subscribe';
+      toast.error(message);
+    } finally {
+      setSubscribing(false);
+      setShowPaymentMethodModal(false);
     }
   };
 
-  const handleTierSubscribe = async (tier) => {
-    try {
-      if (tier === 'free') {
-        if (!traderId || traderId === 'undefined' || traderId === 'null') {
-          throw new Error('Missing trader id');
-        }
-        await subscribeToTrader(traderId);
-        toast.success(`Followed successfully!`);
-        setIsSubscribed(true);
-        setShowSubscribeModal(false);
-        loadTraderProfile();
-      } else {
-        const res = await createCheckoutSession({
-          traderId: traderId,
-          tier: tier,
-          billingCycle: 'month'
-        });
-        
-        if (res.data?.url) {
-          window.location.href = res.data.url;
-        } else {
-          toast.error("Failed to initiate checkout");
-        }
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to subscribe');
+  const handleTierSubscribe = (tier) => {
+    // If the tier is 'free' or has no price, just subscribe
+    if (tier === 'free') {
+        handleSubscribe();
+        return;
     }
+    // For paid tiers, open the modal
+    // In a real app with multiple prices, we'd pass the tier to the backend
+    setSelectedSubscriptionTier(tier);
+    setShowPaymentMethodModal(true);
   };
 
   const handleMessage = () => {
@@ -424,7 +499,7 @@ export default function TraderProfileNew() {
                     </>
                   ) : (
                     <button
-                      onClick={() => handleSubscribe('free')}
+                      onClick={() => handleTierSubscribe('free')}
                       className="flex-1 md:flex-none bg-gradient-brand text-white px-8 py-3 rounded-xl font-semibold hover:shadow-glow-cyan transition-all flex items-center justify-center gap-2"
                     >
                       <Users className="w-5 h-5" />
@@ -555,7 +630,7 @@ export default function TraderProfileNew() {
                 'Comment on content',
                 'Exclusive trading tips',
               ]}
-              onClick={() => subscribeToTrader('basic')}
+              onClick={() => handleTierSubscribe('basic')}
             />
             <TierCard
               name="Premium"
@@ -568,7 +643,7 @@ export default function TraderProfileNew() {
                 'Weekly market analysis',
                 'Request custom content',
               ]}
-              onClick={() => subscribeToTrader('premium')}
+              onClick={() => handleTierSubscribe('premium')}
             />
             <TierCard
               name="Elite"
@@ -580,7 +655,7 @@ export default function TraderProfileNew() {
                 'Early access to trades',
                 'Personal Discord channel',
               ]}
-              onClick={() => subscribeToTrader('elite')}
+              onClick={() => handleTierSubscribe('elite')}
             />
           </div>
         )}
@@ -687,6 +762,68 @@ export default function TraderProfileNew() {
           )}
         </div>
       </div>
+
+      {/* Payment Method Modal */}
+      {showPaymentMethodModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md bg-dark-card border border-white/10 rounded-3xl p-6 shadow-2xl"
+          >
+            <h3 className="text-xl font-bold text-white mb-4">Select Payment Method</h3>
+            <p className="text-gray-400 mb-6">
+              Choose how you'd like to pay for your subscription.
+            </p>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => handleSubscribe('stripe')}
+                disabled={subscribing}
+                className="w-full flex items-center justify-between p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-6 bg-white rounded flex items-center justify-center">
+                    <span className="text-blue-600 font-bold text-xs">Stripe</span>
+                  </div>
+                  <span className="font-semibold text-white">Credit Card / Stripe</span>
+                </div>
+                {subscribing && paymentMethod === 'stripe' ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full border border-white/30 group-hover:border-brand-cyan" />
+                )}
+              </button>
+
+              <button
+                onClick={() => handleSubscribe('paypal')}
+                disabled={subscribing}
+                className="w-full flex items-center justify-between p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-6 bg-[#003087] rounded flex items-center justify-center">
+                    <span className="text-white font-bold text-xs italic">PayPal</span>
+                  </div>
+                  <span className="font-semibold text-white">PayPal</span>
+                </div>
+                {subscribing && paymentMethod === 'paypal' ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full border border-white/30 group-hover:border-brand-cyan" />
+                )}
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowPaymentMethodModal(false)}
+              disabled={subscribing}
+              className="w-full mt-6 py-3 text-gray-400 hover:text-white font-semibold transition-colors"
+            >
+              Cancel
+            </button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
