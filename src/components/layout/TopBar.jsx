@@ -16,7 +16,10 @@ export function TopBar() {
   const { user, logout } = useAuth();
   const menuRef = useRef(null);
 
-  const isTrader = user?.account_type === 'trader' || user?.is_trader;
+  const isTrader =
+    user?.account_type === 'trader' ||
+    user?.role === 'trader' ||
+    user?.is_trader;
 
   useEffect(() => {
     // Simulate live count - in production, this would come from WebSocket or API
@@ -147,14 +150,19 @@ export function TopBar() {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center gap-2 p-1 rounded-lg hover:bg-muted transition-colors"
             >
-              <img 
-                src={user?.avatar_url || "/server-logo.png"} 
-                alt={user?.username}
-                className="w-8 h-8 rounded-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.src = "/server-logo.png";
-                }}
-              />
+              {user?.avatar_url ? (
+                <img 
+                  src={user.avatar_url} 
+                  alt={user.username || 'User'} 
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                  <span className="text-xs font-semibold text-primary-foreground">
+                    {(user?.username || user?.global_name || 'U').charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
               <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
             </button>
 
