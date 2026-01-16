@@ -28,6 +28,18 @@ export default function Feed() {
   const [price, setPrice] = useState("");
   const [paymentStatus, setPaymentStatus] = useState(null);
 
+  // Warning on leave
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (postContent.trim() || selectedImage) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [postContent, selectedImage]);
+
   // Check payment status on mount
   useEffect(() => {
     if (user?.account_type === "trader") {
