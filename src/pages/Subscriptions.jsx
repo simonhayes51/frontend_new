@@ -24,8 +24,26 @@ export default function Subscriptions() {
     try {
       if (filter === 'subscribed') {
         const { data } = await getMySubscriptions();
-        // Handle if API returns { subscriptions: [...] } or just [...]
-        setTraders(data?.subscriptions?.map(sub => sub.trader || sub) || data || []);
+        const items = Array.isArray(data)
+          ? data
+          : data?.subscriptions || data?.items || data?.results || [];
+        const mapped = items.map((sub) => {
+          const trader = sub.trader || {};
+          return {
+            user_id: sub.trader_id || trader.user_id || trader.id || trader.trader_id,
+            username: sub.trader_username || trader.username,
+            avatar_url: sub.trader_avatar || trader.avatar_url,
+            verified: sub.verified ?? trader.verified,
+            bio: trader.bio,
+            total_followers: trader.total_followers,
+            total_posts: trader.total_posts,
+            avg_rating: sub.avg_rating ?? trader.avg_rating,
+            total_ratings: sub.total_ratings ?? trader.total_ratings,
+            specialties: trader.specialties || [],
+            is_subscribed: sub.is_active ?? true,
+          };
+        });
+        setTraders(mapped);
       } else {
         // Only send verified param if we are filtering by verified
         // Otherwise sending verified: false might filter for unverified traders only
@@ -193,13 +211,16 @@ export default function Subscriptions() {
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Posts</p>
                   </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center gap-1 text-gray-900 font-bold">
-                      <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                      {trader.avg_rating?.toFixed(1) || '0.0'}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Rating</p>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 text-gray-900 font-bold">
+                    <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                    {(trader.avg_rating ?? 0).toFixed(1)}
+                    {trader.total_ratings ? (
+                      <span className="text-xs text-gray-500">({trader.total_ratings})</span>
+                    ) : null}
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">Rating</p>
+                </div>
                 </div>
 
                 {trader.specialties && trader.specialties.length > 0 && (
