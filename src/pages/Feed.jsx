@@ -8,6 +8,7 @@ import { ArticleEditorModal } from "../components/feed/ArticleEditorModal";
 import { Image, FileText, BarChart3, Zap, X } from "lucide-react";
 import { GradientButton } from "../components/ui/GradientButton";
 import { getFeed, createPost } from "../api/social";
+import { getPaymentAccountStatus } from "../api/billing";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 
@@ -21,6 +22,27 @@ export default function Feed() {
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [showArticleModal, setShowArticleModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  
+  // Pricing & Access Control
+  const [accessType, setAccessType] = useState("free"); // free, premium, paid
+  const [price, setPrice] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState(null);
+
+  // Check payment status on mount
+  useEffect(() => {
+    if (user?.account_type === "trader") {
+      checkPaymentStatus();
+    }
+  }, [user]);
+
+  const checkPaymentStatus = async () => {
+    try {
+      const { data } = await getPaymentAccountStatus();
+      setPaymentStatus(data);
+    } catch (error) {
+      console.error("Failed to check payment status:", error);
+    }
+  };
 
   // Dummy posts for locked state
   const lockedPosts = [
@@ -30,7 +52,9 @@ export default function Feed() {
       content: "🔥 Huge opportunity on this player! Buy now before the hype starts. This is a locked preview of what you can see inside.", 
       created_at: new Date().toISOString(), 
       likes_count: 42, 
-      comments_count: 12 
+      comments_count: 12,
+      is_premium: true,
+      can_view: false
     },
     { 
       id: 2, 
@@ -46,7 +70,10 @@ export default function Feed() {
       content: "Just flipped this icon for 200k profit! 💰 check the guide below. Join now to see the full breakdown.", 
       created_at: new Date().toISOString(), 
       likes_count: 156, 
-      comments_count: 34 
+      comments_count: 34,
+      requires_purchase: true,
+      price: 4.99,
+      can_view: false
     },
   ];
 
@@ -83,11 +110,25 @@ export default function Feed() {
       return;
     }
 
+    if (accessType === "paid") {
+      if (!price || Number(price) <= 0) {
+        toast.error("Please enter a valid price for paid content");
+        return;
+      }
+      if (!paymentStatus?.payment_setup_completed) {
+        toast.error("Please set up your payment account first");
+        return;
+      }
+    }
+
     setCreating(true);
     try {
       const postData = {
         content: postContent,
         post_type: "tip",
+        is_premium: accessType === "premium",
+        requires_purchase: accessType === "paid",
+        price: accessType === "paid" ? Number(price) : 0,
       };
       
       // Add image if uploaded
@@ -99,6 +140,8 @@ export default function Feed() {
       toast.success("Post created!");
       setPostContent("");
       setSelectedImage(null);
+      setAccessType("free");
+      setPrice("");
       loadPosts();
     } catch (error) {
       console.error("Failed to create post:", error);
@@ -208,6 +251,72 @@ export default function Feed() {
                   }}
                 />
               </div>
+
+              {/* Pricing Options */}
+              {user?.account_type === "trader" && (
+                <div className="flex flex-wrap items-center gap-4 mb-3 pl-[52px]">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${accessType === "free" ? "border-brand-cyan" : "border-gray-500"}`}>
+                      {accessType === "free" && <div className="w-2 h-2 rounded-full bg-brand-cyan" />}
+                    </div>
+                    <input
+                      type="radio"
+                      name="accessType"
+                      value="free"
+                      checked={accessType === "free"}
+                      onChange={(e) => setAccessType(e.target.value)}
+                      className="hidden"
+                    />
+                    <span className={`text-sm ${accessType === "free" ? "text-white" : "text-gray-400 group-hover:text-gray-300"}`}>Free</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${accessType === "premium" ? "border-purple-500" : "border-gray-500"}`}>
+                      {accessType === "premium" && <div className="w-2 h-2 rounded-full bg-purple-500" />}
+                    </div>
+                    <input
+                      type="radio"
+                      name="accessType"
+                      value="premium"
+                      checked={accessType === "premium"}
+                      onChange={(e) => setAccessType(e.target.value)}
+                      className="hidden"
+                    />
+                    <span className={`text-sm font-medium ${accessType === "premium" ? "text-purple-400" : "text-gray-400 group-hover:text-purple-400/70"}`}>Premium</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${accessType === "paid" ? "border-green-500" : "border-gray-500"}`}>
+                      {accessType === "paid" && <div className="w-2 h-2 rounded-full bg-green-500" />}
+                    </div>
+                    <input
+                      type="radio"
+                      name="accessType"
+                      value="paid"
+                      checked={accessType === "paid"}
+                      onChange={(e) => setAccessType(e.target.value)}
+                      className="hidden"
+                    />
+                    <span className={`text-sm font-medium ${accessType === "paid" ? "text-green-400" : "text-gray-400 group-hover:text-green-400/70"}`}>Paid</span>
+                  </label>
+
+                  {accessType === "paid" && (
+                    <div className="flex items-center gap-2 ml-2 animate-in fade-in slide-in-from-left-5 duration-200">
+                      <span className="text-sm text-gray-400">$</span>
+                      <input
+                        type="number"
+                        placeholder="Price"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        className="w-24 bg-muted/50 border border-border rounded-lg px-3 py-1 text-sm text-white focus:outline-none focus:border-green-500 transition-all"
+                        min="0.50"
+                        step="0.50"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center justify-between pl-13">
                 <div className="flex items-center gap-2">
                   <label className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer">
