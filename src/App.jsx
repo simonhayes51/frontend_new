@@ -27,6 +27,7 @@ const AddTrade      = lazy(() => import("./pages/AddTrade"));
 const Trades        = lazy(() => import("./pages/Trades"));
 const Profile       = lazy(() => import("./pages/Profile"));
 const Settings      = lazy(() => import("./pages/Settings"));
+const PaymentSettings = lazy(() => import("./pages/PaymentSettings"));
 const ProfitGraph   = lazy(() => import("./pages/ProfitGraph"));
 const PriceCheck    = lazy(() => import("./pages/PriceCheck"));
 const Trending      = lazy(() => import("./pages/Trending"));
@@ -65,6 +66,7 @@ const TraderProfileNew = lazy(() => import("./pages/TraderProfileNew"));
 const MessagesPage = lazy(() => import("./pages/MessagesPage"));
 const TraderDashboard = lazy(() => import("./pages/TraderDashboard"));
 const BecomeTrader = lazy(() => import("./pages/BecomeTrader"));
+const SubscriptionSuccess = lazy(() => import("./pages/SubscriptionSuccess"));
 const AppLayout = lazy(() => import("./components/AppLayout"));
 
 // PROFESSIONAL REDESIGN - Clean, modern layout
@@ -119,6 +121,7 @@ function App() {
                     <Route path="trader-dashboard" element={<TraderDashboard />} />
                     <Route path="become-trader" element={<BecomeTrader />} />
                     <Route path="trader/:traderId" element={<TraderProfileNew />} />
+                    <Route path="subscription/success" element={<SubscriptionSuccess />} />
 
                     {/* Free tier pages */}
                     <Route path="add-trade" element={<AddTrade />} />
@@ -127,6 +130,7 @@ function App() {
                     <Route path="player-compare" element={<PlayerCompare />} />
                     <Route path="profile" element={<Profile />} />
                     <Route path="settings" element={<Settings />} />
+                    <Route path="settings/payments" element={<PaymentSettings />} />
                     <Route path="analytics" element={<ProfitGraph />} />
                     <Route path="pricecheck" element={<PriceCheck />} />
                     <Route path="watchlist" element={<Watchlist />} />
