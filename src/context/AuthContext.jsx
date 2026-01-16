@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
 import api from '../axios';
+import { getTraderMe } from '../api/traders';
 
 const AuthContext = createContext();
 
@@ -87,11 +88,45 @@ export const AuthProvider = ({ children }) => {
         !!authData.id;
 
       if (authenticated) {
-        // Normalize user data: if response contains a nested 'user' object, merge it up
-        // so that TopBar and other components can access properties like avatar_url directly.
         let userData = authData;
         if (authData.user && typeof authData.user === 'object') {
           userData = { ...authData, ...authData.user };
+        }
+
+        try {
+          const traderRes = await getTraderMe();
+          if (traderRes?.data) {
+            const trader = traderRes.data || {};
+            const merged = { ...userData, ...trader };
+            if (!merged.account_type && (trader.account_type || trader.tier)) {
+              merged.account_type = trader.account_type || 'trader';
+            }
+            if (!merged.is_trader) {
+              merged.is_trader = true;
+            }
+            if (!merged.avatar_url) {
+              merged.avatar_url =
+                trader.avatar_url ||
+                trader.avatar ||
+                userData.avatar_url ||
+                userData.avatar ||
+                '';
+            }
+            userData = merged;
+          }
+        } catch {
+        }
+
+        if (!userData.avatar_url) {
+          userData = {
+            ...userData,
+            avatar_url:
+              userData.avatar ||
+              userData.user_avatar ||
+              userData.image ||
+              userData.picture ||
+              '',
+          };
         }
 
         console.log('✅ User authenticated:', userData.user_id || userData.id);
