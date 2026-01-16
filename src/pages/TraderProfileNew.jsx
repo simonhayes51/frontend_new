@@ -1,390 +1,436 @@
-import api from "../axios";
+// src/pages/TraderProfileNew.jsx
+import React, { useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 
-const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_API_URL || api.defaults.baseURL || "")
-  .replace(/\/$/, "")
-  .replace(/^http:\/\//, "https://");
+// Adjust these imports to your project structure:
+import {
+  getTraderProfile,
+  subscribeToTrader,
+  unsubscribeFromTrader,
+  checkSubscriptionStatus,
+  getTraderSubscriptionStats,
+  getTraderRatings,
+} from "../api/socialApi";
 
-const socialRequest = (config) => api.request({ ...config, baseURL: SOCIAL_BASE });
+// If you use lucide-react (common in your stack). If not, remove icons.
+import {
+  Globe,
+  Twitter,
+  Youtube,
+  Twitch,
+  MapPin,
+  BadgeCheck,
+  UserPlus,
+  UserMinus,
+  AlertTriangle,
+} from "lucide-react";
 
-const isBadId = (v) => v == null || String(v).trim() === "" || ["undefined", "null", "None"].includes(String(v).trim());
+const isBadId = (v) =>
+  v == null ||
+  String(v).trim() === "" ||
+  ["undefined", "null", "none"].includes(String(v).trim().toLowerCase());
 
-const tryPost = async (paths, payload) => {
-  let lastError;
-  for (const path of paths) {
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      return await socialRequest({ method: "post", url: path, data: payload });
-    } catch (error) {
-      if (![404, 405].includes(error?.response?.status)) throw error;
-      lastError = error;
+const safeArray = (v) => (Array.isArray(v) ? v : []);
+const safeStr = (v, fallback = "") => (v == null ? fallback : String(v));
+const safeNum = (v, fallback = 0) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const iconForUrl = (url) => {
+  const u = (url || "").toLowerCase();
+  if (!u) return null;
+  if (u.includes("twitter.com") || u.includes("x.com")) return Twitter;
+  if (u.includes("youtube.com") || u.includes("youtu.be")) return Youtube;
+  if (u.includes("twitch.tv")) return Twitch;
+  return Globe;
+};
+
+export default function TraderProfileNew() {
+  const params = useParams();
+  const navigate = useNavigate();
+
+  // Support either /traders/:id or /traders/:traderId
+  const routeId = useMemo(() => params?.traderId ?? params?.id, [params]);
+
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState(null);
+  const [subStats, setSubStats] = useState(null);
+  const [ratings, setRatings] = useState([]);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  // Always derive a single “internal id” for actions
+  const traderId = useMemo(() => {
+    if (isBadId(routeId)) return null;
+    return String(routeId).trim();
+  }, [routeId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setError("");
+      setLoading(true);
+      setProfile(null);
+      setSubStats(null);
+      setRatings([]);
+      setIsSubscribed(false);
+
+      if (!traderId) {
+        setLoading(false);
+        setError("Invalid trader id.");
+        return;
+      }
+
+      try {
+        // 1) profile
+        const profileRes = await getTraderProfile(traderId);
+        if (cancelled) return;
+
+        // Some APIs return {data: ...}, axios does that.
+        const p = profileRes?.data ?? profileRes;
+        setProfile(p);
+
+        // Use the profile.id (internal id) for everything else if present
+        const internalId = !isBadId(p?.id) ? String(p.id) : traderId;
+
+        // 2) subscription status (optional but nice)
+        try {
+          const subRes = await checkSubscriptionStatus(internalId);
+          if (!cancelled) {
+            const s = subRes?.data ?? subRes;
+            setIsSubscribed(Boolean(s?.is_subscribed));
+          }
+        } catch {
+          // ignore
+        }
+
+        // 3) subscription stats (your endpoint already guards undefined)
+        try {
+          const statsRes = await getTraderSubscriptionStats(internalId);
+          if (!cancelled) setSubStats(statsRes?.data ?? statsRes);
+        } catch {
+          // ignore
+        }
+
+        // 4) ratings (optional)
+        try {
+          const rRes = await getTraderRatings(internalId);
+          if (!cancelled) setRatings(rRes?.data ?? rRes ?? []);
+        } catch {
+          // ignore
+        }
+      } catch (e) {
+        if (cancelled) return;
+        setError(
+          e?.response?.data?.detail ||
+            e?.message ||
+            "Failed to load trader profile."
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [traderId]);
+
+  const internalTraderId = useMemo(() => {
+    // Prefer the returned profile.id (internal user id)
+    if (!isBadId(profile?.id)) return String(profile.id);
+    // fall back to route id
+    if (!isBadId(traderId)) return String(traderId);
+    return null;
+  }, [profile, traderId]);
+
+  const socials = useMemo(() => {
+    // Your TraderPublicProfile model has these
+    const website_url = safeStr(profile?.website_url);
+    const twitter_url = safeStr(profile?.twitter_url);
+    const youtube_url = safeStr(profile?.youtube_url);
+    const twitch_url = safeStr(profile?.twitch_url);
+
+    const list = [
+      website_url && { label: "Website", url: website_url },
+      twitter_url && { label: "X / Twitter", url: twitter_url },
+      youtube_url && { label: "YouTube", url: youtube_url },
+      twitch_url && { label: "Twitch", url: twitch_url },
+    ].filter(Boolean);
+
+    return list;
+  }, [profile]);
+
+  const onToggleSubscribe = async () => {
+    setError("");
+    if (!internalTraderId) {
+      setError("Missing trader id.");
+      return;
     }
-  }
-  throw lastError;
-};
+    if (actionBusy) return;
 
-const tryPatch = async (paths, payload) => {
-  let lastError;
-  for (const path of paths) {
+    setActionBusy(true);
     try {
-      // eslint-disable-next-line no-await-in-loop
-      return await socialRequest({ method: "patch", url: path, data: payload });
-    } catch (error) {
-      if (![404, 405].includes(error?.response?.status)) throw error;
-      lastError = error;
+      if (isSubscribed) {
+        await unsubscribeFromTrader(internalTraderId);
+        setIsSubscribed(false);
+      } else {
+        await subscribeToTrader(internalTraderId);
+        setIsSubscribed(true);
+      }
+
+      // refresh stats after change (optional)
+      try {
+        const statsRes = await getTraderSubscriptionStats(internalTraderId);
+        setSubStats(statsRes?.data ?? statsRes);
+      } catch {
+        // ignore
+      }
+    } catch (e) {
+      setError(
+        e?.response?.data?.detail ||
+          e?.message ||
+          "Subscription action failed."
+      );
+    } finally {
+      setActionBusy(false);
     }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 text-sm opacity-80">
+        Loading trader profile…
+      </div>
+    );
   }
-  throw lastError;
-};
 
-const tryGet = async (paths, config) => {
-  let lastError;
-  for (const path of paths) {
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      return await socialRequest({ method: "get", url: path, ...config });
-    } catch (error) {
-      if (error?.response?.status !== 404) throw error;
-      lastError = error;
-    }
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5" />
+          <div>
+            <div className="font-semibold">Trader profile error</div>
+            <div className="text-sm opacity-90">{error}</div>
+            <button
+              className="mt-3 rounded-md border px-3 py-1.5 text-sm"
+              onClick={() => navigate(-1)}
+            >
+              Go back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
-  throw lastError;
-};
 
-const tryDelete = async (paths) => {
-  let lastError;
-  for (const path of paths) {
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      return await socialRequest({ method: "delete", url: path });
-    } catch (error) {
-      if (![404, 405].includes(error?.response?.status)) throw error;
-      lastError = error;
-    }
-  }
-  throw lastError;
-};
+  const username = safeStr(profile?.username, "Anonymous");
+  const avatar = profile?.avatar_url || "";
+  const header = profile?.header_image_url || "";
+  const verified = Boolean(profile?.verified);
+  const bio = safeStr(profile?.bio, "");
+  const location = safeStr(profile?.location, "");
+  const specialties = safeArray(profile?.specialties);
 
-export const getFeed = (params) =>
-  tryGet(["/api/feed", "/api/social/feed", "/api/social/posts"], { params });
+  const totalFollowers = safeNum(profile?.total_followers, 0);
+  const totalPosts = safeNum(profile?.total_posts, 0);
+  const avgRating = safeNum(profile?.avg_rating, 0);
+  const totalRatings = safeNum(profile?.total_ratings, 0);
 
-export const createPost = (payload) =>
-  tryPost(["/api/feed", "/api/social/feed", "/api/social/posts"], payload);
+  return (
+    <div className="mx-auto w-full max-w-5xl p-4 md:p-6">
+      {/* Header */}
+      <div className="overflow-hidden rounded-2xl border">
+        <div className="relative h-36 w-full md:h-48">
+          {header ? (
+            <img
+              src={header}
+              alt=""
+              className="h-full w-full object-cover"
+              onError={(e) => (e.currentTarget.style.display = "none")}
+            />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-r from-slate-900 to-slate-800" />
+          )}
 
-export const updatePost = async (postId, payload) => {
-  try {
-    return await tryPatch([`/api/feed/posts/${postId}`], payload);
-  } catch (error) {
-    if (![404, 405].includes(error?.response?.status)) throw error;
-    return tryPost([`/api/social/posts/${postId}`], payload);
-  }
-};
+          <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
+            <div className="flex items-end gap-4">
+              <div className="h-16 w-16 overflow-hidden rounded-2xl border bg-black/20 md:h-20 md:w-20">
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    onError={(e) => (e.currentTarget.style.display = "none")}
+                  />
+                ) : (
+                  <div className="h-full w-full" />
+                )}
+              </div>
 
-export const deletePost = (postId) =>
-  socialRequest({ method: "delete", url: `/api/feed/${postId}` });
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h1 className="truncate text-xl font-semibold md:text-2xl">
+                    {username}
+                  </h1>
+                  {verified && (
+                    <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs">
+                      <BadgeCheck className="h-4 w-4" />
+                      Verified
+                    </span>
+                  )}
+                </div>
 
-export const reactToPost = (postId, reaction) =>
-  socialRequest({
-    method: "post",
-    url: `/api/social/posts/${postId}/reactions`,
-    data: { reaction: reaction || "like" },
-  });
+                {location && (
+                  <div className="mt-1 flex items-center gap-2 text-sm opacity-80">
+                    <MapPin className="h-4 w-4" />
+                    <span className="truncate">{location}</span>
+                  </div>
+                )}
+              </div>
 
-export const removePostReaction = (postId) =>
-  socialRequest({ method: "delete", url: `/api/social/posts/${postId}/reactions` });
+              <button
+                onClick={onToggleSubscribe}
+                disabled={actionBusy || !internalTraderId}
+                className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium disabled:opacity-50"
+              >
+                {isSubscribed ? (
+                  <>
+                    <UserMinus className="h-4 w-4" />
+                    Unfollow
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4" />
+                    Follow
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
 
-export const getPostComments = (postId, params) =>
-  socialRequest({ method: "get", url: `/api/social/posts/${postId}/comments`, params });
+        {/* Body */}
+        <div className="p-4 md:p-6">
+          {bio && <p className="whitespace-pre-wrap text-sm opacity-90">{bio}</p>}
 
-export const addPostComment = (postId, payload) =>
-  socialRequest({ method: "post", url: `/api/social/posts/${postId}/comments`, data: payload });
+          {specialties.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {specialties.slice(0, 20).map((s) => (
+                <span
+                  key={s}
+                  className="rounded-full border px-3 py-1 text-xs opacity-90"
+                >
+                  {s}
+                </span>
+              ))}
+            </div>
+          )}
 
-export const updateComment = (commentId, payload) =>
-  tryPost(
-    [
-      `/api/interactions/comments/${commentId}`,
-      `/api/social/interactions/comments/${commentId}`,
-    ],
-    payload
+          {socials.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {socials.map((s) => {
+                const Icon = iconForUrl(s.url) || Globe; // ✅ never undefined
+                return (
+                  <a
+                    key={s.label}
+                    href={s.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm"
+                  >
+                    <Icon className="h-4 w-4" />
+                    {s.label}
+                  </a>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Stats */}
+          <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="rounded-xl border p-3">
+              <div className="text-xs opacity-70">Followers</div>
+              <div className="text-lg font-semibold">{totalFollowers}</div>
+            </div>
+            <div className="rounded-xl border p-3">
+              <div className="text-xs opacity-70">Posts</div>
+              <div className="text-lg font-semibold">{totalPosts}</div>
+            </div>
+            <div className="rounded-xl border p-3">
+              <div className="text-xs opacity-70">Avg rating</div>
+              <div className="text-lg font-semibold">{avgRating.toFixed(1)}</div>
+            </div>
+            <div className="rounded-xl border p-3">
+              <div className="text-xs opacity-70">Ratings</div>
+              <div className="text-lg font-semibold">{totalRatings}</div>
+            </div>
+          </div>
+
+          {/* Subscription stats (if available) */}
+          {subStats && (
+            <div className="mt-6 rounded-2xl border p-4">
+              <div className="text-sm font-semibold">Subscription stats</div>
+              <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+                <div className="rounded-xl border p-3">
+                  <div className="text-xs opacity-70">Total</div>
+                  <div className="text-lg font-semibold">
+                    {safeNum(subStats.total, 0)}
+                  </div>
+                </div>
+                <div className="rounded-xl border p-3">
+                  <div className="text-xs opacity-70">Founding</div>
+                  <div className="text-lg font-semibold">
+                    {safeNum(subStats.founding_count, 0)}
+                  </div>
+                </div>
+                <div className="rounded-xl border p-3">
+                  <div className="text-xs opacity-70">Active %</div>
+                  <div className="text-lg font-semibold">
+                    {safeNum(subStats.active_percentage, 0)}%
+                  </div>
+                </div>
+                <div className="rounded-xl border p-3">
+                  <div className="text-xs opacity-70">Tiers</div>
+                  <div className="text-xs opacity-90">
+                    {Object.entries(subStats.tier_breakdown || {}).length
+                      ? Object.entries(subStats.tier_breakdown || {})
+                          .map(([k, v]) => `${k}:${v}`)
+                          .join(" • ")
+                      : "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Ratings (optional) */}
+          {Array.isArray(ratings) && ratings.length > 0 && (
+            <div className="mt-6 rounded-2xl border p-4">
+              <div className="text-sm font-semibold">Recent ratings</div>
+              <div className="mt-3 space-y-2">
+                {ratings.slice(0, 5).map((r, idx) => (
+                  <div key={r?.id ?? idx} className="rounded-xl border p-3">
+                    <div className="text-xs opacity-70">
+                      {safeNum(r?.rating, 0)} ★
+                    </div>
+                    {r?.review && (
+                      <div className="mt-1 text-sm opacity-90">
+                        {safeStr(r.review)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
-
-export const deleteComment = (commentId) =>
-  socialRequest({ method: "delete", url: `/api/interactions/comments/${commentId}` });
-
-export const reactToComment = (commentId) =>
-  tryPost(
-    [
-      `/api/interactions/comments/${commentId}/like`,
-      `/api/social/interactions/comments/${commentId}/like`,
-    ],
-    {}
-  );
-
-export const sharePost = (postId) =>
-  socialRequest({ method: "post", url: `/api/social/posts/${postId}/share` });
-
-export const viewPost = (postId) =>
-  socialRequest({ method: "post", url: `/api/social/posts/${postId}/view` });
-
-export const getConversations = () =>
-  tryGet(["/api/messages/conversations", "/api/social/messages/conversations"]);
-
-export const getConversationMessages = (conversationId) =>
-  tryGet([
-    `/api/messages/conversations/${conversationId}/messages`,
-    `/api/social/messages/conversations/${conversationId}/messages`,
-  ]);
-
-export const sendConversationMessage = (conversationId, payload) =>
-  tryPost(
-    [
-      `/api/messages/conversations/${conversationId}/messages`,
-      `/api/social/messages/conversations/${conversationId}/messages`,
-    ],
-    payload
-  );
-
-export const startConversation = (payload) =>
-  tryPost(["/api/messages/conversations", "/api/social/messages/conversations"], payload);
-
-export const deleteConversationMessage = (conversationId, messageId) =>
-  socialRequest({
-    method: "delete",
-    url: `/api/messages/conversations/${conversationId}/messages/${messageId}`,
-  });
-
-export const clearConversationMessages = (conversationId) =>
-  tryPost(
-    [
-      `/api/messages/conversations/${conversationId}/clear`,
-      `/api/social/messages/conversations/${conversationId}/clear`,
-    ],
-    {}
-  );
-
-export const markConversationRead = (conversationId) =>
-  tryPost(
-    [
-      `/api/messages/conversations/${conversationId}/read`,
-      `/api/social/messages/conversations/${conversationId}/read`,
-    ],
-    {}
-  );
-
-export const searchMessageUsers = (query) =>
-  tryGet(
-    [
-      "/api/messages/users/search",
-      "/api/social/messages/users/search",
-      "/api/messages/search/users",
-    ],
-    { params: { q: query, query, username: query } }
-  );
-
-export const getUnreadMessageCount = () =>
-  tryGet(["/api/messages/unread-count", "/api/social/messages/unread-count"]);
-
-export const getNotifications = (params) =>
-  tryGet(["/api/notifications", "/api/social/notifications"], { params });
-
-export const markNotificationRead = (notificationId) =>
-  tryPost(
-    [
-      `/api/notifications/${notificationId}/read`,
-      `/api/social/notifications/${notificationId}/read`,
-    ],
-    {}
-  );
-
-export const markAllNotificationsRead = () =>
-  tryPost(["/api/notifications/read-all", "/api/social/notifications/read-all"], {});
-
-export const deleteNotification = (notificationId) =>
-  tryDelete([
-    `/api/notifications/${notificationId}`,
-    `/api/social/notifications/${notificationId}`,
-  ]);
-
-export const getUnreadNotificationCount = () =>
-  tryGet([
-    "/api/notifications/unread-count",
-    "/api/social/notifications/unread-count",
-  ]);
-
-export const getTraders = (params) =>
-  tryGet(["/api/traders", "/api/social/traders"], { params });
-
-export const getTraderProfile = (traderId) => {
-  if (isBadId(traderId)) throw new Error("Missing trader id");
-  return api.get(`/api/traders/${traderId}`);
-};
-
-export const upgradeToTrader = (payload) =>
-  tryPost(
-    ["/api/traders/upgrade", "/api/traders/request", "/api/traders/apply", "/api/social/traders"],
-    payload
-  );
-
-export const subscribeToTrader = (traderId) => {
-  if (isBadId(traderId)) throw new Error("Missing trader id");
-  return tryPost(
-    [
-      `/api/subscriptions/${traderId}/subscribe`,
-      `/api/social/subscriptions/${traderId}/subscribe`,
-    ],
-    { tier: "free" }
-  );
-};
-
-export const unsubscribeFromTrader = (traderId) => {
-  if (isBadId(traderId)) throw new Error("Missing trader id");
-  return tryPost(
-    [
-      `/api/subscriptions/${traderId}/unsubscribe`,
-      `/api/social/subscriptions/${traderId}/unsubscribe`,
-    ],
-    {}
-  );
-};
-
-export const getTraderRatings = (traderId) => {
-  if (isBadId(traderId)) throw new Error("Missing trader id");
-  return tryGet(
-    [
-      `/api/ratings/trader/${traderId}`,
-      `/api/ratings/${traderId}`,
-      `/api/social/ratings/${traderId}`,
-    ]
-  );
-};
-
-export const rateTrader = (traderId, payload) => {
-  if (isBadId(traderId)) throw new Error("Missing trader id");
-  return tryPost(
-    [
-      "/api/ratings/rate",
-      `/api/ratings/${traderId}`,
-      `/api/social/ratings/${traderId}`,
-    ],
-    { trader_id: traderId, ...payload }
-  );
-};
-
-export const getTraderRatingSummary = (traderId) => {
-  if (isBadId(traderId)) throw new Error("Missing trader id");
-  return tryGet([`/api/ratings/trader/${traderId}/summary`]);
-};
-
-export const getMyTraderRating = (traderId) => {
-  if (isBadId(traderId)) throw new Error("Missing trader id");
-  return tryGet([`/api/ratings/my-rating/${traderId}`]);
-};
-
-export const deleteMyTraderRating = (traderId) => {
-  if (isBadId(traderId)) throw new Error("Missing trader id");
-  return tryDelete([`/api/ratings/rating/${traderId}`]);
-};
-
-export const getTopRatedTraders = () =>
-  tryGet(["/api/ratings/leaderboard", "/api/social/ratings/leaderboard"]);
-
-export const getRecommendedTraders = () =>
-  tryGet(["/api/subscriptions/recommended", "/api/social/subscriptions/recommended"]);
-
-export const getTraderRoleRequests = () =>
-  tryGet([
-    "/api/admin/traders/requests",
-    "/api/traders/requests",
-    "/api/social/traders/requests",
-  ]);
-
-export const approveTraderRoleRequest = (requestId) =>
-  tryPost(
-    [
-      `/api/admin/traders/requests/${requestId}/approve`,
-      `/api/traders/requests/${requestId}/approve`,
-      `/api/social/traders/requests/${requestId}/approve`,
-    ],
-    {}
-  );
-
-export const rejectTraderRoleRequest = (requestId) =>
-  tryPost(
-    [
-      `/api/admin/traders/requests/${requestId}/reject`,
-      `/api/traders/requests/${requestId}/reject`,
-      `/api/social/traders/requests/${requestId}/reject`,
-    ],
-    {}
-  );
-
-export const assignTraderRole = (payload) =>
-  tryPost(
-    ["/api/admin/traders/assign", "/api/traders/assign", "/api/social/traders/assign"],
-    payload
-  );
-
-// ============================================================================
-// NEW: Tier-based subscriptions, tips, and saved posts
-// ============================================================================
-
-export const subscribeToTier = (traderId, tier) => {
-  if (isBadId(traderId)) throw new Error("Missing trader id");
-  return tryPost([`/api/subscriptions/tier/${traderId}`], { tier });
-};
-
-export const getTraderSubscriptionStats = (traderId) => {
-  if (isBadId(traderId)) throw new Error("Missing trader id");
-  return tryGet([`/api/subscriptions/trader/${traderId}/subscription-stats`]);
-};
-
-export const checkSubscriptionStatus = (traderId) => {
-  if (isBadId(traderId)) throw new Error("Missing trader id");
-  return tryGet([`/api/subscriptions/check/${traderId}`]);
-};
-
-export const tipPost = (postId, amount) =>
-  tryPost(["/api/subscriptions/tip"], { post_id: postId, amount });
-
-export const getMySubscriptions = () =>
-  tryGet(
-    [
-      "/api/subscriptions/my-subscriptions",
-      "/api/subscriptions/mine",
-      "/api/social/subscriptions/mine",
-    ]
-  );
-
-export const savePost = (postId) =>
-  tryPost([`/api/subscriptions/save-post/${postId}`], {});
-
-export const unsavePost = (postId) =>
-  socialRequest({ method: "delete", url: `/api/subscriptions/save-post/${postId}` });
-
-export const getSavedPosts = (params) =>
-  tryGet(["/api/subscriptions/saved-posts"], { params });
-
-// Content Requests
-export const createContentRequest = (payload) =>
-  tryPost(["/api/content-requests/create"], payload);
-
-export const getTraderContentRequests = (traderId, params) => {
-  if (isBadId(traderId)) throw new Error("Missing trader id");
-  return tryGet([`/api/content-requests/trader/${traderId}`], { params });
-};
-
-export const upvoteContentRequest = (requestId) =>
-  tryPost([`/api/content-requests/${requestId}/upvote`], {});
-
-export const updateContentRequestStatus = (requestId, status, postId) =>
-  socialRequest({
-    method: "patch",
-    url: `/api/content-requests/${requestId}/status`,
-    data: { status },
-    params: postId ? { post_id: postId } : {},
-  });
-
-export const deleteContentRequest = (requestId) =>
-  socialRequest({ method: "delete", url: `/api/content-requests/${requestId}` });
-
-export const getMyContentRequests = (params) =>
-  tryGet(["/api/content-requests/my-requests"], { params });
+}
