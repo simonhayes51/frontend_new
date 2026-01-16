@@ -90,6 +90,8 @@ export default function TraderProfileNew() {
   const loadTraderProfile = async () => {
     setLoading(true);
 
+    let tidForRequests = routeTraderId;
+
     try {
       // 1) Profile
       const profileRes = await getTraderProfile(routeTraderId);
@@ -99,10 +101,10 @@ export default function TraderProfileNew() {
       setIsSubscribed(Boolean(profile.is_subscribed));
 
       // ✅ always use internal id after profile loads
-      const tid = !isBadId(profile?.id) ? String(profile.id) : routeTraderId;
+      tidForRequests = !isBadId(profile?.id) ? String(profile.id) : routeTraderId;
 
       // 2) Posts for this trader
-      const postsRes = await api.get(`/api/feed`, { params: { trader_id: tid } });
+      const postsRes = await api.get('/api/feed', { params: { trader_id: tidForRequests } });
       setPosts(postsRes.data?.posts || []);
     } catch (error) {
       console.error('Failed to load trader:', error);
@@ -113,9 +115,8 @@ export default function TraderProfileNew() {
 
     try {
       // ✅ stats should be called with internal id too
-      const tid = internalTraderId || routeTraderId;
-      if (!isBadId(tid)) {
-        const statsRes = await api.get(`/api/subscriptions/trader/${tid}/subscription-stats`);
+      if (!isBadId(tidForRequests)) {
+        const statsRes = await api.get(`/api/subscriptions/trader/${tidForRequests}/subscription-stats`);
         setStats(statsRes.data);
       } else {
         setStats(null);
@@ -128,17 +129,15 @@ export default function TraderProfileNew() {
     }
 
     try {
-      const tid = internalTraderId || routeTraderId;
-      if (!isBadId(tid)) {
-        const summaryRes = await getTraderRatingSummary(tid);
+      if (!isBadId(tidForRequests)) {
+        const summaryRes = await getTraderRatingSummary(tidForRequests);
         setRatingSummary(summaryRes.data);
       }
     } catch {}
 
     try {
-      const tid = internalTraderId || routeTraderId;
-      if (!isBadId(tid)) {
-        const myRes = await getMyTraderRating(tid);
+      if (!isBadId(tidForRequests)) {
+        const myRes = await getMyTraderRating(tidForRequests);
         setMyRating(myRes.data);
         if (myRes.data?.has_rated && myRes.data.rating) {
           setRatingValue(myRes.data.rating.rating || 0);
@@ -201,7 +200,7 @@ export default function TraderProfileNew() {
         }
       }
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to subscribe');
+      toast.error(error.response?.data?.detail || error.message || 'Failed to subscribe');
     }
   };
 
@@ -371,10 +370,12 @@ export default function TraderProfileNew() {
                     </div>
                     <div className="text-sm text-gray-500">Subscribers</div>
                   </div>
+
                   <div>
                     <div className="text-2xl font-bold text-white">{trader.total_posts || 0}</div>
                     <div className="text-sm text-gray-500">Posts</div>
                   </div>
+
                   <div>
                     <div className="text-2xl font-bold text-white flex items-center gap-2">
                       <div className="flex items-center gap-1">
@@ -387,8 +388,11 @@ export default function TraderProfileNew() {
                     </div>
                     <div className="text-sm text-gray-500">Rating</div>
                   </div>
+
                   <div>
-                    <div className="text-2xl font-bold text-tier-elite">{stats?.founding_count || 0}</div>
+                    <div className="text-2xl font-bold text-tier-elite">
+                      {stats?.founding_count || 0}
+                    </div>
                     <div className="text-sm text-gray-500">Founding</div>
                   </div>
                 </div>
@@ -418,6 +422,7 @@ export default function TraderProfileNew() {
                         <MessageCircle className="w-5 h-5" />
                         Message
                       </button>
+
                       <button
                         onClick={handleTip}
                         className="flex-1 md:flex-none bg-gradient-purple text-white px-8 py-3 rounded-xl font-semibold hover:shadow-glow-purple transition-all flex items-center justify-center gap-2"
@@ -425,6 +430,7 @@ export default function TraderProfileNew() {
                         <DollarSign className="w-5 h-5" />
                         Tip
                       </button>
+
                       <button
                         onClick={handleUnsubscribe}
                         className="px-6 py-3 bg-white/5 hover:bg-red-500/20 text-white hover:text-red-400 rounded-xl transition-all font-semibold"
@@ -797,4 +803,39 @@ function PostCard({ post, trader }) {
 
             {post.sell_target && (
               <div>
-                <p className="text-gray-500 mb-1">Sell Target</
+                <p className="text-gray-500 mb-1">Sell Target</p>
+                <p className="font-semibold text-blue-400">{post.sell_target}</p>
+              </div>
+            )}
+
+            {post.confidence_level && (
+              <div>
+                <p className="text-gray-500 mb-1">Confidence</p>
+                <p className="font-semibold text-white">{post.confidence_level}%</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-4 text-gray-500">
+        <button className="flex items-center gap-2 hover:text-red-400 transition-colors">
+          <Heart className="w-5 h-5" />
+          <span>{post.likes_count || 0}</span>
+        </button>
+        <button className="flex items-center gap-2 hover:text-brand-cyan transition-colors">
+          <MessageCircle className="w-5 h-5" />
+          <span>{post.comments_count || 0}</span>
+        </button>
+        <button className="flex items-center gap-2 hover:text-brand-purple transition-colors">
+          <Bookmark className="w-5 h-5" />
+        </button>
+        <div className="flex-1" />
+        <button className="flex items-center gap-2 hover:text-tier-elite transition-colors">
+          <DollarSign className="w-5 h-5" />
+          Tip
+        </button>
+      </div>
+    </div>
+  );
+}
