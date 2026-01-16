@@ -62,13 +62,16 @@ const tryDelete = async (paths) => {
   throw lastError;
 };
 
+// ============================================================================
+// FEED / POSTS
+// ============================================================================
+
 export const getFeed = (params) =>
-  tryGet(
-    ["/api/feed", "/api/social/feed", "/api/social/posts"],
-    { params }
-  );
+  tryGet(["/api/feed", "/api/social/feed", "/api/social/posts"], { params });
+
 export const createPost = (payload) =>
   tryPost(["/api/feed", "/api/social/feed", "/api/social/posts"], payload);
+
 export const updatePost = async (postId, payload) => {
   try {
     return await tryPatch([`/api/feed/posts/${postId}`], payload);
@@ -77,6 +80,7 @@ export const updatePost = async (postId, payload) => {
     return tryPost([`/api/social/posts/${postId}`], payload);
   }
 };
+
 export const deletePost = (postId) =>
   socialRequest({ method: "delete", url: `/api/feed/${postId}` });
 
@@ -96,12 +100,13 @@ export const getPostComments = (postId, params) =>
 export const addPostComment = (postId, payload) =>
   socialRequest({ method: "post", url: `/api/social/posts/${postId}/comments`, data: payload });
 
+// ============================================================================
+// COMMENTS / INTERACTIONS
+// ============================================================================
+
 export const updateComment = (commentId, payload) =>
   tryPost(
-    [
-      `/api/interactions/comments/${commentId}`,
-      `/api/social/interactions/comments/${commentId}`,
-    ],
+    [`/api/interactions/comments/${commentId}`, `/api/social/interactions/comments/${commentId}`],
     payload
   );
 
@@ -123,8 +128,13 @@ export const sharePost = (postId) =>
 export const viewPost = (postId) =>
   socialRequest({ method: "post", url: `/api/social/posts/${postId}/view` });
 
+// ============================================================================
+// MESSAGING
+// ============================================================================
+
 export const getConversations = () =>
   tryGet(["/api/messages/conversations", "/api/social/messages/conversations"]);
+
 export const getConversationMessages = (conversationId) =>
   tryGet([
     `/api/messages/conversations/${conversationId}/messages`,
@@ -180,51 +190,54 @@ export const searchMessageUsers = (query) =>
 export const getUnreadMessageCount = () =>
   tryGet(["/api/messages/unread-count", "/api/social/messages/unread-count"]);
 
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
 export const getNotifications = (params) =>
-  tryGet(
-    ["/api/notifications", "/api/social/notifications"],
-    { params }
-  );
+  tryGet(["/api/notifications", "/api/social/notifications"], { params });
 
 export const markNotificationRead = (notificationId) =>
   tryPost(
-    [
-      `/api/notifications/${notificationId}/read`,
-      `/api/social/notifications/${notificationId}/read`,
-    ],
+    [`/api/notifications/${notificationId}/read`, `/api/social/notifications/${notificationId}/read`],
     {}
   );
 
 export const markAllNotificationsRead = () =>
-  tryPost(
-    ["/api/notifications/read-all", "/api/social/notifications/read-all"],
-    {}
-  );
+  tryPost(["/api/notifications/read-all", "/api/social/notifications/read-all"], {});
 
 export const deleteNotification = (notificationId) =>
-  tryDelete([
-    `/api/notifications/${notificationId}`,
-    `/api/social/notifications/${notificationId}`,
-  ]);
+  tryDelete([`/api/notifications/${notificationId}`, `/api/social/notifications/${notificationId}`]);
 
 export const getUnreadNotificationCount = () =>
-  tryGet([
-    "/api/notifications/unread-count",
-    "/api/social/notifications/unread-count",
-  ]);
+  tryGet(["/api/notifications/unread-count", "/api/social/notifications/unread-count"]);
+
+// ============================================================================
+// TRADERS
+// ============================================================================
 
 export const getTraders = (params) =>
   tryGet(["/api/traders", "/api/social/traders"], { params });
+
 export const getTraderProfile = (traderId) => api.get(`/api/traders/${traderId}`);
+
 export const upgradeToTrader = (payload) =>
   tryPost(
     ["/api/traders/upgrade", "/api/traders/request", "/api/traders/apply", "/api/social/traders"],
     payload
   );
 
+// ✅ FOLLOW / SUBSCRIBE (free follow)
+// Prefer the newer path-based endpoint, fall back to old body-based one.
 export const subscribeToTrader = (traderId) =>
   tryPost(
-    ["/api/subscriptions/subscribe", "/api/social/subscriptions/subscribe"],
+    [
+      `/api/subscriptions/${traderId}/subscribe`,
+      `/api/social/subscriptions/${traderId}/subscribe`,
+      "/api/subscriptions/subscribe",
+      "/api/social/subscriptions/subscribe",
+    ],
+    // old endpoint requires body; new endpoint ignores body safely
     { trader_id: traderId, tier: "free" }
   );
 
@@ -237,14 +250,41 @@ export const unsubscribeFromTrader = (traderId) =>
     {}
   );
 
+// ============================================================================
+// RATINGS  ✅ (this is what your build was missing)
+// ============================================================================
+
 export const getTraderRatings = (traderId) =>
   tryGet([`/api/ratings/${traderId}`, `/api/social/ratings/${traderId}`]);
+
+export const getTraderRatingSummary = (traderId) =>
+  tryGet([`/api/ratings/trader/${traderId}/summary`]);
+
+export const getMyTraderRating = (traderId) =>
+  tryGet([`/api/ratings/my-rating/${traderId}`]);
+
+export const deleteMyTraderRating = (traderId) =>
+  tryDelete([`/api/ratings/rating/${traderId}`]);
+
 export const rateTrader = (traderId, payload) =>
-  tryPost([`/api/ratings/${traderId}`, `/api/social/ratings/${traderId}`], payload);
+  tryPost(
+    [
+      "/api/ratings/rate",
+      `/api/ratings/${traderId}`,
+      `/api/social/ratings/${traderId}`,
+    ],
+    { trader_id: traderId, ...payload }
+  );
+
 export const getTopRatedTraders = () =>
   tryGet(["/api/ratings/leaderboard", "/api/social/ratings/leaderboard"]);
+
 export const getRecommendedTraders = () =>
   tryGet(["/api/subscriptions/recommended", "/api/social/subscriptions/recommended"]);
+
+// ============================================================================
+// ADMIN / TRADER ROLE REQUESTS
+// ============================================================================
 
 export const getTraderRoleRequests = () =>
   tryGet([
@@ -252,6 +292,7 @@ export const getTraderRoleRequests = () =>
     "/api/traders/requests",
     "/api/social/traders/requests",
   ]);
+
 export const approveTraderRoleRequest = (requestId) =>
   tryPost(
     [
@@ -261,6 +302,7 @@ export const approveTraderRoleRequest = (requestId) =>
     ],
     {}
   );
+
 export const rejectTraderRoleRequest = (requestId) =>
   tryPost(
     [
@@ -270,6 +312,7 @@ export const rejectTraderRoleRequest = (requestId) =>
     ],
     {}
   );
+
 export const assignTraderRole = (payload) =>
   tryPost(
     ["/api/admin/traders/assign", "/api/traders/assign", "/api/social/traders/assign"],
@@ -277,7 +320,7 @@ export const assignTraderRole = (payload) =>
   );
 
 // ============================================================================
-// NEW: Tier-based subscriptions, tips, and saved posts
+// TIER SUBSCRIPTIONS / TIPS / SAVED POSTS
 // ============================================================================
 
 export const subscribeToTier = (traderId, tier) =>
@@ -293,7 +336,13 @@ export const tipPost = (postId, amount) =>
   tryPost(["/api/subscriptions/tip"], { post_id: postId, amount });
 
 export const getMySubscriptions = () =>
-  tryGet(["/api/subscriptions/mine", "/api/social/subscriptions/mine"]);
+  tryGet(
+    [
+      "/api/subscriptions/my-subscriptions",
+      "/api/subscriptions/mine",
+      "/api/social/subscriptions/mine",
+    ]
+  );
 
 export const savePost = (postId) =>
   tryPost([`/api/subscriptions/save-post/${postId}`], {});
@@ -304,7 +353,10 @@ export const unsavePost = (postId) =>
 export const getSavedPosts = (params) =>
   tryGet(["/api/subscriptions/saved-posts"], { params });
 
-// Content Requests
+// ============================================================================
+// CONTENT REQUESTS
+// ============================================================================
+
 export const createContentRequest = (payload) =>
   tryPost(["/api/content-requests/create"], payload);
 
