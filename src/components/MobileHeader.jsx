@@ -129,13 +129,9 @@ const MobileHeader = () => {
               title="Account menu"
             >
               <img
-                src={user?.avatar_url}
-                alt={user?.global_name}
-                className="w-12 h-12 rounded-full border-2 border-purple-500"
-                onError={(e) => {
-                  e.currentTarget.src =
-                    "https://cdn.discordapp.com/embed/avatars/0.png";
-                }}
+                src={user?.avatar_url || user?.avatar || "https://cdn.discordapp.com/embed/avatars/0.png"}
+                alt={user?.global_name || user?.username || "User"}
+                className="w-12 h-12 rounded-full border-2 border-purple-500 object-cover"
               />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-white truncate flex items-center gap-1">
