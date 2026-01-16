@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { Toaster } from "react-hot-toast";
 import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { DashboardProvider } from "./context/DashboardContext";
@@ -80,6 +81,7 @@ function App() {
           <NotificationProvider>
             <Router>
               <div className="bg-black min-h-screen text-white">
+                <Toaster position="top-right" />
                 <Suspense fallback={<Loading />}>
                 <Routes>
                   {/* Public routes */}
