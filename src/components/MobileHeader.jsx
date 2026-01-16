@@ -12,6 +12,8 @@ const MobileHeader = () => {
   const menuRef = useRef(null);
   const userCardRef = useRef(null);
 
+  const isTrader = user?.account_type === "trader" || user?.is_trader;
+
   // Navigation items matching desktop sidebar
   const navItems = [
     { path: "/", label: "Dashboard", icon: "📊" },
@@ -153,8 +155,27 @@ const MobileHeader = () => {
                     to="/profile"
                     className="block px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 transition-colors"
                   >
-                    Profile
+                    User Profile
                   </Link>
+
+                  {isTrader && (
+                    <Link
+                      to="/trader-dashboard"
+                      className="block px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 transition-colors"
+                    >
+                      Trader Dashboard
+                    </Link>
+                  )}
+
+                  {!isTrader && (
+                    <Link
+                      to="/become-trader"
+                      className="block px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 transition-colors"
+                    >
+                      Become a Trader
+                    </Link>
+                  )}
+
                   <Link
                     to="/settings"
                     className="block px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 transition-colors"
@@ -172,7 +193,7 @@ const MobileHeader = () => {
                     }}
                     className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
                   >
-                    Logout
+                    Sign Out
                   </button>
                 </div>
               </div>
