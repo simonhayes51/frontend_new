@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Bell, MessageCircle, Plus, Zap, User, BarChart3, Settings as SettingsIcon, LogOut, ChevronDown } from "lucide-react";
+import { Search, Bell, MessageCircle, Plus, User, BarChart3, Settings as SettingsIcon, LogOut, ChevronDown, TrendingUp } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useNotifications } from "../../context/NotificationContext";
@@ -147,17 +147,14 @@ export function TopBar() {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center gap-2 p-1 rounded-lg hover:bg-muted transition-colors"
             >
-              {user?.avatar_url ? (
-                <img 
-                  src={user.avatar_url} 
-                  alt={user.username} 
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-primary-foreground" />
-                </div>
-              )}
+              <img 
+                src={user?.avatar_url || "/server-logo.png"} 
+                alt={user?.username}
+                className="w-8 h-8 rounded-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = "/server-logo.png";
+                }}
+              />
               <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
             </button>
 
@@ -192,9 +189,20 @@ export function TopBar() {
                       className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                     >
                       <BarChart3 className="w-4 h-4" />
-                      Trader Panel
+                      Trader Dashboard
                     </button>
                   )}
+
+                  <button
+                    onClick={() => {
+                      navigate('/become-trader');
+                      setShowUserMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                  >
+                    <TrendingUp className="w-4 h-4" />
+                    Become a Trader
+                  </button>
 
                   <button
                     onClick={() => {
