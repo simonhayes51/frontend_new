@@ -150,9 +150,9 @@ export function TopBar() {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center gap-2 p-1 rounded-lg hover:bg-muted transition-colors"
             >
-              {user?.avatar_url ? (
+              {user?.avatar_url || user?.avatar ? (
                 <img 
-                  src={user.avatar_url} 
+                  src={user.avatar_url || user.avatar} 
                   alt={user.username || 'User'} 
                   className="w-8 h-8 rounded-full object-cover"
                 />
