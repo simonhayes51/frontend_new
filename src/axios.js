@@ -1,4 +1,5 @@
 import axios from "axios";
+import toast from "react-hot-toast";
 import { API_BASE } from "./lib/apiBase";
 
 /**
@@ -144,13 +145,28 @@ api.interceptors.response.use(
     }
 
     // 3. Handle 402 Payment Required -> Global Event
-    if (error.response?.status === 402) {
+    if (error.response?.status === 402 && typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("premium:blocked", { detail: error }));
     }
 
     // 4. Normalize Error Message
+    const status = error.response?.status;
     const serverMsg = error.response?.data?.detail || error.response?.data?.message;
-    error.userMessage = getUserFriendlyMessage(error.response?.status, serverMsg);
+    error.userMessage = getUserFriendlyMessage(status, serverMsg);
+
+    // 5. Global toast for backend errors (validation, permission, etc.)
+    if (typeof window !== "undefined") {
+      const shouldToast =
+        !config.__suppressToast &&
+        status &&
+        status >= 400 &&
+        status < 600;
+
+      if (shouldToast) {
+        const msg = error.response?.data?.detail || error.userMessage || "An unexpected error occurred";
+        toast.error(msg);
+      }
+    }
 
     return Promise.reject(error);
   }
