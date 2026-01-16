@@ -8,7 +8,7 @@ import { ArticleEditorModal } from "../components/feed/ArticleEditorModal";
 import { Image, FileText, BarChart3, Zap, X } from "lucide-react";
 import { GradientButton } from "../components/ui/GradientButton";
 import { getFeed, createPost } from "../api/social";
-import { getPaymentAccountStatus } from "../api/billing";
+import { getPaymentAccountsStatus } from "../api/billing";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 
@@ -37,7 +37,7 @@ export default function Feed() {
 
   const checkPaymentStatus = async () => {
     try {
-      const { data } = await getPaymentAccountStatus();
+      const { data } = await getPaymentAccountsStatus();
       setPaymentStatus(data);
     } catch (error) {
       console.error("Failed to check payment status:", error);
