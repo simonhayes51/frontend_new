@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Heart,
   MessageCircle,
@@ -25,6 +26,7 @@ import {
   deletePost,
 } from "../../api/social";
 import { useAuth } from "../../context/AuthContext";
+import { paypalPurchase } from "../../api/billing";
 import toast from "react-hot-toast";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -53,6 +55,7 @@ const searchPlayers = async (query) => {
 
 export function PostCard({ post, onUpdate }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const buildEditDraft = (source) => ({
     title: source?.title || "",
     content: source?.content || "",
@@ -294,7 +297,43 @@ export function PostCard({ post, onUpdate }) {
     tier: (author.tier || 'Free').charAt(0).toUpperCase() + (author.tier || 'free').slice(1),
   };
 
-  const isLocked = postState.is_locked || (postState.visibility === "premium" && !postState.can_view);
+  const handleSubscribe = () => {
+    const authorId = postState.user_id || postState.author_id || postState.author?.id;
+    if (authorId) navigate(`/trader/${authorId}`);
+  };
+
+  const handlePurchase = async () => {
+    if (!postState?.id) {
+      toast.error("Missing post information");
+      return;
+    }
+    try {
+      const res = await paypalPurchase({ post_id: postState.id });
+      const data = res?.data || res || {};
+      if (data.id) {
+        sessionStorage.setItem("paypal_purchase_id", data.id);
+      }
+      const approvalUrl = data.approval_url || data.url;
+      if (approvalUrl) {
+        window.location.href = approvalUrl;
+        return;
+      }
+      toast.error("Failed to start purchase checkout");
+    } catch (error) {
+      const message =
+        error?.response?.data?.detail ||
+        error?.response?.data?.message ||
+        error.userMessage ||
+        "Failed to start purchase";
+      toast.error(message);
+    }
+  };
+
+  const isLocked = 
+    postState.is_locked || 
+    ((postState.is_premium || postState.visibility === "premium") && !postState.can_view) ||
+    (postState.requires_purchase && !postState.can_view);
+
   const isArticle = postState.post_type === "analysis";
   const contentPreviewLength = 200;
   const shouldTruncate = isArticle && postState.content && postState.content.length > contentPreviewLength;
@@ -479,10 +518,25 @@ export function PostCard({ post, onUpdate }) {
               {postState.content.slice(0, 100)}...
             </p>
             <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-lg">
-              <div className="text-center">
+              <div className="text-center p-4">
                 <Lock className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground mb-2">Subscribe to unlock</p>
-                <GradientButton size="sm">Subscribe</GradientButton>
+                {postState.requires_purchase ? (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Unlock for ${postState.price || "0.00"}
+                    </p>
+                    <GradientButton size="sm" onClick={handlePurchase}>
+                      Purchase
+                    </GradientButton>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-3">Subscribe to unlock</p>
+                    <GradientButton size="sm" onClick={handleSubscribe}>
+                      Subscribe
+                    </GradientButton>
+                  </>
+                )}
               </div>
             </div>
           </div>
