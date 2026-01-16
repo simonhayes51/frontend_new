@@ -1,5 +1,11 @@
 import AppLayout from "./AppLayout";
+import { Toaster } from "react-hot-toast";
 
 export function MainLayout() {
-  return <AppLayout />;
+  return (
+    <>
+      <Toaster position="top-right" />
+      <AppLayout />
+    </>
+  );
 }
