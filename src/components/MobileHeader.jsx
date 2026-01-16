@@ -12,7 +12,10 @@ const MobileHeader = () => {
   const menuRef = useRef(null);
   const userCardRef = useRef(null);
 
-  const isTrader = user?.account_type === "trader" || user?.is_trader;
+  const isTrader =
+    user?.account_type === "trader" ||
+    user?.role === "trader" ||
+    user?.is_trader;
 
   // Navigation items matching desktop sidebar
   const navItems = [
