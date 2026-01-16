@@ -39,7 +39,10 @@ export default function AppLayout({ user, children }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isTrader = user?.account_type === 'trader' || user?.is_trader;
+  const isTrader =
+    user?.account_type === 'trader' ||
+    user?.role === 'trader' ||
+    user?.is_trader;
 
   const navigation = [
     { name: 'Feed', path: '/', icon: Home },
