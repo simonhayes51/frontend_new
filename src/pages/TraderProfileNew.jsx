@@ -6,6 +6,8 @@ const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_API_URL || api.defaults.baseURL
 
 const socialRequest = (config) => api.request({ ...config, baseURL: SOCIAL_BASE });
 
+const isBadId = (v) => v == null || String(v).trim() === "" || ["undefined", "null", "None"].includes(String(v).trim());
+
 const tryPost = async (paths, payload) => {
   let lastError;
   for (const path of paths) {
@@ -63,12 +65,11 @@ const tryDelete = async (paths) => {
 };
 
 export const getFeed = (params) =>
-  tryGet(
-    ["/api/feed", "/api/social/feed", "/api/social/posts"],
-    { params }
-  );
+  tryGet(["/api/feed", "/api/social/feed", "/api/social/posts"], { params });
+
 export const createPost = (payload) =>
   tryPost(["/api/feed", "/api/social/feed", "/api/social/posts"], payload);
+
 export const updatePost = async (postId, payload) => {
   try {
     return await tryPatch([`/api/feed/posts/${postId}`], payload);
@@ -77,6 +78,7 @@ export const updatePost = async (postId, payload) => {
     return tryPost([`/api/social/posts/${postId}`], payload);
   }
 };
+
 export const deletePost = (postId) =>
   socialRequest({ method: "delete", url: `/api/feed/${postId}` });
 
@@ -125,6 +127,7 @@ export const viewPost = (postId) =>
 
 export const getConversations = () =>
   tryGet(["/api/messages/conversations", "/api/social/messages/conversations"]);
+
 export const getConversationMessages = (conversationId) =>
   tryGet([
     `/api/messages/conversations/${conversationId}/messages`,
@@ -181,10 +184,7 @@ export const getUnreadMessageCount = () =>
   tryGet(["/api/messages/unread-count", "/api/social/messages/unread-count"]);
 
 export const getNotifications = (params) =>
-  tryGet(
-    ["/api/notifications", "/api/social/notifications"],
-    { params }
-  );
+  tryGet(["/api/notifications", "/api/social/notifications"], { params });
 
 export const markNotificationRead = (notificationId) =>
   tryPost(
@@ -196,10 +196,7 @@ export const markNotificationRead = (notificationId) =>
   );
 
 export const markAllNotificationsRead = () =>
-  tryPost(
-    ["/api/notifications/read-all", "/api/social/notifications/read-all"],
-    {}
-  );
+  tryPost(["/api/notifications/read-all", "/api/social/notifications/read-all"], {});
 
 export const deleteNotification = (notificationId) =>
   tryDelete([
@@ -215,41 +212,54 @@ export const getUnreadNotificationCount = () =>
 
 export const getTraders = (params) =>
   tryGet(["/api/traders", "/api/social/traders"], { params });
-export const getTraderProfile = (traderId) => api.get(`/api/traders/${traderId}`);
+
+export const getTraderProfile = (traderId) => {
+  if (isBadId(traderId)) throw new Error("Missing trader id");
+  return api.get(`/api/traders/${traderId}`);
+};
+
 export const upgradeToTrader = (payload) =>
   tryPost(
     ["/api/traders/upgrade", "/api/traders/request", "/api/traders/apply", "/api/social/traders"],
     payload
   );
 
-export const subscribeToTrader = (traderId) =>
-  tryPost(
+export const subscribeToTrader = (traderId) => {
+  if (isBadId(traderId)) throw new Error("Missing trader id");
+  return tryPost(
     [
       `/api/subscriptions/${traderId}/subscribe`,
       `/api/social/subscriptions/${traderId}/subscribe`,
     ],
-    {}
+    { tier: "free" }
   );
+};
 
-export const unsubscribeFromTrader = (traderId) =>
-  tryPost(
+export const unsubscribeFromTrader = (traderId) => {
+  if (isBadId(traderId)) throw new Error("Missing trader id");
+  return tryPost(
     [
       `/api/subscriptions/${traderId}/unsubscribe`,
       `/api/social/subscriptions/${traderId}/unsubscribe`,
     ],
     {}
   );
+};
 
-export const getTraderRatings = (traderId) =>
-  tryGet(
+export const getTraderRatings = (traderId) => {
+  if (isBadId(traderId)) throw new Error("Missing trader id");
+  return tryGet(
     [
       `/api/ratings/trader/${traderId}`,
       `/api/ratings/${traderId}`,
       `/api/social/ratings/${traderId}`,
     ]
   );
-export const rateTrader = (traderId, payload) =>
-  tryPost(
+};
+
+export const rateTrader = (traderId, payload) => {
+  if (isBadId(traderId)) throw new Error("Missing trader id");
+  return tryPost(
     [
       "/api/ratings/rate",
       `/api/ratings/${traderId}`,
@@ -257,14 +267,26 @@ export const rateTrader = (traderId, payload) =>
     ],
     { trader_id: traderId, ...payload }
   );
-export const getTraderRatingSummary = (traderId) =>
-  tryGet([`/api/ratings/trader/${traderId}/summary`]);
-export const getMyTraderRating = (traderId) =>
-  tryGet([`/api/ratings/my-rating/${traderId}`]);
-export const deleteMyTraderRating = (traderId) =>
-  tryDelete([`/api/ratings/rating/${traderId}`]);
+};
+
+export const getTraderRatingSummary = (traderId) => {
+  if (isBadId(traderId)) throw new Error("Missing trader id");
+  return tryGet([`/api/ratings/trader/${traderId}/summary`]);
+};
+
+export const getMyTraderRating = (traderId) => {
+  if (isBadId(traderId)) throw new Error("Missing trader id");
+  return tryGet([`/api/ratings/my-rating/${traderId}`]);
+};
+
+export const deleteMyTraderRating = (traderId) => {
+  if (isBadId(traderId)) throw new Error("Missing trader id");
+  return tryDelete([`/api/ratings/rating/${traderId}`]);
+};
+
 export const getTopRatedTraders = () =>
   tryGet(["/api/ratings/leaderboard", "/api/social/ratings/leaderboard"]);
+
 export const getRecommendedTraders = () =>
   tryGet(["/api/subscriptions/recommended", "/api/social/subscriptions/recommended"]);
 
@@ -274,6 +296,7 @@ export const getTraderRoleRequests = () =>
     "/api/traders/requests",
     "/api/social/traders/requests",
   ]);
+
 export const approveTraderRoleRequest = (requestId) =>
   tryPost(
     [
@@ -283,6 +306,7 @@ export const approveTraderRoleRequest = (requestId) =>
     ],
     {}
   );
+
 export const rejectTraderRoleRequest = (requestId) =>
   tryPost(
     [
@@ -292,6 +316,7 @@ export const rejectTraderRoleRequest = (requestId) =>
     ],
     {}
   );
+
 export const assignTraderRole = (payload) =>
   tryPost(
     ["/api/admin/traders/assign", "/api/traders/assign", "/api/social/traders/assign"],
@@ -302,14 +327,20 @@ export const assignTraderRole = (payload) =>
 // NEW: Tier-based subscriptions, tips, and saved posts
 // ============================================================================
 
-export const subscribeToTier = (traderId, tier) =>
-  tryPost([`/api/subscriptions/tier/${traderId}`], { tier });
+export const subscribeToTier = (traderId, tier) => {
+  if (isBadId(traderId)) throw new Error("Missing trader id");
+  return tryPost([`/api/subscriptions/tier/${traderId}`], { tier });
+};
 
-export const getTraderSubscriptionStats = (traderId) =>
-  tryGet([`/api/subscriptions/trader/${traderId}/subscription-stats`]);
+export const getTraderSubscriptionStats = (traderId) => {
+  if (isBadId(traderId)) throw new Error("Missing trader id");
+  return tryGet([`/api/subscriptions/trader/${traderId}/subscription-stats`]);
+};
 
-export const checkSubscriptionStatus = (traderId) =>
-  tryGet([`/api/subscriptions/check/${traderId}`]);
+export const checkSubscriptionStatus = (traderId) => {
+  if (isBadId(traderId)) throw new Error("Missing trader id");
+  return tryGet([`/api/subscriptions/check/${traderId}`]);
+};
 
 export const tipPost = (postId, amount) =>
   tryPost(["/api/subscriptions/tip"], { post_id: postId, amount });
@@ -336,8 +367,10 @@ export const getSavedPosts = (params) =>
 export const createContentRequest = (payload) =>
   tryPost(["/api/content-requests/create"], payload);
 
-export const getTraderContentRequests = (traderId, params) =>
-  tryGet([`/api/content-requests/trader/${traderId}`], { params });
+export const getTraderContentRequests = (traderId, params) => {
+  if (isBadId(traderId)) throw new Error("Missing trader id");
+  return tryGet([`/api/content-requests/trader/${traderId}`], { params });
+};
 
 export const upvoteContentRequest = (requestId) =>
   tryPost([`/api/content-requests/${requestId}/upvote`], {});
