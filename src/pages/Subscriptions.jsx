@@ -22,12 +22,18 @@ export default function Subscriptions() {
   const loadTraders = async () => {
     setLoading(true);
     try {
+      // Always fetch my subscriptions to check status
+      const { data: mySubsData } = await getMySubscriptions().catch(() => ({ data: [] }));
+      const mySubsItems = Array.isArray(mySubsData)
+        ? mySubsData
+        : mySubsData?.subscriptions || mySubsData?.items || mySubsData?.results || [];
+      
+      const subscribedIds = new Set(mySubsItems.map(sub => 
+        sub.trader_id || sub.trader?.user_id || sub.trader?.id || sub.trader?.trader_id
+      ));
+
       if (filter === 'subscribed') {
-        const { data } = await getMySubscriptions();
-        const items = Array.isArray(data)
-          ? data
-          : data?.subscriptions || data?.items || data?.results || [];
-        const mapped = items.map((sub) => {
+        const mapped = mySubsItems.map((sub) => {
           const trader = sub.trader || {};
           return {
             user_id: sub.trader_id || trader.user_id || trader.id || trader.trader_id,
@@ -40,7 +46,7 @@ export default function Subscriptions() {
             avg_rating: sub.avg_rating ?? trader.avg_rating,
             total_ratings: sub.total_ratings ?? trader.total_ratings,
             specialties: trader.specialties || [],
-            is_subscribed: sub.is_active ?? true,
+            is_subscribed: true,
           };
         });
         setTraders(mapped);
@@ -56,7 +62,14 @@ export default function Subscriptions() {
         const items = Array.isArray(data)
           ? data
           : data?.traders || data?.items || data?.results || [];
-        setTraders(items);
+          
+        // Map items to include is_subscribed from the Set
+        const mapped = items.map(trader => ({
+          ...trader,
+          is_subscribed: subscribedIds.has(trader.user_id || trader.id || trader.trader_id)
+        }));
+
+        setTraders(mapped);
       }
     } catch (error) {
       console.error('Failed to load traders:', error);
@@ -79,8 +92,17 @@ export default function Subscriptions() {
         if (!traderId || traderId === 'undefined' || traderId === 'null') {
           throw new Error('Missing trader id');
         }
-        await subscribeToTrader(traderId);
-        toast.success('Following!');
+        try {
+          await subscribeToTrader(traderId);
+          toast.success('Following!');
+        } catch (err) {
+          if (err.response?.status === 400 && err.response?.data?.detail?.includes('Already following')) {
+             // Treat as success if already following
+             toast.success('Already following!');
+          } else {
+             throw err;
+          }
+        }
       }
       loadTraders();
     } catch (error) {
