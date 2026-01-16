@@ -13,7 +13,9 @@ export const createStripeOnboardingLink = () =>
   api.post("/api/payment-accounts/stripe/connect/onboard");
 
 export const connectPayPalAccount = (payload) =>
-  api.post("/api/payment-accounts/paypal/connect", payload);
+  api.post("/api/payment-accounts/paypal/connect", null, {
+    params: { paypal_email: payload.email || payload.paypal_email },
+  });
 
 export const paypalSubscribe = (payload) =>
   api.post("/api/paypal/subscribe", payload);
