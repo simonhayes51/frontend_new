@@ -519,6 +519,19 @@ const Settings = () => {
                   
                   <div className="space-y-6">
                     <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">Currency</label>
+                      <select
+                        value={settings.currency || 'GBP'}
+                        onChange={(e) => updateSetting('currency', e.target.value)}
+                        className="block w-full px-3 py-2 border border-border rounded-md shadow-sm bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-primary/50 focus:border-primary"
+                      >
+                        <option value="GBP">GBP (£)</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                      </select>
+                    </div>
+
+                    <div>
                       <label className="block text-sm font-medium text-foreground mb-2">Currency Display Format</label>
                       <select
                         value={settings.currency_display}

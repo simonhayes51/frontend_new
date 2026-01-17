@@ -17,6 +17,7 @@ import {
 } from "../../api/social";
 
 const POST_TYPES = [
+  { value: "status", label: "Status" },
   { value: "quick_flip", label: "Quick Flip" },
   { value: "prediction", label: "Prediction" },
   { value: "tip", label: "Tip" },

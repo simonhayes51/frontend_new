@@ -681,15 +681,37 @@ export function PostCard({ post, onUpdate }) {
         </div>
       )}
 
-      {/* Image */}
-      {postState.image_url && !isLocked && (
-        <div className="mx-4 mb-3 rounded-lg overflow-hidden">
-          <img
-            src={postState.image_url}
-            alt="Post content"
-            className="w-full h-auto object-cover"
-          />
-        </div>
+      {/* Images */}
+      {!isLocked && (
+        (postState.image_urls && postState.image_urls.length > 0) ? (
+          <div className={`mx-4 mb-3 grid gap-1 rounded-lg overflow-hidden ${
+            postState.image_urls.length === 1 ? 'grid-cols-1' :
+            postState.image_urls.length === 2 ? 'grid-cols-2' :
+            'grid-cols-2'
+          }`}>
+            {postState.image_urls.map((url, idx) => (
+              <div key={idx} className={`relative ${
+                postState.image_urls.length === 3 && idx === 0 ? 'col-span-2' : ''
+              }`}>
+                <img
+                  src={url}
+                  alt={`Post content ${idx + 1}`}
+                  className={`w-full h-full object-cover ${
+                    postState.image_urls.length > 1 ? 'aspect-square' : 'h-auto'
+                  }`}
+                />
+              </div>
+            ))}
+          </div>
+        ) : postState.image_url ? (
+          <div className="mx-4 mb-3 rounded-lg overflow-hidden">
+            <img
+              src={postState.image_url}
+              alt="Post content"
+              className="w-full h-auto object-cover"
+            />
+          </div>
+        ) : null
       )}
 
       {/* Actions */}

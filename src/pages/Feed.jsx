@@ -24,7 +24,7 @@ export default function Feed() {
   const [creating, setCreating] = useState(false);
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [showArticleModal, setShowArticleModal] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
   
   // Pricing & Access Control
   const [accessType, setAccessType] = useState("free"); // free, premium, paid
@@ -34,14 +34,14 @@ export default function Feed() {
   // Warning on leave
   useEffect(() => {
     const handleBeforeUnload = (e) => {
-      if (postContent.trim() || selectedImage) {
+      if (postContent.trim() || selectedImages.length > 0) {
         e.preventDefault();
         e.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [postContent, selectedImage]);
+  }, [postContent, selectedImages]);
 
   // Check payment status on mount
   useEffect(() => {
@@ -168,7 +168,7 @@ export default function Feed() {
     try {
       const postData = {
         content: postContent,
-        post_type: "tip",
+        post_type: "status",
         is_premium: accessType === "premium",
         requires_purchase: accessType === "paid",
       };
@@ -176,15 +176,17 @@ export default function Feed() {
         postData.price = Number(price);
       }
       
-      // Add image if uploaded
-      if (selectedImage) {
-        postData.image_url = selectedImage;
+      // Add images if uploaded
+      if (selectedImages.length > 0) {
+        postData.image_urls = selectedImages;
+        // Backwards compatibility
+        postData.image_url = selectedImages[0];
       }
 
       await createPost(postData);
       toast.success("Post created!");
       setPostContent("");
-      setSelectedImage(null);
+      setSelectedImages([]);
       setAccessType("free");
       setPrice("");
       loadPosts();
@@ -431,19 +433,23 @@ export default function Feed() {
               </div>
               
               {/* Image Preview */}
-              {selectedImage && (
-                <div className="mt-3 relative">
-                  <img 
-                    src={selectedImage} 
-                    alt="Preview" 
-                    className="max-h-40 rounded-lg"
-                  />
-                  <button
-                    onClick={() => setSelectedImage(null)}
-                    className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+              {selectedImages.length > 0 && (
+                <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {selectedImages.map((img, index) => (
+                    <div key={index} className="relative group">
+                      <img 
+                        src={img} 
+                        alt={`Preview ${index + 1}`} 
+                        className="h-32 w-full object-cover rounded-lg"
+                      />
+                      <button
+                        onClick={() => setSelectedImages(prev => prev.filter((_, i) => i !== index))}
+                        className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

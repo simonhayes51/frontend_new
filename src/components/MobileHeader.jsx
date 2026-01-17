@@ -24,10 +24,14 @@ const MobileHeader = () => {
     { path: "/trades", label: "Trades", icon: "📋" },
     { path: "/player-search", label: "Player Search", icon: "🔍" },
     { path: "/player-compare", label: "Compare", icon: "⚖️" },
-    { path: "/smart-buy", label: "Smart Buy", icon: "🧠" }, // 👈 NEW
+    { path: "/smart-buy", label: "Smart Buy", icon: "🧠" },
     { path: "/watchlist", label: "Watchlist", icon: "👀" },
     { path: "/trending", label: "Trending", icon: "📈" },
     { path: "/squad", label: "Squad Builder", icon: "⚽" },
+    { path: "/community", label: "Community Uploads", icon: "👥" },
+    { path: "/traders-area", label: "Top Traders", icon: "🏆" },
+    // Conditional items can be handled here or filtered below
+    ...(isTrader ? [{ path: "/trader-dashboard", label: "Trader Dashboard", icon: "💼" }] : []),
   ];
 
   const isActive = (path) => location.pathname === path;

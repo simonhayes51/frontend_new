@@ -15,7 +15,7 @@ export function TrendingTraders() {
 
   const loadTraders = async () => {
     try {
-      const { data } = await getTraders({ verified: true, limit: 50 });
+      const { data } = await getTraders({ verified: true, sort: 'rating', limit: 5 });
       const items = Array.isArray(data) ? data : data?.traders || [];
       
       // Map to expected format
@@ -35,11 +35,7 @@ export function TrendingTraders() {
           isSubscribed: trader.is_subscribed || false,
         }));
 
-      const topByRating = [...formattedTraders].sort(
-        (a, b) => (b.rating || 0) - (a.rating || 0)
-      ).slice(0, 5);
-      
-      setTraders(topByRating);
+      setTraders(formattedTraders);
     } catch (error) {
       console.error("Failed to load traders:", error);
     } finally {
