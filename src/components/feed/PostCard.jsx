@@ -337,7 +337,20 @@ export function PostCard({ post, onUpdate }) {
   const isArticle = postState.post_type === "analysis";
   const contentPreviewLength = 200;
   const shouldTruncate = isArticle && postState.content && postState.content.length > contentPreviewLength;
-  
+
+  const accessLabel = postState.requires_purchase
+    ? "PAID"
+    : (postState.is_premium || postState.visibility === "premium")
+    ? "PREMIUM"
+    : "FREE";
+
+  const accessBadgeClasses =
+    accessLabel === "PAID"
+      ? "bg-emerald-500/15 text-emerald-300 border-emerald-400/40"
+      : accessLabel === "PREMIUM"
+      ? "bg-purple-500/15 text-purple-300 border-purple-400/40"
+      : "bg-zinc-500/15 text-zinc-300 border-zinc-400/40";
+
   // Extract trade info if available
   const trade =
     postState.post_type === "quick_flip" || postState.post_type === "prediction"
@@ -490,6 +503,11 @@ export function PostCard({ post, onUpdate }) {
                 <span className="font-semibold text-foreground">{trader.name}</span>
                 <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
                   {trader.tier}
+                </span>
+                <span
+                  className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${accessBadgeClasses}`}
+                >
+                  {accessLabel}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
