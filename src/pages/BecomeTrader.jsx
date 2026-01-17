@@ -11,11 +11,7 @@ export default function BecomeTrader() {
   const [formData, setFormData] = useState({
     bio: '',
     specialties: [],
-    pricing: {
-      basic: 2.99,
-      premium: 4.99,
-      elite: 9.99
-    }
+    subscriptionPrice: 4.99
   });
 
   const specialtiesList = [
@@ -40,7 +36,7 @@ export default function BecomeTrader() {
       await upgradeToTrader({
         bio: formData.bio,
         specialties: formData.specialties,
-        initial_pricing: formData.pricing
+        subscription_price: formData.subscriptionPrice
       });
       toast.success('Application submitted successfully!');
       navigate('/trader-dashboard');
@@ -100,33 +96,45 @@ export default function BecomeTrader() {
 
           {/* Pricing */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-4">Set Your Monthly Subscription Prices</label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {['basic', 'premium', 'elite'].map(tier => (
-                <div key={tier} className="bg-white/5 rounded-xl p-4 border border-white/5">
-                  <div className="text-sm text-gray-400 capitalize mb-1">{tier} Tier</div>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.99"
-                      required
-                      value={formData.pricing[tier]}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        pricing: { ...formData.pricing, [tier]: parseFloat(e.target.value) }
-                      })}
-                      className="w-full bg-black/20 border border-white/10 rounded-lg py-2 pl-9 pr-4 text-white focus:outline-none focus:border-brand-cyan"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Set Your Monthly Subscription Price
+            </label>
+            <p className="text-xs text-gray-500 mb-3 flex items-center gap-1">
               <AlertCircle className="w-3 h-3" />
-              Platform fee of 10% applies to all earnings
+              You receive approximately 90% after the 10% platform fee is applied.
             </p>
+            <div className="max-w-sm">
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  value={
+                    typeof formData.subscriptionPrice === 'number'
+                      ? formData.subscriptionPrice
+                      : formData.subscriptionPrice || ''
+                  }
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      subscriptionPrice: e.target.value === '' ? '' : parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full bg-black/20 border border-white/10 rounded-lg py-2 pl-9 pr-4 text-white focus:outline-none focus:border-brand-cyan"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {Number(formData.subscriptionPrice || 0) > 0
+                  ? `Subscribers pay $${Number(formData.subscriptionPrice || 0).toFixed(
+                      2
+                    )} per month. You receive $${(
+                      (Number(formData.subscriptionPrice || 0) || 0) * 0.9
+                    ).toFixed(2)} after fees.`
+                  : 'Set to 0 to start with free follow-only access.'}
+              </p>
+            </div>
           </div>
 
           {/* Submit */}

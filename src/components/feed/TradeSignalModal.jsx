@@ -37,6 +37,9 @@ export function TradeSignalModal({ isOpen, onClose, onSubmit }) {
     notes: "",
   });
 
+  const [accessType, setAccessType] = useState("free");
+  const [price, setPrice] = useState("");
+
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -70,10 +73,16 @@ export function TradeSignalModal({ isOpen, onClose, onSubmit }) {
       return;
     }
 
+    if (accessType === "paid") {
+      if (!price || Number(price) <= 0) {
+        toast.error("Please enter a valid price for paid content");
+        return;
+      }
+    }
+
     try {
       const confidenceMap = { low: 33, medium: 66, high: 90 };
-      
-      await onSubmit({
+      const payload = {
         post_type: signalData.signal_type === "buy" ? "quick_flip" : "prediction",
         content: signalData.notes || `${signalData.signal_type === "buy" ? "Buy" : "Sell"} signal for ${signalData.player_name}`,
         player_name: signalData.player_name,
@@ -83,7 +92,15 @@ export function TradeSignalModal({ isOpen, onClose, onSubmit }) {
         confidence_level: confidenceMap[signalData.confidence] || 66,
         player_image_url: selectedPlayer?.image_url || undefined,
         card_image_url: selectedPlayer?.card_image_url || undefined,
-      });
+        is_premium: accessType === "premium",
+        requires_purchase: accessType === "paid",
+      };
+
+      if (accessType === "paid") {
+        payload.price = Number(price);
+      }
+
+      await onSubmit(payload);
       
       toast.success("Trade signal posted!");
       setSignalData({
@@ -96,6 +113,8 @@ export function TradeSignalModal({ isOpen, onClose, onSubmit }) {
       });
       setQuery("");
       setSelectedPlayer(null);
+      setAccessType("free");
+      setPrice("");
       onClose();
     } catch (error) {
       console.error("Failed to post signal:", error);
@@ -294,6 +313,115 @@ export function TradeSignalModal({ isOpen, onClose, onSubmit }) {
                   className="w-full bg-muted/50 border border-border rounded-lg pl-8 pr-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Access & Pricing
+            </label>
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div
+                  className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                    accessType === "free" ? "border-brand-cyan" : "border-gray-500"
+                  }`}
+                >
+                  {accessType === "free" && (
+                    <div className="w-2 h-2 rounded-full bg-brand-cyan" />
+                  )}
+                </div>
+                <input
+                  type="radio"
+                  name="signalAccessType"
+                  value="free"
+                  checked={accessType === "free"}
+                  onChange={(e) => setAccessType(e.target.value)}
+                  className="hidden"
+                />
+                <span
+                  className={`text-sm ${
+                    accessType === "free"
+                      ? "text-white"
+                      : "text-gray-400 group-hover:text-gray-300"
+                  }`}
+                >
+                  Free
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div
+                  className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                    accessType === "premium" ? "border-purple-500" : "border-gray-500"
+                  }`}
+                >
+                  {accessType === "premium" && (
+                    <div className="w-2 h-2 rounded-full bg-purple-500" />
+                  )}
+                </div>
+                <input
+                  type="radio"
+                  name="signalAccessType"
+                  value="premium"
+                  checked={accessType === "premium"}
+                  onChange={(e) => setAccessType(e.target.value)}
+                  className="hidden"
+                />
+                <span
+                  className={`text-sm font-medium ${
+                    accessType === "premium"
+                      ? "text-purple-400"
+                      : "text-gray-400 group-hover:text-purple-400/70"
+                  }`}
+                >
+                  Premium
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div
+                  className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                    accessType === "paid" ? "border-green-500" : "border-gray-500"
+                  }`}
+                >
+                  {accessType === "paid" && (
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                  )}
+                </div>
+                <input
+                  type="radio"
+                  name="signalAccessType"
+                  value="paid"
+                  checked={accessType === "paid"}
+                  onChange={(e) => setAccessType(e.target.value)}
+                  className="hidden"
+                />
+                <span
+                  className={`text-sm font-medium ${
+                    accessType === "paid"
+                      ? "text-green-400"
+                      : "text-gray-400 group-hover:text-green-400/70"
+                  }`}
+                >
+                  Paid
+                </span>
+              </label>
+
+              {accessType === "paid" && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-400">$</span>
+                  <input
+                    type="number"
+                    placeholder="Price"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    className="w-24 bg-muted/50 border border-border rounded-lg px-3 py-1 text-sm text-white focus:outline-none focus:border-green-500 transition-all"
+                    min="0.50"
+                    step="0.50"
+                  />
+                </div>
+              )}
             </div>
           </div>
 

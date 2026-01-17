@@ -140,8 +140,10 @@ export default function Feed() {
         post_type: "tip",
         is_premium: accessType === "premium",
         requires_purchase: accessType === "paid",
-        price: accessType === "paid" ? Number(price) : 0,
       };
+      if (accessType === "paid") {
+        postData.price = Number(price);
+      }
       
       // Add image if uploaded
       if (selectedImage) {
@@ -164,12 +166,44 @@ export default function Feed() {
   };
 
   const handleTradeSignalSubmit = async (signalData) => {
-    await createPost(signalData);
+    if (signalData.requires_purchase) {
+      if (!signalData.price || Number(signalData.price) <= 0) {
+        toast.error("Please enter a valid price for paid content");
+        return;
+      }
+      if (!paymentStatus?.payment_setup_completed) {
+        toast.error("Please set up your payment account first");
+        return;
+      }
+    }
+
+    const payload = { ...signalData };
+    if (!payload.requires_purchase) {
+      delete payload.price;
+    }
+
+    await createPost(payload);
     loadPosts();
   };
 
   const handleArticleSubmit = async (articleData) => {
-    await createPost(articleData);
+    if (articleData.requires_purchase) {
+      if (!articleData.price || Number(articleData.price) <= 0) {
+        toast.error("Please enter a valid price for paid content");
+        return;
+      }
+      if (!paymentStatus?.payment_setup_completed) {
+        toast.error("Please set up your payment account first");
+        return;
+      }
+    }
+
+    const payload = { ...articleData };
+    if (!payload.requires_purchase) {
+      delete payload.price;
+    }
+
+    await createPost(payload);
     loadPosts();
   };
 

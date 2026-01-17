@@ -68,7 +68,10 @@ export const getFeed = (params) =>
     { params }
   );
 export const createPost = (payload) =>
-  tryPost(["/api/feed", "/api/social/feed", "/api/social/posts"], payload);
+  tryPost(
+    ["/api/feed/posts", "/api/social/posts", "/api/feed", "/api/social/feed"],
+    payload
+  );
 export const updatePost = async (postId, payload) => {
   try {
     return await tryPatch([`/api/feed/posts/${postId}`], payload);

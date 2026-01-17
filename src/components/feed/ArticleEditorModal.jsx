@@ -10,6 +10,8 @@ export function ArticleEditorModal({ isOpen, onClose, onSubmit }) {
     thumbnail: null,
     tags: "",
   });
+  const [accessType, setAccessType] = useState("free");
+  const [price, setPrice] = useState("");
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -33,13 +35,28 @@ export function ArticleEditorModal({ isOpen, onClose, onSubmit }) {
       return;
     }
 
+    if (accessType === "paid") {
+      if (!price || Number(price) <= 0) {
+        toast.error("Please enter a valid price for paid content");
+        return;
+      }
+    }
+
     try {
-      await onSubmit({
+      const payload = {
         post_type: "analysis",
         content: `${articleData.title}\n\n${articleData.content}`,
         image_url: articleData.thumbnail,
-        tags: articleData.tags.split(',').map(t => t.trim()).filter(Boolean),
-      });
+        tags: articleData.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        is_premium: accessType === "premium",
+        requires_purchase: accessType === "paid",
+      };
+
+      if (accessType === "paid") {
+        payload.price = Number(price);
+      }
+
+      await onSubmit(payload);
       
       toast.success("Article published!");
       setArticleData({
@@ -48,6 +65,8 @@ export function ArticleEditorModal({ isOpen, onClose, onSubmit }) {
         thumbnail: null,
         tags: "",
       });
+      setAccessType("free");
+      setPrice("");
       onClose();
     } catch (error) {
       console.error("Failed to publish article:", error);
@@ -152,7 +171,115 @@ export function ArticleEditorModal({ isOpen, onClose, onSubmit }) {
             />
           </div>
 
-          {/* Tags */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Access & Pricing
+            </label>
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div
+                  className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                    accessType === "free" ? "border-brand-cyan" : "border-gray-500"
+                  }`}
+                >
+                  {accessType === "free" && (
+                    <div className="w-2 h-2 rounded-full bg-brand-cyan" />
+                  )}
+                </div>
+                <input
+                  type="radio"
+                  name="articleAccessType"
+                  value="free"
+                  checked={accessType === "free"}
+                  onChange={(e) => setAccessType(e.target.value)}
+                  className="hidden"
+                />
+                <span
+                  className={`text-sm ${
+                    accessType === "free"
+                      ? "text-white"
+                      : "text-gray-400 group-hover:text-gray-300"
+                  }`}
+                >
+                  Free
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div
+                  className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                    accessType === "premium" ? "border-purple-500" : "border-gray-500"
+                  }`}
+                >
+                  {accessType === "premium" && (
+                    <div className="w-2 h-2 rounded-full bg-purple-500" />
+                  )}
+                </div>
+                <input
+                  type="radio"
+                  name="articleAccessType"
+                  value="premium"
+                  checked={accessType === "premium"}
+                  onChange={(e) => setAccessType(e.target.value)}
+                  className="hidden"
+                />
+                <span
+                  className={`text-sm font-medium ${
+                    accessType === "premium"
+                      ? "text-purple-400"
+                      : "text-gray-400 group-hover:text-purple-400/70"
+                  }`}
+                >
+                  Premium
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div
+                  className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                    accessType === "paid" ? "border-green-500" : "border-gray-500"
+                  }`}
+                >
+                  {accessType === "paid" && (
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                  )}
+                </div>
+                <input
+                  type="radio"
+                  name="articleAccessType"
+                  value="paid"
+                  checked={accessType === "paid"}
+                  onChange={(e) => setAccessType(e.target.value)}
+                  className="hidden"
+                />
+                <span
+                  className={`text-sm font-medium ${
+                    accessType === "paid"
+                      ? "text-green-400"
+                      : "text-gray-400 group-hover:text-green-400/70"
+                  }`}
+                >
+                  Paid
+                </span>
+              </label>
+
+              {accessType === "paid" && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-400">$</span>
+                  <input
+                    type="number"
+                    placeholder="Price"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    className="w-24 bg-muted/50 border border-border rounded-lg px-3 py-1 text-sm text-white focus:outline-none focus:border-green-500 transition-all"
+                    min="0.50"
+                    step="0.50"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
               Tags (comma separated)

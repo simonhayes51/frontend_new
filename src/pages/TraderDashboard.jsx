@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   DollarSign,
@@ -25,13 +24,14 @@ import {
 import toast from 'react-hot-toast';
 import api from '../axios';
 import { getTraderMe, updateTraderMe, getTraderAnalytics } from '../api/traders';
+import { getPaymentAccountsStatus } from '../api/billing';
+import PaymentSettings from './PaymentSettings';
 
 /**
  * Transfer Traders - Trader Earnings Dashboard
  * OnlyFans-style earnings overview for traders
  */
 export default function TraderDashboard() {
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview'); // overview, analytics, settings
   const [earnings, setEarnings] = useState(null);
   const [subscribers, setSubscribers] = useState([]);
@@ -40,16 +40,13 @@ export default function TraderDashboard() {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('month'); // week, month, year, all
   const [profileError, setProfileError] = useState('');
+  const [paymentSetupCompleted, setPaymentSetupCompleted] = useState(null);
   
   // Settings State
   const [profileData, setProfileData] = useState({
     bio: '',
     specialties: [],
-    pricing: {
-      basic: 2.99,
-      premium: 4.99,
-      elite: 9.99
-    }
+    subscriptionPrice: 4.99
   });
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -78,17 +75,37 @@ export default function TraderDashboard() {
       setStats(statsRes.data);
 
       try {
+        const paymentStatusRes = await getPaymentAccountsStatus();
+        const status = paymentStatusRes?.data;
+        if (status) {
+          const completed =
+            status.payment_setup_completed ||
+            status.stripe_connected ||
+            status.stripe?.connected ||
+            status.paypal_connected ||
+            status.paypal?.connected;
+          setPaymentSetupCompleted(Boolean(completed));
+        } else {
+          setPaymentSetupCompleted(null);
+        }
+      } catch (statusError) {
+        console.error('Failed to load payment status:', statusError);
+        setPaymentSetupCompleted(null);
+      }
+
+      try {
         const profileRes = await getTraderMe();
         if (profileRes.data) {
           setProfileError('');
           setProfileData({
             bio: profileRes.data.bio || '',
             specialties: profileRes.data.specialties || [],
-            pricing: profileRes.data.subscription_prices || {
-              basic: 2.99,
-              premium: 4.99,
-              elite: 9.99
-            }
+            subscriptionPrice:
+              typeof profileRes.data.subscription_price === 'number'
+                ? profileRes.data.subscription_price
+                : profileRes.data.subscription_price
+                ? Number(profileRes.data.subscription_price)
+                : 0
           });
         }
       } catch (err) {
@@ -126,7 +143,7 @@ export default function TraderDashboard() {
       await updateTraderMe({
         bio: profileData.bio,
         specialties: profileData.specialties,
-        subscription_prices: profileData.pricing
+        subscription_price: profileData.subscriptionPrice
       });
       toast.success('Settings updated successfully!');
     } catch (error) {
@@ -219,24 +236,26 @@ export default function TraderDashboard() {
               </div>
             </div>
 
-            <div className="bg-yellow-500/10 border border-yellow-500/40 rounded-2xl p-4 flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-yellow-300 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-yellow-100">
-                  Connect a payment account to enable subscription pricing.
-                </p>
-                <p className="text-xs text-yellow-100/80 mt-1">
-                  Set up Stripe or PayPal in payment settings so subscribers can pay you.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => navigate('/settings/payments')}
-                  className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-yellow-400 text-black text-xs font-semibold hover:bg-yellow-300 transition-colors"
-                >
-                  Go to payment settings
-                </button>
+            {paymentSetupCompleted === false && (
+              <div className="bg-yellow-500/10 border border-yellow-500/40 rounded-2xl p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-300 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-yellow-100">
+                    Connect a payment account to enable subscription pricing.
+                  </p>
+                  <p className="text-xs text-yellow-100/80 mt-1">
+                    Set up Stripe or PayPal in payment settings so subscribers can pay you.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('settings')}
+                    className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-yellow-400 text-black text-xs font-semibold hover:bg-yellow-300 transition-colors"
+                  >
+                    Go to payment settings
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Earnings Cards */}
             <div className="grid md:grid-cols-3 gap-6">
@@ -420,66 +439,49 @@ export default function TraderDashboard() {
               </div>
              </div>
 
-             <div className="bg-yellow-500/10 border border-yellow-500/40 rounded-2xl p-4 flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-yellow-300 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-yellow-100">
-                  Connect a payment account to enable subscription pricing.
-                </p>
-                <p className="text-xs text-yellow-100/80 mt-1">
-                  Set up Stripe or PayPal in payment settings so subscribers can pay you.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => navigate('/settings/payments')}
-                  className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-yellow-400 text-black text-xs font-semibold hover:bg-yellow-300 transition-colors"
-                >
-                  Go to payment settings
-                </button>
-              </div>
-            </div>
-
              <div className="bg-dark-card border border-white/10 rounded-2xl p-8">
               <h3 className="text-xl font-bold text-white mb-6">Subscription Pricing</h3>
-              <p className="text-gray-400 mb-2 text-sm">Set the monthly price for each subscription tier.</p>
+              <p className="text-gray-400 mb-2 text-sm">
+                Set your monthly subscription price for premium followers.
+              </p>
               <p className="text-gray-500 mb-6 text-xs">
-                Subscribers pay the listed price. You receive approximately 90% after a 10% platform fee.
+                You receive approximately 90% after the 10% platform fee is applied.
               </p>
               
-              <div className="grid md:grid-cols-3 gap-6">
-                {['basic', 'premium', 'elite'].map(tier => {
-                  const priceValue = Number(profileData.pricing[tier]) || 0;
-                  const netValue = priceValue * 0.9;
-                  return (
-                  <div key={tier} className="bg-dark-elevated border border-white/5 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-3 capitalize">
-                      {tier === 'basic' && <Star className="w-5 h-5 text-tier-basic" />}
-                      {tier === 'premium' && <Zap className="w-5 h-5 text-tier-premium" />}
-                      {tier === 'elite' && <Crown className="w-5 h-5 text-tier-elite" />}
-                      <h4 className="font-bold text-white">{tier} Tier</h4>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-white">$</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0.99"
-                          value={profileData.pricing[tier]}
-                          onChange={(e) => setProfileData({
-                            ...profileData,
-                            pricing: { ...profileData.pricing, [tier]: parseFloat(e.target.value) }
-                          })}
-                          className="w-full bg-dark-bg border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-cyan"
-                        />
-                      </div>
-                      <div className="text-[11px] text-gray-500">
-                        You receive ${netValue.toFixed(2)}{" "}
-                        per month after fees.
-                      </div>
-                    </div>
-                  </div>
-                )})}
+              <div className="max-w-sm space-y-3">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Monthly price
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-white text-lg">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={
+                      typeof profileData.subscriptionPrice === 'number'
+                        ? profileData.subscriptionPrice
+                        : profileData.subscriptionPrice || ''
+                    }
+                    onChange={(e) =>
+                      setProfileData({
+                        ...profileData,
+                        subscriptionPrice: e.target.value === '' ? '' : parseFloat(e.target.value),
+                      })
+                    }
+                    className="w-full bg-dark-bg border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-cyan"
+                  />
+                </div>
+                <div className="text-[11px] text-gray-500">
+                  {Number(profileData.subscriptionPrice || 0) > 0 ? (
+                    <>
+                      You receive $
+                      {((Number(profileData.subscriptionPrice || 0) || 0) * 0.9).toFixed(2)} per month after fees.
+                    </>
+                  ) : (
+                    <>Set to 0 to offer free follow-only access.</>
+                  )}
+                </div>
               </div>
              </div>
 
@@ -496,6 +498,8 @@ export default function TraderDashboard() {
                 </>
               )}
             </button>
+
+            <PaymentSettings embedded />
           </div>
         )}
       </div>
