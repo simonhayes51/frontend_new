@@ -63,8 +63,9 @@ export function CommunityUploads() {
           <h2 className="font-semibold text-foreground">Community Uploads</h2>
         </div>
         <button
+          type="button"
           className="flex items-center gap-1 text-sm text-primary hover:underline"
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/community")}
         >
           See all
           <ChevronRight className="w-4 h-4" />

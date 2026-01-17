@@ -14,6 +14,7 @@ function CommunityUploadModal({ open, onClose, onCreated }) {
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("article");
   const [submitting, setSubmitting] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
 
   if (!open) return null;
 
@@ -27,6 +28,7 @@ function CommunityUploadModal({ open, onClose, onCreated }) {
         post_type: category === "tactic" ? "tip" : "analysis",
         title: title.trim(),
         content: content.trim(),
+        image_url: imageUrl.trim() || undefined,
         tags: [category],
         is_premium: false,
         requires_purchase: false,
@@ -34,6 +36,7 @@ function CommunityUploadModal({ open, onClose, onCreated }) {
       setTitle("");
       setContent("");
       setCategory("article");
+      setImageUrl("");
       onCreated();
       onClose();
     } catch (error) {
@@ -86,6 +89,13 @@ function CommunityUploadModal({ open, onClose, onCreated }) {
             required
             className="w-full bg-muted/50 border border-border rounded-xl px-3 py-2 text-sm"
           />
+          <input
+            type="url"
+            value={imageUrl}
+            onChange={(event) => setImageUrl(event.target.value)}
+            placeholder="Image URL (optional)"
+            className="w-full bg-muted/50 border border-border rounded-xl px-3 py-2 text-sm"
+          />
           <textarea
             value={content}
             onChange={(event) => setContent(event.target.value)}
@@ -114,6 +124,7 @@ export default function CommunityPage() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [expandedPostId, setExpandedPostId] = useState(null);
 
   const loadPosts = async () => {
     setLoading(true);
@@ -211,6 +222,15 @@ export default function CommunityPage() {
                 key={post.id}
                 className="border border-border/60 rounded-xl p-4 bg-muted/40"
               >
+                {post.image_url && (
+                  <div className="mb-3">
+                    <img
+                      src={post.image_url}
+                      alt={post.title || "Community upload"}
+                      className="w-full max-h-64 object-cover rounded-lg"
+                    />
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                   <h3 className="font-semibold text-foreground">
                     {post.title || "Untitled"}
@@ -223,9 +243,28 @@ export default function CommunityPage() {
                       : ""}
                   </span>
                 </div>
-                <p className="text-sm text-muted-foreground line-clamp-4 whitespace-pre-line">
+                <p
+                  className={`text-sm text-muted-foreground whitespace-pre-line ${
+                    expandedPostId === post.id ? "" : "line-clamp-4"
+                  }`}
+                >
                   {post.content}
                 </p>
+                {post.content && post.content.length > 200 && (
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedPostId(
+                          expandedPostId === post.id ? null : post.id
+                        )
+                      }
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      {expandedPostId === post.id ? "Show less" : "View full post"}
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -240,4 +279,3 @@ export default function CommunityPage() {
     </div>
   );
 }
-
