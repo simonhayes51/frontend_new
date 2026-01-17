@@ -1,9 +1,4 @@
-// src/lib/api.js
-export const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
-
-if (!API_BASE) {
-  throw new Error("VITE_API_URL is missing. Set it to your FastAPI origin.");
-}
+import { API_BASE } from "./apiBase";
 
 export async function apiFetch(path, opts = {}) {
   const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
