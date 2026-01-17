@@ -25,7 +25,6 @@ import {
 import toast from 'react-hot-toast';
 import api from '../axios';
 import { getTraderMe, updateTraderMe, getTraderAnalytics } from '../api/traders';
-import { getPaymentAccountsStatus } from '../api/billing';
 
 /**
  * Transfer Traders - Trader Earnings Dashboard
@@ -41,7 +40,6 @@ export default function TraderDashboard() {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('month'); // week, month, year, all
   const [profileError, setProfileError] = useState('');
-  const [paymentSetupCompleted, setPaymentSetupCompleted] = useState(false);
   
   // Settings State
   const [profileData, setProfileData] = useState({
@@ -78,20 +76,6 @@ export default function TraderDashboard() {
 
       const statsRes = await api.get('/api/subscriptions/my-stats');
       setStats(statsRes.data);
-
-      try {
-        const paymentRes = await getPaymentAccountsStatus();
-        if (paymentRes?.data) {
-          setPaymentSetupCompleted(
-            paymentRes.data.payment_setup_completed === true
-          );
-        } else {
-          setPaymentSetupCompleted(false);
-        }
-      } catch (error) {
-        console.error('Failed to load payment status:', error);
-        setPaymentSetupCompleted(false);
-      }
 
       try {
         const profileRes = await getTraderMe();
@@ -179,8 +163,6 @@ export default function TraderDashboard() {
     }));
   };
 
-  const pricingDisabled = !paymentSetupCompleted;
-
   return (
     <div className="min-h-screen bg-dark-bg p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -237,27 +219,24 @@ export default function TraderDashboard() {
               </div>
             </div>
 
-            {!paymentSetupCompleted && (
-              <div className="bg-yellow-500/10 border border-yellow-500/40 rounded-2xl p-4 flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-yellow-300 mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-yellow-100">
-                    Connect a payment account to enable subscription pricing.
-                  </p>
-                  <p className="text-xs text-yellow-100/80 mt-1">
-                    Set up Stripe or PayPal in payment settings so subscribers can pay you.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/settings/payments')}
-                    className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-yellow-400 text-black text-xs font-semibold hover:bg-yellow-300 transition-colors"
-                  >
-                    Go to payment settings
-                  </button>
-                </div>
+            <div className="bg-yellow-500/10 border border-yellow-500/40 rounded-2xl p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-300 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-yellow-100">
+                  Connect a payment account to enable subscription pricing.
+                </p>
+                <p className="text-xs text-yellow-100/80 mt-1">
+                  Set up Stripe or PayPal in payment settings so subscribers can pay you.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings/payments')}
+                  className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-yellow-400 text-black text-xs font-semibold hover:bg-yellow-300 transition-colors"
+                >
+                  Go to payment settings
+                </button>
               </div>
-            )
-            }
+            </div>
 
             {/* Earnings Cards */}
             <div className="grid md:grid-cols-3 gap-6">
@@ -441,26 +420,24 @@ export default function TraderDashboard() {
               </div>
              </div>
 
-             {pricingDisabled && (
-              <div className="bg-yellow-500/10 border border-yellow-500/40 rounded-2xl p-4 flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-yellow-300 mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-yellow-100">
-                    Connect a payment account to enable subscription pricing.
-                  </p>
-                  <p className="text-xs text-yellow-100/80 mt-1">
-                    Set up Stripe or PayPal in payment settings so subscribers can pay you.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/settings/payments')}
-                    className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-yellow-400 text-black text-xs font-semibold hover:bg-yellow-300 transition-colors"
-                  >
-                    Go to payment settings
-                  </button>
-                </div>
+             <div className="bg-yellow-500/10 border border-yellow-500/40 rounded-2xl p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-300 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-yellow-100">
+                  Connect a payment account to enable subscription pricing.
+                </p>
+                <p className="text-xs text-yellow-100/80 mt-1">
+                  Set up Stripe or PayPal in payment settings so subscribers can pay you.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings/payments')}
+                  className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-yellow-400 text-black text-xs font-semibold hover:bg-yellow-300 transition-colors"
+                >
+                  Go to payment settings
+                </button>
               </div>
-             )}
+            </div>
 
              <div className="bg-dark-card border border-white/10 rounded-2xl p-8">
               <h3 className="text-xl font-bold text-white mb-6">Subscription Pricing</h3>
@@ -493,8 +470,7 @@ export default function TraderDashboard() {
                             ...profileData,
                             pricing: { ...profileData.pricing, [tier]: parseFloat(e.target.value) }
                           })}
-                          className="w-full bg-dark-bg border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-cyan disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={pricingDisabled}
+                          className="w-full bg-dark-bg border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-cyan"
                         />
                       </div>
                       <div className="text-[11px] text-gray-500">
