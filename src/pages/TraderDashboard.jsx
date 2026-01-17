@@ -219,7 +219,7 @@ export default function TraderDashboard() {
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
           <div className="space-y-6 animate-fade-in">
-             <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end">
               <div className="flex gap-2 bg-dark-card border border-white/10 rounded-xl p-1">
                 {['week', 'month', 'year', 'all'].map((range) => (
                   <button
@@ -236,6 +236,28 @@ export default function TraderDashboard() {
                 ))}
               </div>
             </div>
+
+            {!paymentSetupCompleted && (
+              <div className="bg-yellow-500/10 border border-yellow-500/40 rounded-2xl p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-300 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-yellow-100">
+                    Connect a payment account to enable subscription pricing.
+                  </p>
+                  <p className="text-xs text-yellow-100/80 mt-1">
+                    Set up Stripe or PayPal in payment settings so subscribers can pay you.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/settings/payments')}
+                    className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-yellow-400 text-black text-xs font-semibold hover:bg-yellow-300 transition-colors"
+                  >
+                    Go to payment settings
+                  </button>
+                </div>
+              </div>
+            )
+            }
 
             {/* Earnings Cards */}
             <div className="grid md:grid-cols-3 gap-6">
