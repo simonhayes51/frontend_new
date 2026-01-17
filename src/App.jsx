@@ -71,9 +71,9 @@ const AppLayout = lazy(() => import("./components/AppLayout"));
 
 // PROFESSIONAL REDESIGN - Clean, modern layout
 const AppLayoutPro = lazy(() => import("./components/AppLayoutPro"));
-const FeedPro = lazy(() => import("./pages/FeedPro"));
 const Subscriptions = lazy(() => import("./pages/Subscriptions"));
 const Notifications = lazy(() => import("./pages/Notifications"));
+const CommunityPage = lazy(() => import("./pages/CommunityPage"));
 
 function App() {
   return (
@@ -141,7 +141,7 @@ function App() {
                     <Route path="profit-calculator" element={<ProfitCalculator />} />
                     <Route path="leaderboard" element={<Leaderboard />} />
                     <Route path="referrals" element={<ReferralProgram />} />
-                    <Route path="community" element={<SocialHub />} />
+                    <Route path="community" element={<CommunityPage />} />
                     <Route path="traders-area" element={<TradersArea />} />
                     <Route path="saved-posts" element={<SavedPosts />} />
                     <Route path="admin/traders" element={<AdminTraders />} />

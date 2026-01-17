@@ -11,9 +11,12 @@ import { getFeed, createPost } from "../api/social";
 import { getPaymentAccountsStatus } from "../api/billing";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
+import { useSearchParams } from "react-router-dom";
 
 export default function Feed() {
   const { user, login } = useAuth();
+  const [searchParams] = useSearchParams();
+  const searchQuery = (searchParams.get("q") || "").trim();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -96,17 +99,45 @@ export default function Feed() {
       setPosts(lockedPosts);
       setLoading(false);
     }
-  }, [filter, user]);
+  }, [filter, user, searchQuery]);
 
   const loadPosts = async () => {
     setLoading(true);
     try {
-      const { data } = await getFeed({
-        type: filter !== "all" ? filter : undefined,
-      });
-      const items = Array.isArray(data)
+      const params = {};
+      if (filter === "subscribed" || filter === "premium") {
+        params.feed_type = "subscribed";
+      }
+
+      const { data } = await getFeed(params);
+      let items = Array.isArray(data)
         ? data
         : data?.posts || data?.items || data?.results || [];
+      
+      if (filter === "premium") {
+        items = items.filter(
+          (post) => post.is_premium || post.requires_purchase
+        );
+      }
+
+      const normalizedQuery = searchQuery.toLowerCase();
+      if (normalizedQuery) {
+        items = items.filter((post) => {
+          const content = String(post.content || "").toLowerCase();
+          const title = String(post.title || "").toLowerCase();
+          const author =
+            String(post.author?.username || post.username || "").toLowerCase();
+          const tags = Array.isArray(post.tags)
+            ? post.tags.join(" ").toLowerCase()
+            : String(post.tags || "").toLowerCase();
+          return (
+            content.includes(normalizedQuery) ||
+            title.includes(normalizedQuery) ||
+            author.includes(normalizedQuery) ||
+            tags.includes(normalizedQuery)
+          );
+        });
+      }
       setPosts(items);
     } catch (error) {
       console.error("Failed to load posts:", error);

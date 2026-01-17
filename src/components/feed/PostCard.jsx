@@ -504,11 +504,16 @@ export function PostCard({ post, onUpdate }) {
                 <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
                   {trader.tier}
                 </span>
-                <span
-                  className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${accessBadgeClasses}`}
-                >
-                  {accessLabel}
-                </span>
+                {!(
+                  accessLabel === "FREE" &&
+                  trader.tier.toLowerCase() === "free"
+                ) && (
+                  <span
+                    className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${accessBadgeClasses}`}
+                  >
+                    {accessLabel}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>@{trader.username}</span>

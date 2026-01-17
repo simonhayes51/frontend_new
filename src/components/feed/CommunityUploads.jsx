@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { Upload, ChevronRight, TrendingUp, Eye, Heart } from "lucide-react";
 import { getFeed } from "../../api/social";
+import { useNavigate } from "react-router-dom";
 
 export function CommunityUploads() {
   const [uploads, setUploads] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadUploads();
@@ -60,7 +62,10 @@ export function CommunityUploads() {
           <Upload className="w-5 h-5 text-secondary" />
           <h2 className="font-semibold text-foreground">Community Uploads</h2>
         </div>
-        <button className="flex items-center gap-1 text-sm text-primary hover:underline">
+        <button
+          className="flex items-center gap-1 text-sm text-primary hover:underline"
+          onClick={() => navigate("/")}
+        >
           See all
           <ChevronRight className="w-4 h-4" />
         </button>

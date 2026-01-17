@@ -1,11 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { Zap } from 'lucide-react';
+import api from '../axios';
 
 const Login = () => {
   const { isAuthenticated, login, checkAuthStatus } = useAuth();
   const [searchParams] = useSearchParams();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [username, setUsername] = useState('');
 
   // Check if user was redirected back from OAuth
   useEffect(() => {
@@ -13,6 +18,24 @@ const Login = () => {
       checkAuthStatus();
     }
   }, [searchParams, checkAuthStatus]);
+
+  const handleEmailSubmit = async (event) => {
+    event.preventDefault();
+
+    const payload = { email, password };
+    const url = isRegisterMode ? '/api/auth/email/register' : '/api/auth/email/login';
+
+    if (isRegisterMode) {
+      payload.username = username || email.split('@')[0];
+    }
+
+    try {
+      await api.post(url, payload);
+      await checkAuthStatus();
+    } catch (error) {
+      console.error('Email auth failed:', error);
+    }
+  };
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -47,12 +70,47 @@ const Login = () => {
               <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Or</span></div>
             </div>
 
-            <div className="grid gap-3">
-              <input type="email" placeholder="Email address" className="bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 outline-none" />
-              <button className="bg-white/10 text-white py-3 rounded-xl font-semibold hover:bg-white/20 transition-all">
-                Continue with Email
+            <form onSubmit={handleEmailSubmit} className="grid gap-3">
+              <input
+                type="email"
+                placeholder="Email address"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                className="bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 outline-none"
+              />
+              {isRegisterMode && (
+                <input
+                  type="text"
+                  placeholder="Username"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  required
+                  className="bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 outline-none"
+                />
+              )}
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                className="bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 outline-none"
+              />
+              <button
+                type="submit"
+                className="bg-white/10 text-white py-3 rounded-xl font-semibold hover:bg-white/20 transition-all"
+              >
+                {isRegisterMode ? 'Create account with Email' : 'Continue with Email'}
               </button>
-            </div>
+              <button
+                type="button"
+                onClick={() => setIsRegisterMode((prev) => !prev)}
+                className="text-xs text-muted-foreground hover:text-white text-left"
+              >
+                {isRegisterMode ? 'Already have an account? Sign in instead' : 'New here? Create an account with email'}
+              </button>
+            </form>
         </div>
       </div>
     </div>

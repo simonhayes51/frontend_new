@@ -37,15 +37,26 @@ export function NotificationProvider({ children }) {
         ? listRes.data
         : listRes.data?.notifications || listRes.data?.items || listRes.data?.results || [];
 
-      const mapped = (rawList || []).map((n) => ({
-        id: n.id,
-        type: n.type || n.category || "general",
-        title: n.title || "Notification",
-        message: n.message || n.text || "",
-        time: n.time_ago || n.time || n.created_at || "",
-        read: !!(n.read || n.is_read || n.seen),
-        avatar: n.actor_avatar || n.avatar_url || n.user_avatar || n.user_image || "",
-      }));
+      const mapped = (rawList || []).map((n) => {
+        const rawType = n.notification_type || n.type || n.category || "general";
+        let type = rawType;
+
+        if (rawType === "post_like") type = "like";
+        else if (rawType === "post_comment") type = "comment";
+        else if (rawType === "new_follower") type = "follow";
+        else if (rawType === "subscription") type = "subscription";
+
+        return {
+          id: n.id,
+          type,
+          title: n.title || "Notification",
+          message: n.message || n.text || "",
+          time: n.time_ago || n.time || n.created_at || "",
+          read: !!(n.read || n.is_read || n.seen),
+          avatar: n.actor_avatar || n.avatar_url || n.user_avatar || n.user_image || "",
+          relatedUsername: n.related_username || n.username || "",
+        };
+      });
 
       setNotifications(mapped);
 

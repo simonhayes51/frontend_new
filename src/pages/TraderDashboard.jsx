@@ -41,6 +41,7 @@ export default function TraderDashboard() {
   const [timeRange, setTimeRange] = useState('month'); // week, month, year, all
   const [profileError, setProfileError] = useState('');
   const [paymentSetupCompleted, setPaymentSetupCompleted] = useState(null);
+  const [pendingTraders, setPendingTraders] = useState([]);
   
   // Settings State
   const [profileData, setProfileData] = useState({
@@ -123,6 +124,20 @@ export default function TraderDashboard() {
     }
   };
 
+  const loadPendingTraders = async () => {
+    try {
+      const res = await api.get('/api/admin/pending-traders');
+      setPendingTraders(Array.isArray(res.data) ? res.data : res.data?.items || []);
+    } catch (error) {
+      console.error('Failed to load pending traders:', error);
+      setPendingTraders([]);
+    }
+  };
+
+  useEffect(() => {
+    loadPendingTraders();
+  }, []);
+
   const requestPayout = async () => {
     try {
       await api.post('/api/traders/request-payout');
@@ -151,6 +166,28 @@ export default function TraderDashboard() {
       toast.error('Failed to update settings');
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const handleApproveTrader = async (traderId) => {
+    try {
+      await api.post(`/api/admin/pending-traders/${traderId}/approve`);
+      toast.success('Trader approved');
+      setPendingTraders((prev) => prev.filter((t) => t.user_id !== traderId));
+    } catch (error) {
+      console.error('Failed to approve trader:', error);
+      toast.error('Failed to approve trader');
+    }
+  };
+
+  const handleRejectTrader = async (traderId) => {
+    try {
+      await api.post(`/api/admin/pending-traders/${traderId}/reject`);
+      toast.success('Trader rejected');
+      setPendingTraders((prev) => prev.filter((t) => t.user_id !== traderId));
+    } catch (error) {
+      console.error('Failed to reject trader:', error);
+      toast.error('Failed to reject trader');
     }
   };
 
@@ -500,6 +537,53 @@ export default function TraderDashboard() {
             </button>
 
             <PaymentSettings embedded />
+
+            {pendingTraders.length > 0 && (
+              <div className="bg-dark-card border border-white/10 rounded-2xl p-8 mt-6">
+                <h3 className="text-xl font-bold text-white mb-4">Pending Trader Requests</h3>
+                <p className="text-gray-400 text-sm mb-4">
+                  Approve or reject users who have requested a trader profile.
+                </p>
+                <div className="space-y-3">
+                  {pendingTraders.map((trader) => (
+                    <div
+                      key={trader.user_id}
+                      className="flex items-center justify-between gap-4 border border-white/10 rounded-xl px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={trader.avatar_url}
+                          alt={trader.username}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                        <div>
+                          <p className="font-semibold text-white">
+                            {trader.username || trader.user_id}
+                          </p>
+                          <p className="text-xs text-gray-400 line-clamp-2">
+                            {trader.bio || 'No bio provided'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleRejectTrader(trader.user_id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-500/60 text-red-400 hover:bg-red-500/10"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          onClick={() => handleApproveTrader(trader.user_id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 text-black hover:bg-emerald-400"
+                        >
+                          Approve
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

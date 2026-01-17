@@ -7,7 +7,7 @@ import { getUnreadMessageCount } from "../../api/social";
 
 export function TopBar() {
   const [searchFocused, setSearchFocused] = useState(false);
-  const [liveCount, setLiveCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [messageUnreadCount, setMessageUnreadCount] = useState(0);
   const { unreadCount: notificationUnreadCount } = useNotifications();
@@ -20,16 +20,6 @@ export function TopBar() {
     user?.account_type === 'trader' ||
     user?.role === 'trader' ||
     user?.is_trader;
-
-  useEffect(() => {
-    // Simulate live count - in production, this would come from WebSocket or API
-    const updateLiveCount = () => {
-      setLiveCount(Math.floor(Math.random() * 500) + 2000); // 2000-2500
-    };
-    updateLiveCount();
-    const interval = setInterval(updateLiveCount, 60000); // Update every minute
-    return () => clearInterval(interval);
-  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -55,6 +45,14 @@ export function TopBar() {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleSearchKeyDown = (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) return;
+    navigate(`/?q=${encodeURIComponent(query)}`);
   };
 
   useEffect(() => {
@@ -90,16 +88,13 @@ export function TopBar() {
               type="text"
               placeholder="Search traders, tactics, or posts..."
               className="w-full h-10 pl-10 pr-4 bg-muted/50 border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
             />
           </div>
-        </div>
-
-        {/* Live Indicator */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-success/10 border border-success/20 rounded-full">
-          <div className="w-2 h-2 bg-success rounded-full animate-pulse" />
-          <span className="text-xs font-medium text-success">{(liveCount / 1000).toFixed(1)}k Live</span>
         </div>
 
         {/* Actions */}

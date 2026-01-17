@@ -6,7 +6,6 @@ import toast from "react-hot-toast";
 import { subscribeToTrader, unsubscribeFromTrader } from "../../api/social";
 
 const tierColors = {
-  bronze: "from-amber-700 to-amber-500",
   silver: "from-slate-400 to-slate-300",
   gold: "from-yellow-500 to-yellow-300",
   platinum: "from-cyan-400 to-cyan-200",
@@ -14,7 +13,6 @@ const tierColors = {
 };
 
 const tierBadgeColors = {
-  bronze: "bg-amber-600/20 text-amber-400 border-amber-500/30",
   silver: "bg-slate-500/20 text-slate-300 border-slate-400/30",
   gold: "bg-yellow-500/20 text-yellow-400 border-yellow-400/30",
   platinum: "bg-cyan-500/20 text-cyan-300 border-cyan-300/30",
@@ -61,15 +59,20 @@ export function TraderCard({ trader }) {
 
   return (
     <div className="block group relative bg-card border border-border rounded-xl p-4 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
-      {/* Tier Glow Effect */}
-      <div
-        className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl -z-10 bg-gradient-to-r ${tierColors[trader.tier]}`}
-        style={{ transform: "scale(0.95)" }}
-      />
+      {tierColors[trader.tier] && (
+        <div
+          className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl -z-10 bg-gradient-to-r ${tierColors[trader.tier]}`}
+          style={{ transform: "scale(0.95)" }}
+        />
+      )}
 
       <div className="flex items-start gap-3">
         {/* Avatar */}
-        <div className={`relative rounded-full p-0.5 bg-gradient-to-br ${tierColors[trader.tier]}`}>
+        <div
+          className={`relative rounded-full p-0.5 ${
+            tierColors[trader.tier] ? `bg-gradient-to-br ${tierColors[trader.tier]}` : "bg-card"
+          }`}
+        >
           <img
             src={trader.avatar}
             alt={trader.name}
@@ -84,9 +87,13 @@ export function TraderCard({ trader }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-foreground truncate">{trader.name}</h3>
-            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${tierBadgeColors[trader.tier]}`}>
-              {trader.tier}
-            </span>
+            {tierBadgeColors[trader.tier] && (
+              <span
+                className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${tierBadgeColors[trader.tier]}`}
+              >
+                {trader.tier}
+              </span>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">@{trader.username}</p>
 

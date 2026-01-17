@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { Flame, ChevronRight } from "lucide-react";
 import { TraderCard } from "./TraderCard";
 import { getTraders } from "../../api/social";
+import { useNavigate } from "react-router-dom";
 
 export function TrendingTraders() {
   const [traders, setTraders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadTraders();
@@ -85,7 +87,10 @@ export function TrendingTraders() {
           <Flame className="w-5 h-5 text-secondary" />
           <h2 className="font-semibold text-foreground">Trending Traders</h2>
         </div>
-        <button className="flex items-center gap-1 text-sm text-primary hover:underline">
+        <button
+          className="flex items-center gap-1 text-sm text-primary hover:underline"
+          onClick={() => navigate("/subscriptions")}
+        >
           See all
           <ChevronRight className="w-4 h-4" />
         </button>
