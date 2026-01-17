@@ -129,7 +129,9 @@ export default function TraderDashboard() {
       const res = await api.get('/api/admin/pending-traders');
       setPendingTraders(Array.isArray(res.data) ? res.data : res.data?.items || []);
     } catch (error) {
-      console.error('Failed to load pending traders:', error);
+      if (error?.response?.status && error.response.status !== 404) {
+        console.error('Failed to load pending traders:', error);
+      }
       setPendingTraders([]);
     }
   };
