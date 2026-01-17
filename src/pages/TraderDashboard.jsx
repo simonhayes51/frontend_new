@@ -41,7 +41,7 @@ export default function TraderDashboard() {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('month'); // week, month, year, all
   const [profileError, setProfileError] = useState('');
-  const [paymentSetupCompleted, setPaymentSetupCompleted] = useState(true);
+  const [paymentSetupCompleted, setPaymentSetupCompleted] = useState(false);
   
   // Settings State
   const [profileData, setProfileData] = useState({
@@ -83,12 +83,14 @@ export default function TraderDashboard() {
         const paymentRes = await getPaymentAccountsStatus();
         if (paymentRes?.data) {
           setPaymentSetupCompleted(
-            paymentRes.data.payment_setup_completed !== false
+            paymentRes.data.payment_setup_completed === true
           );
+        } else {
+          setPaymentSetupCompleted(false);
         }
       } catch (error) {
         console.error('Failed to load payment status:', error);
-        setPaymentSetupCompleted(true);
+        setPaymentSetupCompleted(false);
       }
 
       try {
