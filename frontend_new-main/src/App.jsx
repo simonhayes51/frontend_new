@@ -1,0 +1,252 @@
+import { lazy, Suspense } from "react";
+import { Toaster } from "react-hot-toast";
+import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import { DashboardProvider } from "./context/DashboardContext";
+import { SettingsProvider } from "./context/SettingsContext";
+import { EntitlementsProvider } from "./context/EntitlementsContext";
+import { NotificationProvider } from "./context/NotificationContext";
+
+import ErrorBoundary from "./components/ErrorBoundary";
+import Layout from "./components/Layout";
+import { MainLayout } from "./components/layout/MainLayout";
+import Loading from "./components/Loading";
+import PrivateRoute from "./components/PrivateRoute";
+import PremiumRoute from "./components/PremiumRoute";
+
+// Eager pages
+import Landing from "./pages/Landing";
+import Watchlist from "./pages/Watchlist";
+import SquadBuilder from "./pages/SquadBuilder";
+import PlayerSearch from "./pages/PlayerSearch";
+import TradeFinder from "./pages/TradeFinder";
+
+// Lazy pages
+const Dashboard     = lazy(() => import("./pages/Dashboard"));
+const AddTrade      = lazy(() => import("./pages/AddTrade"));
+const Trades        = lazy(() => import("./pages/Trades"));
+const Profile       = lazy(() => import("./pages/Profile"));
+const Settings      = lazy(() => import("./pages/Settings"));
+const PaymentSettings = lazy(() => import("./pages/PaymentSettings"));
+const ProfitGraph   = lazy(() => import("./pages/ProfitGraph"));
+const PriceCheck    = lazy(() => import("./pages/PriceCheck"));
+const Trending      = lazy(() => import("./pages/Trending"));
+const SmartBuy      = lazy(() => import("./pages/SmartBuy"));
+const Login         = lazy(() => import("./pages/Login"));
+const AccessDenied  = lazy(() => import("./pages/AccessDenied"));
+const NotFound      = lazy(() => import("./pages/NotFound"));
+const PlayerCompare = lazy(() => import("./pages/PlayerCompare"));
+const Billing       = lazy(() => import("./pages/Billing"));
+
+// NEW pages
+const SmartBuyerAI  = lazy(() => import("./pages/SmartBuyerAI"));
+const BestBuys      = lazy(() => import("./pages/BestBuys"));
+const SBCHub        = lazy(() => import("./pages/SBCHub"));
+
+// ENHANCED features
+const PortfolioOptimizer = lazy(() => import("./pages/PortfolioOptimizer"));
+const ProfitCalculator = lazy(() => import("./pages/ProfitCalculator"));
+const TradeCopilot = lazy(() => import("./pages/TradeCopilot"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const ReferralProgram = lazy(() => import("./pages/ReferralProgram"));
+const MarketSentiment = lazy(() => import("./pages/MarketSentiment"));
+const PricingTiers = lazy(() => import("./pages/PricingTiers"));
+const MarketMaker = lazy(() => import("./pages/MarketMaker"));
+const SocialHub = lazy(() => import("./pages/SocialHub"));
+const Feed = lazy(() => import("./pages/Feed"));
+const AdminTraders = lazy(() => import("./pages/AdminTraders"));
+const TradersArea = lazy(() => import("./pages/TradersArea"));
+const TraderProfile = lazy(() => import("./pages/TraderProfile"));
+const SavedPosts = lazy(() => import("./pages/SavedPosts"));
+
+// RADICAL REDESIGN - New OnlyFans-style pages
+const LandingPageNew = lazy(() => import("./pages/LandingPageNew"));
+const FeedNew = lazy(() => import("./pages/FeedNew"));
+const TraderProfileNew = lazy(() => import("./pages/TraderProfileNew"));
+const MessagesPage = lazy(() => import("./pages/MessagesPage"));
+const TraderDashboard = lazy(() => import("./pages/TraderDashboard"));
+const BecomeTrader = lazy(() => import("./pages/BecomeTrader"));
+const SubscriptionSuccess = lazy(() => import("./pages/SubscriptionSuccess"));
+const AppLayout = lazy(() => import("./components/AppLayout"));
+
+// PROFESSIONAL REDESIGN - Clean, modern layout
+const AppLayoutPro = lazy(() => import("./components/AppLayoutPro"));
+const FeedPro = lazy(() => import("./pages/FeedPro"));
+const Subscriptions = lazy(() => import("./pages/Subscriptions"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <AuthProvider>
+        <EntitlementsProvider>
+          <NotificationProvider>
+            <Router>
+              <div className="bg-black min-h-screen text-white">
+                <Toaster position="top-right" />
+                <Suspense fallback={<Loading />}>
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/access-denied" element={<AccessDenied />} />
+                  {/* Landing removed */}
+          <Route path="/landing" element={<Navigate to="/" replace />} />
+                  
+                  {/* NEW: Radical Redesign Landing */}
+                  <Route path="/new" element={<LandingPageNew />} />
+
+                  {/* Protected shell - Now open to public */}
+                  <Route
+                    path="/"
+                    element={
+                      <SettingsProvider>
+                        <DashboardProvider>
+                          <MainLayout />
+                        </DashboardProvider>
+                      </SettingsProvider>
+                    }
+                  >
+                    {/* ✅ Feed is now the default landing page */}
+                    <Route index element={<Feed />} />
+                    {/* Optional aliases */}
+                    <Route path="overview" element={<Dashboard />} />
+                    <Route path="dashboard" element={<Dashboard />} />
+                    
+                    {/* NEW: Radical Redesign Pages */}
+                    <Route path="feed" element={<FeedNew />} />
+                    <Route path="subscriptions" element={<Subscriptions />} />
+                    <Route path="notifications" element={<Notifications />} />
+                    <Route path="messages" element={<MessagesPage />} />
+                    <Route path="messages/:userId" element={<MessagesPage />} />
+                    <Route path="trader-dashboard" element={<TraderDashboard />} />
+                    <Route path="become-trader" element={<BecomeTrader />} />
+                    <Route path="trader/:traderId" element={<TraderProfileNew />} />
+                    <Route path="subscription/success" element={<SubscriptionSuccess />} />
+
+                    {/* Free tier pages */}
+                    <Route path="add-trade" element={<AddTrade />} />
+                    <Route path="trades" element={<Trades />} />
+                    <Route path="player-search" element={<PlayerSearch />} />
+                    <Route path="player-compare" element={<PlayerCompare />} />
+                    <Route path="profile" element={<Profile />} />
+                    <Route path="settings" element={<Settings />} />
+                    <Route path="settings/payments" element={<PaymentSettings />} />
+                    <Route path="analytics" element={<ProfitGraph />} />
+                    <Route path="pricecheck" element={<PriceCheck />} />
+                    <Route path="watchlist" element={<Watchlist />} />
+                    <Route path="squad" element={<SquadBuilder />} />
+                    <Route path="billing" element={<Billing />} />
+                    <Route path="pricing" element={<PricingTiers />} />
+                    <Route path="sbc" element={<SBCHub />} />
+                    <Route path="profit-calculator" element={<ProfitCalculator />} />
+                    <Route path="leaderboard" element={<Leaderboard />} />
+                    <Route path="referrals" element={<ReferralProgram />} />
+                    <Route path="community" element={<SocialHub />} />
+                    <Route path="traders-area" element={<TradersArea />} />
+                    <Route path="saved-posts" element={<SavedPosts />} />
+                    <Route path="admin/traders" element={<AdminTraders />} />
+
+                    {/* Basic trending (free tier gets limited access) */}
+                    <Route path="trending" element={<Trending />} />
+
+                    {/* Premium-only routes */}
+                    <Route
+                      path="smart-buy"
+                      element={
+                        <PremiumRoute feature="smart_buy" featureName="Smart Buy AI">
+                          <SmartBuy />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    <Route
+                      path="trade-finder"
+                      element={
+                        <PremiumRoute feature="trade_finder" featureName="Advanced Trade Finder">
+                          <TradeFinder />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    {/* Smart Buyer (Simple) with name search + Trade Plan */}
+                    <Route
+                      path="smart-buyer-ai"
+                      element={
+                        <PremiumRoute feature="smart_buy" featureName="Smart Buyer AI">
+                          <SmartBuyerAI />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    {/* Best Buys board (NOT default) */}
+                    <Route
+                      path="best-buys"
+                      element={
+                        <PremiumRoute feature="smart_buy" featureName="Smart Buy AI">
+                          <BestBuys />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    {/* Optional premium analytics alias */}
+                    <Route
+                      path="advanced-analytics"
+                      element={
+                        <PremiumRoute feature="advanced_analytics" featureName="Advanced Analytics">
+                          <ProfitGraph />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    {/* Elite tier features */}
+                    <Route
+                      path="portfolio-optimizer"
+                      element={
+                        <PremiumRoute feature="portfolio_optimizer" featureName="Portfolio Optimizer">
+                          <PortfolioOptimizer />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    <Route
+                      path="trade-copilot"
+                      element={
+                        <PremiumRoute feature="ai_copilot" featureName="AI Trade Copilot">
+                          <TradeCopilot />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    <Route
+                      path="market-sentiment"
+                      element={
+                        <PremiumRoute feature="market_sentiment" featureName="Market Sentiment">
+                          <MarketSentiment />
+                        </PremiumRoute>
+                      }
+                    />
+
+                    <Route
+                      path="market-maker"
+                      element={
+                        <PremiumRoute feature="market_maker" featureName="Market Maker Mode">
+                          <MarketMaker />
+                        </PremiumRoute>
+                      }
+                    />
+                  </Route>
+
+                  {/* 404 fallback */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+              </div>
+            </Router>
+          </NotificationProvider>
+        </EntitlementsProvider>
+      </AuthProvider>
+    </ErrorBoundary>
+  );
+}
+
+export default App;

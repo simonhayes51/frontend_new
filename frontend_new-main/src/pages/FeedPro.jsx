@@ -1,0 +1,258 @@
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Heart, MessageCircle, Bookmark, Send, MoreVertical, Image as ImageIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { getFeed, reactToPost, savePost, createPost } from '../api/social';
+
+/**
+ * Professional Feed - Clean, card-based design
+ */
+export default function FeedPro() {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    loadPosts();
+  }, [filter]);
+
+  const loadPosts = async () => {
+    setLoading(true);
+    try {
+      const { data } = await getFeed({
+        type: filter !== 'all' ? filter : undefined,
+      });
+      const items = Array.isArray(data)
+        ? data
+        : data?.posts || data?.items || data?.results || [];
+      setPosts(items);
+    } catch (error) {
+      console.error('Failed to load posts:', error);
+      toast.error('Failed to load feed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLike = async (postId) => {
+    try {
+      const { data } = await reactToPost(postId, 'like');
+      setPosts((prev) =>
+        prev.map((post) => {
+          if (post.id !== postId) return post;
+          const wasLiked = post.user_reaction === 'like';
+          const nextLiked = data?.removed === undefined ? !wasLiked : !data.removed;
+          const baseLikes = post.stats?.likes ?? post.likes_count ?? 0;
+          const nextLikes =
+            data?.stats?.likes ?? data?.likes_count ?? (nextLiked ? baseLikes + 1 : Math.max(0, baseLikes - 1));
+          return {
+            ...post,
+            user_reaction: nextLiked ? 'like' : null,
+            likes_count: data?.likes_count ?? post.likes_count,
+            stats: {
+              ...post.stats,
+              ...data?.stats,
+              likes: nextLikes,
+            },
+          };
+        })
+      );
+    } catch (error) {
+      console.error('Like failed:', error);
+      toast.error('Failed to like post');
+    }
+  };
+
+  const handleSave = async (postId) => {
+    try {
+      await savePost(postId);
+      toast.success('Post saved!');
+    } catch (error) {
+      console.error('Save failed:', error);
+      toast.error('Failed to save post');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="bg-white rounded-3xl shadow-lg p-6 animate-pulse">
+            <div className="flex gap-3 mb-4">
+              <div className="w-12 h-12 bg-gray-200 rounded-full" />
+              <div className="flex-1">
+                <div className="h-4 bg-gray-200 rounded w-32 mb-2" />
+                <div className="h-3 bg-gray-200 rounded w-24" />
+              </div>
+            </div>
+            <div className="h-64 bg-gray-200 rounded-2xl" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-3xl shadow-lg p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Feeds</h1>
+          <div className="flex gap-4">
+            {[
+              { value: 'all', label: 'Recents' },
+              { value: 'quick_flip', label: 'Quick Flips' },
+              { value: 'prediction', label: 'Predictions' },
+              { value: 'tip', label: 'Tips' },
+            ].map(f => (
+              <button
+                key={f.value}
+                onClick={() => setFilter(f.value)}
+                className={`px-4 py-2 rounded-full font-medium transition-all ${
+                  filter === f.value
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Create Post */}
+        <div className="flex gap-3">
+          <img
+            src="/server-logo.png"
+            alt="You"
+            className="w-12 h-12 rounded-full"
+          />
+          <div className="flex-1 bg-gray-50 rounded-2xl p-4">
+            <input
+              type="text"
+              placeholder="Share something..."
+              className="w-full bg-transparent text-gray-900 placeholder-gray-400 outline-none mb-3"
+              onClick={() => navigate('/create-post')}
+              readOnly
+            />
+            <div className="flex items-center justify-between">
+              <div className="flex gap-4">
+                <button className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
+                  <ImageIcon className="w-5 h-5" />
+                  <span className="text-sm font-medium">Image</span>
+                </button>
+              </div>
+              <button className="bg-gray-900 text-white px-6 py-2 rounded-full font-semibold hover:bg-gray-800 transition-all">
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Posts */}
+      {posts.map((post) => (
+        <motion.div
+          key={post.id}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-3xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
+        >
+          {/* Post Header */}
+          <div className="p-6 pb-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <img
+                  src={post.author_avatar || `https://i.pravatar.cc/150?u=${post.author_id}`}
+                  alt={post.author_name}
+                  className="w-12 h-12 rounded-full cursor-pointer hover:ring-4 ring-gray-200 transition-all"
+                  onClick={() => navigate(`/trader/${post.author_id}`)}
+                />
+                <div>
+                  <p className="font-semibold text-gray-900 cursor-pointer hover:underline" onClick={() => navigate(`/trader/${post.author_id}`)}>
+                    {post.author_name}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {new Date(post.created_at).toLocaleDateString()} • {post.tier || 'free'}
+                  </p>
+                </div>
+              </div>
+              <button className="p-2 hover:bg-gray-100 rounded-full">
+                <MoreVertical className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            {/* Post Content */}
+            <p className="text-gray-700 mb-4 whitespace-pre-wrap">{post.content}</p>
+          </div>
+
+          {/* Post Images */}
+          {post.media_urls && post.media_urls.length > 0 && (
+            <div className={`grid gap-2 px-6 pb-4 ${
+              post.media_urls.length === 1 ? 'grid-cols-1' : 
+              post.media_urls.length === 2 ? 'grid-cols-2' :
+              'grid-cols-3'
+            }`}>
+              {post.media_urls.slice(0, 3).map((url, i) => (
+                <img
+                  key={i}
+                  src={url}
+                  alt={`Post media ${i + 1}`}
+                  className="w-full h-64 object-cover rounded-2xl cursor-pointer hover:opacity-90 transition-opacity"
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Post Actions */}
+          <div className="px-6 py-4 border-t border-gray-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <button
+                  onClick={() => handleLike(post.id)}
+                  className={`flex items-center gap-2 transition-all ${
+                    post.user_reaction === 'like'
+                      ? 'text-pink-500'
+                      : 'text-gray-500 hover:text-pink-500'
+                  }`}
+                >
+                  <Heart className={`w-5 h-5 ${post.user_reaction === 'like' ? 'fill-current' : ''}`} />
+                  <span className="text-sm font-medium">{post.stats?.likes || post.likes_count || 0}</span>
+                </button>
+                <button className="flex items-center gap-2 text-gray-500 hover:text-blue-500 transition-all">
+                  <MessageCircle className="w-5 h-5" />
+                  <span className="text-sm font-medium">{post.stats?.comments || post.comments_count || post.comment_count || 0}</span>
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleSave(post.id)}
+                  className="p-2 text-gray-500 hover:text-purple-500 hover:bg-purple-50 rounded-full transition-all"
+                >
+                  <Bookmark className="w-5 h-5" />
+                </button>
+                {post.tier !== 'free' && (
+                  <button className="bg-gradient-to-r from-cyan-500 to-purple-500 text-white px-5 py-2 rounded-full text-sm font-semibold hover:shadow-lg transition-all flex items-center gap-2">
+                    <span>🔥</span>
+                    Tip
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* View Comments Link */}
+          {post.comments_count > 0 && (
+            <div className="px-6 pb-4">
+              <button className="text-sm text-gray-500 hover:text-gray-700 font-medium">
+                View all {post.comments_count} comments
+              </button>
+            </div>
+          )}
+        </motion.div>
+      ))}
+    </div>
+  );
+}
