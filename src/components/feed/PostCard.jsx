@@ -329,10 +329,22 @@ export function PostCard({ post, onUpdate }) {
     }
   };
 
+  const isAuthor =
+    !!user &&
+    (
+      String(postState.user_id ?? "") === String(user.id ?? "") ||
+      String(postState.author?.id ?? "") === String(user.id ?? "") ||
+      String(postState.author?.trader_id ?? "") === String(user.id ?? "")
+    );
+
+  const canView =
+    !!postState.can_view ||
+    isAuthor;
+
   const isLocked = 
     postState.is_locked || 
-    ((postState.is_premium || postState.visibility === "premium") && !postState.can_view) ||
-    (postState.requires_purchase && !postState.can_view);
+    ((postState.is_premium || postState.visibility === "premium") && !canView) ||
+    (postState.requires_purchase && !canView);
 
   const isArticle = postState.post_type === "analysis";
   const contentPreviewLength = 200;
