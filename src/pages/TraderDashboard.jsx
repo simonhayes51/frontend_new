@@ -126,7 +126,16 @@ export default function TraderDashboard() {
 
   const loadPendingTraders = async () => {
     try {
-      const res = await api.get('/api/admin/pending-traders');
+      let res;
+      try {
+        res = await api.get('/api/admin/pending-traders');
+      } catch (error) {
+        if (error?.response?.status === 404) {
+          res = await api.get('/api/traders/pending-traders');
+        } else {
+          throw error;
+        }
+      }
       setPendingTraders(Array.isArray(res.data) ? res.data : res.data?.items || []);
     } catch (error) {
       if (error?.response?.status && error.response.status !== 404) {
@@ -173,7 +182,15 @@ export default function TraderDashboard() {
 
   const handleApproveTrader = async (traderId) => {
     try {
-      await api.post(`/api/admin/pending-traders/${traderId}/approve`);
+      try {
+        await api.post(`/api/admin/pending-traders/${traderId}/approve`);
+      } catch (error) {
+        if (error?.response?.status === 404) {
+          await api.post(`/api/traders/pending-traders/${traderId}/approve`);
+        } else {
+          throw error;
+        }
+      }
       toast.success('Trader approved');
       setPendingTraders((prev) => prev.filter((t) => t.user_id !== traderId));
     } catch (error) {
@@ -184,7 +201,15 @@ export default function TraderDashboard() {
 
   const handleRejectTrader = async (traderId) => {
     try {
-      await api.post(`/api/admin/pending-traders/${traderId}/reject`);
+      try {
+        await api.post(`/api/admin/pending-traders/${traderId}/reject`);
+      } catch (error) {
+        if (error?.response?.status === 404) {
+          await api.post(`/api/traders/pending-traders/${traderId}/reject`);
+        } else {
+          throw error;
+        }
+      }
       toast.success('Trader rejected');
       setPendingTraders((prev) => prev.filter((t) => t.user_id !== traderId));
     } catch (error) {
