@@ -17,6 +17,10 @@ const Login = () => {
     if (searchParams.get('authenticated') === 'true') {
       checkAuthStatus();
     }
+    const emailParam = searchParams.get('email');
+    if (emailParam) {
+      setEmail(emailParam);
+    }
   }, [searchParams, checkAuthStatus]);
 
   const handleEmailSubmit = async (event) => {

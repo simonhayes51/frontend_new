@@ -11,15 +11,17 @@ import { getFeed, createPost } from "../api/social";
 import { getPaymentAccountsStatus } from "../api/billing";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 
 export default function Feed() {
   const { user, login } = useAuth();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const searchQuery = (searchParams.get("q") || "").trim();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [email, setEmail] = useState("");
   const [postContent, setPostContent] = useState("");
   const [creating, setCreating] = useState(false);
   const [showTradeModal, setShowTradeModal] = useState(false);
@@ -297,8 +299,22 @@ export default function Feed() {
                  </div>
 
                  <div className="grid gap-3">
-                   <input type="email" placeholder="Email address" className="bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 outline-none" />
-                   <button className="bg-white/10 text-white py-3 rounded-xl font-semibold hover:bg-white/20 transition-all">
+                   <input 
+                     type="email" 
+                     placeholder="Email address" 
+                     value={email}
+                     onChange={(e) => setEmail(e.target.value)}
+                     onKeyDown={(e) => {
+                       if (e.key === "Enter") {
+                         navigate(`/login?email=${encodeURIComponent(email)}`);
+                       }
+                     }}
+                     className="bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 outline-none" 
+                   />
+                   <button 
+                     onClick={() => navigate(`/login?email=${encodeURIComponent(email)}`)}
+                     className="bg-white/10 text-white py-3 rounded-xl font-semibold hover:bg-white/20 transition-all"
+                   >
                      Continue with Email
                    </button>
                  </div>
