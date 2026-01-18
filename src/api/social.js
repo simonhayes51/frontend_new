@@ -123,19 +123,16 @@ export const reactToComment = (commentId) =>
 export const sharePost = (postId) =>
   socialRequest({ method: "post", url: `/api/social/posts/${postId}/share` });
 
-export const viewPost = async (postId) => {
-  try {
-    return await socialRequest({
-      method: "post",
-      url: `/api/social/posts/${postId}/view`,
-    });
-  } catch (error) {
-    if (error?.response?.status === 404) {
-      return { data: { post_id: postId } };
-    }
-    throw error;
-  }
-};
+export const viewPost = (postId) =>
+  tryPost(
+    [
+      `/api/interactions/posts/${postId}/view`,
+      `/api/social/posts/${postId}/view`,
+      `/api/interactions/posts/${postId}/views`,
+      `/api/social/posts/${postId}/views`,
+    ],
+    {}
+  );
 
 export const getConversations = () =>
   tryGet(["/api/messages/conversations", "/api/social/messages/conversations"]);
