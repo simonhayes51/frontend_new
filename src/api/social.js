@@ -124,19 +124,7 @@ export const sharePost = (postId) =>
   socialRequest({ method: "post", url: `/api/social/posts/${postId}/share` });
 
 export const viewPost = async (postId) => {
-  try {
-    return await tryPost(
-      [
-        `/api/interactions/posts/${postId}/view`,
-        `/api/social/posts/${postId}/view`,
-        `/api/interactions/posts/${postId}/views`,
-        `/api/social/posts/${postId}/views`,
-      ],
-      {}
-    );
-  } catch {
-    return { data: { post_id: postId } };
-  }
+  return { data: { post_id: postId } };
 };
 
 export const getConversations = () =>
