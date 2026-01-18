@@ -193,6 +193,8 @@ export const getNotifications = (params) =>
 export const markNotificationRead = (notificationId) =>
   tryPost(
     [
+      `/api/notifications/mark-read/${notificationId}`,
+      `/api/social/notifications/mark-read/${notificationId}`,
       `/api/notifications/${notificationId}/read`,
       `/api/social/notifications/${notificationId}/read`,
     ],
@@ -201,7 +203,12 @@ export const markNotificationRead = (notificationId) =>
 
 export const markAllNotificationsRead = () =>
   tryPost(
-    ["/api/notifications/read-all", "/api/social/notifications/read-all"],
+    [
+      "/api/notifications/mark-all-read",
+      "/api/social/notifications/mark-all-read",
+      "/api/notifications/read-all",
+      "/api/social/notifications/read-all",
+    ],
     {}
   );
 
