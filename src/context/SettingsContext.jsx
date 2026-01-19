@@ -57,6 +57,7 @@ export const SettingsProvider = ({ children }) => {
   const [general, setGeneral] = useState(DEFAULT_GENERAL);
   const [portfolio, setPortfolio] = useState({ startingCoins: 0 });
   const [include_tax_in_profit, setIncludeTaxInProfit] = useState(true);
+  const [defaultPlatform, setDefaultPlatform] = useState("Console");
 
   const [visible_widgets, setVisibleWidgets] = useState(DEFAULT_VISIBLE);
   const [widget_order, setWidgetOrder] = useState(DEFAULT_WIDGET_ORDER);
@@ -64,6 +65,7 @@ export const SettingsProvider = ({ children }) => {
 
   const [alerts, setAlerts] = useState(DEFAULT_ALERTS);
   const [daily_target, setDailyTarget] = useState(DEFAULT_DAILY_TARGET);
+  const [defaultQuantity, setDefaultQuantity] = useState(1);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -137,6 +139,8 @@ export const SettingsProvider = ({ children }) => {
             if (Array.isArray(ls.widget_order)) setWidgetOrder(ls.widget_order);
             if (Number.isFinite(ls.recent_trades_limit)) setRecentTradesLimit(ls.recent_trades_limit);
             if (typeof ls.include_tax_in_profit === "boolean") setIncludeTaxInProfit(ls.include_tax_in_profit);
+            if (typeof ls.default_platform === "string") setDefaultPlatform(ls.default_platform);
+            if (Number.isFinite(ls.default_quantity)) setDefaultQuantity(ls.default_quantity);
           }
           const a = localStorage.getItem("alerts_settings");
           if (a) setAlerts({ ...DEFAULT_ALERTS, ...JSON.parse(a) });
@@ -154,6 +158,7 @@ export const SettingsProvider = ({ children }) => {
           dateFormat: s.date_format === "US" ? "MM/DD/YYYY" : s.date_format === "ISO" ? "YYYY-MM-DD" : g.dateFormat,
         }));
         setIncludeTaxInProfit(typeof s.include_tax_in_profit === "boolean" ? s.include_tax_in_profit : true);
+        if (typeof s.default_platform === "string") setDefaultPlatform(s.default_platform);
         setPortfolio({ startingCoins: p?.startingBalance ?? 0 });
 
         const serverVis = Array.isArray(s.visible_widgets) ? s.visible_widgets : [];
@@ -195,6 +200,11 @@ export const SettingsProvider = ({ children }) => {
     if (partial.widget_order) setWidgetOrder(partial.widget_order.filter((k) => ALL_WIDGET_KEYS.includes(k)));
     if (partial.recent_trades_limit !== undefined) setRecentTradesLimit(partial.recent_trades_limit);
     if (typeof partial.include_tax_in_profit === "boolean") setIncludeTaxInProfit(partial.include_tax_in_profit);
+    if (partial.default_platform) setDefaultPlatform(partial.default_platform);
+    if (partial.default_quantity !== undefined) {
+      const n = Math.max(1, Number(partial.default_quantity) || 1);
+      setDefaultQuantity(n);
+    }
     if (partial.alerts) {
       setAlerts((a) => {
         const next = { ...a, ...partial.alerts };
@@ -219,6 +229,8 @@ export const SettingsProvider = ({ children }) => {
         ...(typeof partial.include_tax_in_profit === "boolean"
           ? { include_tax_in_profit: partial.include_tax_in_profit }
           : {}),
+        ...(partial.default_platform ? { default_platform: partial.default_platform } : {}),
+        ...(partial.default_quantity !== undefined ? { default_quantity: partial.default_quantity } : {}),
       })
     );
 
@@ -230,12 +242,12 @@ export const SettingsProvider = ({ children }) => {
         });
       }
 
-      if (partial.general || partial.visible_widgets || typeof partial.include_tax_in_profit === "boolean") {
+      if (partial.general || partial.visible_widgets || typeof partial.include_tax_in_profit === "boolean" || partial.default_platform) {
         const g = { ...general, ...(partial.general || {}) };
         const payload = {
           timezone: g.timezone,
           date_format: g.dateFormat === "MM/DD/YYYY" ? "US" : g.dateFormat === "YYYY-MM-DD" ? "ISO" : "EU",
-          default_platform: "Console",
+          default_platform: partial.default_platform || defaultPlatform || "Console",
           custom_tags: [],
           currency_format: "coins",
           theme: "dark",
@@ -286,8 +298,8 @@ export const SettingsProvider = ({ children }) => {
         formatCurrency,
         formatDate,
         formatCoins,
-        default_platform: "Console",
-        default_quantity: 1,
+        default_platform: defaultPlatform,
+        default_quantity: defaultQuantity,
       }}
     >
       {children}

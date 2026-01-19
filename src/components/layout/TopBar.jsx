@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useNotifications } from "../../context/NotificationContext";
 import { getUnreadMessageCount } from "../../api/social";
+import { useSettings } from "../../context/SettingsContext";
 
 export function TopBar() {
   const [searchFocused, setSearchFocused] = useState(false);
@@ -15,6 +16,7 @@ export function TopBar() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const menuRef = useRef(null);
+  const { default_platform = "Console", saveSettings } = useSettings();
 
   const isTrader =
     user?.account_type === 'trader' ||
@@ -53,6 +55,11 @@ export function TopBar() {
     const query = searchQuery.trim();
     if (!query) return;
     navigate(`/?q=${encodeURIComponent(query)}`);
+  };
+
+  const handlePlatformSwitch = (platform) => {
+    if (!platform || platform === default_platform) return;
+    saveSettings({ default_platform: platform });
   };
 
   useEffect(() => {
@@ -101,6 +108,29 @@ export function TopBar() {
         <div className="flex items-center gap-2">
           {user && (
             <>
+              <div className="hidden sm:flex items-center gap-1 rounded-lg bg-muted px-1 py-0.5">
+                <button
+                  onClick={() => handlePlatformSwitch("Console")}
+                  className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                    default_platform === "Console"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Console
+                </button>
+                <button
+                  onClick={() => handlePlatformSwitch("PC")}
+                  className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                    default_platform === "PC"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  PC
+                </button>
+              </div>
+
               <button
                 onClick={handleCreatePost}
                 className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
