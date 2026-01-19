@@ -102,6 +102,7 @@ function normaliseSmart(it) {
       it.price_ps ??
       it.ps ??
       it.prices?.console ??
+      it.price ??
       null,
   };
 }
@@ -128,6 +129,7 @@ export default function Trending() {
   // tabs: 'fallers' | 'risers' | 'smart'
   const [tab, setTab] = useState("fallers");
   const [timeframe, setTimeframe] = useState("24"); // passed to backend for risers/fallers
+  const [platform, setPlatform] = useState("ps"); // platform selection
 
   // risers/fallers state
   const [items, setItems] = useState([]);
@@ -149,7 +151,7 @@ export default function Trending() {
     setErr("");
     try {
       // explicitly request 10 (backend should respect this once paywall removed)
-      const url = `${API_BASE}/api/trending?type=${tab}&tf=${timeframe}&limit=10`;
+      const url = `${API_BASE}/api/trending?type=${tab}&tf=${timeframe}&limit=10&platform=${platform}`;
       const r = await fetch(url, { credentials: "include" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
@@ -162,7 +164,7 @@ export default function Trending() {
     } finally {
       setLoading(false);
     }
-  }, [tab, timeframe]);
+  }, [tab, timeframe, platform]);
 
   useEffect(() => {
     fetchTrending();
@@ -173,7 +175,7 @@ export default function Trending() {
     setSmartLoading(true);
     setSmartErr("");
     try {
-      const r = await fetch(`${API_BASE}/api/trending?type=smart&limit=10`, {
+      const r = await fetch(`${API_BASE}/api/trending?type=smart&limit=10&platform=${platform}`, {
         credentials: "include",
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -186,7 +188,7 @@ export default function Trending() {
     } finally {
       setSmartLoading(false);
     }
-  }, []);
+  }, [platform]);
 
   useEffect(() => {
     fetchSmart();
@@ -290,6 +292,17 @@ export default function Trending() {
               </div>
             </>
           )}
+
+          <div className="h-6 w-px bg-gray-700 hidden md:block" />
+          <select
+            value={platform}
+            onChange={(e) => setPlatform(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-gray-800 bg-gray-900/40 text-gray-200 hover:border-gray-700 text-sm focus:outline-none"
+          >
+            <option value="ps">PS</option>
+            <option value="xbox">Xbox</option>
+            <option value="pc">PC</option>
+          </select>
 
           {/* Refresh current tab */}
           <button

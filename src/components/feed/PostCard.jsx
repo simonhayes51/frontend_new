@@ -26,6 +26,7 @@ import {
   deletePost,
 } from "../../api/social";
 import { useAuth } from "../../context/AuthContext";
+import { useSettings } from "../../context/SettingsContext";
 import { paypalPurchase } from "../../api/billing";
 import toast from "react-hot-toast";
 
@@ -56,6 +57,9 @@ const searchPlayers = async (query) => {
 export function PostCard({ post, onUpdate }) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { default_platform = "Console" } = useSettings();
+  const futPlatform =
+    default_platform === "Xbox" ? "xbox" : default_platform === "PC" ? "pc" : "ps";
   const buildEditDraft = (source) => ({
     title: source?.title || "",
     content: source?.content || "",
@@ -82,6 +86,10 @@ export function PostCard({ post, onUpdate }) {
   const [viewCount, setViewCount] = useState(post.views_count || post.views || 0);
   const [expanded, setExpanded] = useState(false);
   const [tradeImage, setTradeImage] = useState(null);
+  const [liveCardId, setLiveCardId] = useState(null);
+  const [livePrice, setLivePrice] = useState(null);
+  const [livePriceLoading, setLivePriceLoading] = useState(false);
+  const [livePriceError, setLivePriceError] = useState("");
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -460,11 +468,14 @@ export function PostCard({ post, onUpdate }) {
 
     const loadTradeImage = async () => {
       setTradeImage(null);
+      setLiveCardId(null);
       if (!trade || trade.image || !trade.player) return;
       const players = await searchPlayers(trade.player);
       if (!active) return;
       const match = players[0];
       setTradeImage(match?.image_url || match?.card_image_url || null);
+      const cid = match?.card_id || match?.id || null;
+      setLiveCardId(cid || null);
     };
 
     loadTradeImage();
@@ -472,6 +483,47 @@ export function PostCard({ post, onUpdate }) {
       active = false;
     };
   }, [trade?.player, trade?.image]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadLivePrice = async () => {
+      if (!liveCardId) {
+        setLivePrice(null);
+        setLivePriceError("");
+        return;
+      }
+      try {
+        setLivePriceLoading(true);
+        setLivePriceError("");
+        const response = await fetch(
+          `${API_BASE}/api/fut-player-price/${liveCardId}?platform=${encodeURIComponent(
+            futPlatform
+          )}`,
+          {
+            credentials: "include",
+          }
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (!active) return;
+        const value = data?.data?.currentPrice?.price;
+        setLivePrice(typeof value === "number" ? value : null);
+      } catch (error) {
+        if (!active) return;
+        setLivePriceError(error?.message || "Failed to load live price");
+        setLivePrice(null);
+      } finally {
+        if (!active) return;
+        setLivePriceLoading(false);
+      }
+    };
+
+    loadLivePrice();
+    return () => {
+      active = false;
+    };
+  }, [liveCardId, futPlatform]);
 
   useEffect(() => {
     let active = true;
@@ -666,6 +718,28 @@ export function PostCard({ post, onUpdate }) {
                       <span className="font-semibold text-success">
                         Profit: {netProfit.toLocaleString()} coins
                       </span>
+                    </div>
+                  )}
+                  {livePriceLoading && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        Live price ({futPlatform.toUpperCase()}): loading…
+                      </span>
+                    </div>
+                  )}
+                  {!livePriceLoading && livePrice != null && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        Live price ({futPlatform.toUpperCase()}):
+                      </span>
+                      <span className="font-semibold text-foreground">
+                        {livePrice.toLocaleString()} coins
+                      </span>
+                    </div>
+                  )}
+                  {!livePriceLoading && livePrice == null && livePriceError && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>Live price unavailable</span>
                     </div>
                   )}
                 </div>
