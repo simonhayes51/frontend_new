@@ -1,4 +1,7 @@
-import { API_BASE } from "../lib/apiBase";
+// src/api/http.js
+
+// Normalise base like: https://api.futhub.co.uk (no trailing slash)
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
 // Join base + path and attach query params
 function buildUrl(path, query) {
@@ -72,35 +75,33 @@ export async function apiFetch(path, opts = {}) {
     res = await doFetch(url, init);
   } catch (e) {
     if (retry > 0) {
-      if (typeof window !== "undefined") {
-         console.warn(`[apiFetch] Network error, retrying in ${retryDelayMs}ms...`, e);
-      }
-      await new Promise(r => setTimeout(r, retryDelayMs));
-      return apiFetch(path, { ...opts, retry: retry - 1 });
+      await new Promise((r) => setTimeout(r, retryDelayMs));
+      res = await doFetch(url, init);
+    } else {
+      throw e;
     }
-    throw e;
   }
 
-  // Handle HTTP errors
-  if (!res.ok) {
-    const text = await res.text();
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      // ignore
-    }
-    const msg = json?.detail || json?.message || text.slice(0, 200);
-    const err = new Error(msg);
-    err.status = res.status;
-    err.data = json;
-    throw err;
-  }
-
-  // Success
   const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) {
-    return await res.json();
+  const isJson = ct.includes("application/json");
+  const data = isJson ? await res.json().catch(() => null) : await res.text();
+
+  if (!res.ok) {
+    const msg =
+      (data && (data.detail || data.error || data.message)) ||
+      `${res.status} ${res.statusText}`;
+    throw new Error(`${msg} @ ${url}`);
   }
-  return await res.text();
+
+  return isJson ? (data ?? {}) : data;
+}
+
+// Optional: tiny helper for GET with query
+export function get(path, query, opts) {
+  return apiFetch(path, { ...opts, method: "GET", query });
+}
+
+// Optional: tiny helper for POST JSON
+export function post(path, body, opts) {
+  return apiFetch(path, { ...opts, method: "POST", body });
 }

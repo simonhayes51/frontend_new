@@ -12,11 +12,6 @@ const MobileHeader = () => {
   const menuRef = useRef(null);
   const userCardRef = useRef(null);
 
-  const isTrader =
-    user?.account_type === "trader" ||
-    user?.role === "trader" ||
-    user?.is_trader;
-
   // Navigation items matching desktop sidebar
   const navItems = [
     { path: "/", label: "Dashboard", icon: "📊" },
@@ -24,14 +19,10 @@ const MobileHeader = () => {
     { path: "/trades", label: "Trades", icon: "📋" },
     { path: "/player-search", label: "Player Search", icon: "🔍" },
     { path: "/player-compare", label: "Compare", icon: "⚖️" },
-    { path: "/smart-buy", label: "Smart Buy", icon: "🧠" },
+    { path: "/smart-buy", label: "Smart Buy", icon: "🧠" }, // 👈 NEW
     { path: "/watchlist", label: "Watchlist", icon: "👀" },
     { path: "/trending", label: "Trending", icon: "📈" },
     { path: "/squad", label: "Squad Builder", icon: "⚽" },
-    { path: "/community", label: "Community Uploads", icon: "👥" },
-    { path: "/traders-area", label: "Top Traders", icon: "🏆" },
-    // Conditional items can be handled here or filtered below
-    ...(isTrader ? [{ path: "/trader-dashboard", label: "Trader Dashboard", icon: "💼" }] : []),
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -133,9 +124,13 @@ const MobileHeader = () => {
               title="Account menu"
             >
               <img
-                src={user?.avatar_url || user?.avatar || "https://cdn.discordapp.com/embed/avatars/0.png"}
-                alt={user?.global_name || user?.username || "User"}
-                className="w-12 h-12 rounded-full border-2 border-purple-500 object-cover"
+                src={user?.avatar_url}
+                alt={user?.global_name}
+                className="w-12 h-12 rounded-full border-2 border-purple-500"
+                onError={(e) => {
+                  e.currentTarget.src =
+                    "https://cdn.discordapp.com/embed/avatars/0.png";
+                }}
               />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-white truncate flex items-center gap-1">
@@ -158,27 +153,8 @@ const MobileHeader = () => {
                     to="/profile"
                     className="block px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 transition-colors"
                   >
-                    User Profile
+                    Profile
                   </Link>
-
-                  {isTrader && (
-                    <Link
-                      to="/trader-dashboard"
-                      className="block px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 transition-colors"
-                    >
-                      Trader Dashboard
-                    </Link>
-                  )}
-
-                  {!isTrader && (
-                    <Link
-                      to="/become-trader"
-                      className="block px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 transition-colors"
-                    >
-                      Become a Trader
-                    </Link>
-                  )}
-
                   <Link
                     to="/settings"
                     className="block px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 transition-colors"
@@ -196,7 +172,7 @@ const MobileHeader = () => {
                     }}
                     className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
                   >
-                    Sign Out
+                    Logout
                   </button>
                 </div>
               </div>

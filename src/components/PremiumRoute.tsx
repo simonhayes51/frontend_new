@@ -1,6 +1,8 @@
 // src/components/PremiumRoute.tsx
 import React from "react";
 import { Outlet } from "react-router-dom";
+import { useEntitlements } from "../context/EntitlementsContext";
+import PremiumGate from "./PremiumGate";
 
 type Props = {
   /** Premium feature requirement - "any" means any premium; or pass a specific backend feature key */
@@ -16,7 +18,33 @@ export default function PremiumRoute({
   featureName,
   children 
 }: Props) {
-  void feature;
-  void featureName;
+  const { loading, isPremium, features } = useEntitlements();
+
+  // Show loading state while checking entitlements
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      </div>
+    );
+  }
+
+  // Check if user has access to this feature
+  const hasAccess = feature === "any" ? isPremium : features.includes(feature as any);
+
+  // If no access, show the premium required page
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <PremiumGate
+          feature={feature !== "any" ? (feature as any) : undefined}
+          featureName={featureName}
+          className="max-w-md w-full"
+        />
+      </div>
+    );
+  }
+
+  // User has access - render the protected content
   return <>{children ?? <Outlet />}</>;
 }

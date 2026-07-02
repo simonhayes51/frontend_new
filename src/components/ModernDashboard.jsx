@@ -141,9 +141,13 @@ const ModernDashboard = () => {
 
           <div className="flex items-center space-x-3">
             <img
-              src={user?.avatar_url || user?.avatar || "https://cdn.discordapp.com/embed/avatars/0.png"}
-              alt={user?.global_name || user?.username || "User"}
-              className="w-10 h-10 rounded-full border-2 border-purple-500 object-cover"
+              src={user?.avatar_url}
+              alt={user?.global_name}
+              className="w-10 h-10 rounded-full border-2 border-purple-500"
+              onError={(e) => {
+                e.currentTarget.src =
+                  "https://cdn.discordapp.com/embed/avatars/0.png";
+              }}
             />
             <div className="text-right">
               <p className="text-sm font-medium">
