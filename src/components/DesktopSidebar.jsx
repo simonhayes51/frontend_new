@@ -113,8 +113,8 @@ const DesktopSidebar = () => {
           />
         </div>
         {!collapsed && (
-          <h1 className="mt-2 text-lg font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent text-center">
-            Transfer Traders
+          <h1 className="mt-2 text-lg font-bold text-white text-center">
+            FUT Traders Hub
           </h1>
         )}
         <button
@@ -138,9 +138,9 @@ const DesktopSidebar = () => {
           className={`w-full flex items-center ${collapsed ? "justify-center" : "gap-3"} text-left`}
         >
           <img
-            src={user?.avatar_url || user?.avatar || "/server-logo.png"}
-            alt={user?.global_name || user?.username || "User"}
-            className={`${collapsed ? "w-8 h-8" : "w-10 h-10"} rounded-full border-2 border-purple-500 object-cover`}
+            src={user?.avatar_url}
+            alt={user?.global_name}
+            className={`${collapsed ? "w-8 h-8" : "w-10 h-10"} rounded-full border-2 border-purple-500`}
           />
           {!collapsed && (
             <div className="min-w-0 flex-1">

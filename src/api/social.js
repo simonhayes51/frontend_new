@@ -1,8 +1,9 @@
 import api from "../axios";
 
-const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_API_URL || api.defaults.baseURL || "")
-  .replace(/\/$/, "")
-  .replace(/^http:\/\//, "https://");
+const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_API_URL || api.defaults.baseURL || "").replace(
+  /\/$/,
+  ""
+);
 
 const socialRequest = (config) => api.request({ ...config, baseURL: SOCIAL_BASE });
 
@@ -13,21 +14,7 @@ const tryPost = async (paths, payload) => {
       // eslint-disable-next-line no-await-in-loop
       return await socialRequest({ method: "post", url: path, data: payload });
     } catch (error) {
-      if (![404, 405].includes(error?.response?.status)) throw error;
-      lastError = error;
-    }
-  }
-  throw lastError;
-};
-
-const tryPatch = async (paths, payload) => {
-  let lastError;
-  for (const path of paths) {
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      return await socialRequest({ method: "patch", url: path, data: payload });
-    } catch (error) {
-      if (![404, 405].includes(error?.response?.status)) throw error;
+      if (error?.response?.status !== 404) throw error;
       lastError = error;
     }
   }
@@ -48,56 +35,44 @@ const tryGet = async (paths, config) => {
   throw lastError;
 };
 
-const tryDelete = async (paths) => {
-  let lastError;
-  for (const path of paths) {
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      return await socialRequest({ method: "delete", url: path });
-    } catch (error) {
-      if (![404, 405].includes(error?.response?.status)) throw error;
-      lastError = error;
-    }
-  }
-  throw lastError;
-};
-
 export const getFeed = (params) =>
   tryGet(
     ["/api/feed", "/api/social/feed", "/api/social/posts"],
     { params }
   );
 export const createPost = (payload) =>
-  tryPost(
-    ["/api/feed/posts", "/api/social/posts", "/api/feed", "/api/social/feed"],
-    payload
-  );
-export const updatePost = async (postId, payload) => {
-  try {
-    return await tryPatch([`/api/feed/posts/${postId}`], payload);
-  } catch (error) {
-    if (![404, 405].includes(error?.response?.status)) throw error;
-    return tryPost([`/api/social/posts/${postId}`], payload);
-  }
-};
+  tryPost(["/api/feed", "/api/social/feed", "/api/social/posts"], payload);
+export const updatePost = (postId, payload) =>
+  tryPost([`/api/feed/${postId}`, `/api/social/posts/${postId}`], payload);
 export const deletePost = (postId) =>
   socialRequest({ method: "delete", url: `/api/feed/${postId}` });
 
 export const reactToPost = (postId, reaction) =>
-  socialRequest({
-    method: "post",
-    url: `/api/social/posts/${postId}/reactions`,
-    data: { reaction: reaction || "like" },
-  });
-
-export const removePostReaction = (postId) =>
-  socialRequest({ method: "delete", url: `/api/social/posts/${postId}/reactions` });
+  tryPost(
+    [
+      `/api/interactions/posts/${postId}/reactions`,
+      `/api/social/interactions/posts/${postId}/reactions`,
+    ],
+    { reaction }
+  );
 
 export const getPostComments = (postId, params) =>
-  socialRequest({ method: "get", url: `/api/social/posts/${postId}/comments`, params });
+  tryGet(
+    [
+      `/api/interactions/posts/${postId}/comments`,
+      `/api/social/interactions/posts/${postId}/comments`,
+    ],
+    { params }
+  );
 
 export const addPostComment = (postId, payload) =>
-  socialRequest({ method: "post", url: `/api/social/posts/${postId}/comments`, data: payload });
+  tryPost(
+    [
+      `/api/interactions/posts/${postId}/comments`,
+      `/api/social/interactions/posts/${postId}/comments`,
+    ],
+    payload
+  );
 
 export const updateComment = (commentId, payload) =>
   tryPost(
@@ -120,13 +95,6 @@ export const reactToComment = (commentId) =>
     {}
   );
 
-export const sharePost = (postId) =>
-  socialRequest({ method: "post", url: `/api/social/posts/${postId}/share` });
-
-export const viewPost = async (postId) => {
-  return { data: { post_id: postId } };
-};
-
 export const getConversations = () =>
   tryGet(["/api/messages/conversations", "/api/social/messages/conversations"]);
 export const getConversationMessages = (conversationId) =>
@@ -146,21 +114,6 @@ export const sendConversationMessage = (conversationId, payload) =>
 
 export const startConversation = (payload) =>
   tryPost(["/api/messages/conversations", "/api/social/messages/conversations"], payload);
-
-export const deleteConversationMessage = (conversationId, messageId) =>
-  socialRequest({
-    method: "delete",
-    url: `/api/messages/conversations/${conversationId}/messages/${messageId}`,
-  });
-
-export const clearConversationMessages = (conversationId) =>
-  tryPost(
-    [
-      `/api/messages/conversations/${conversationId}/clear`,
-      `/api/social/messages/conversations/${conversationId}/clear`,
-    ],
-    {}
-  );
 
 export const markConversationRead = (conversationId) =>
   tryPost(
@@ -183,46 +136,6 @@ export const searchMessageUsers = (query) =>
 
 export const getUnreadMessageCount = () =>
   tryGet(["/api/messages/unread-count", "/api/social/messages/unread-count"]);
-
-export const getNotifications = (params) =>
-  tryGet(
-    ["/api/notifications", "/api/social/notifications"],
-    { params }
-  );
-
-export const markNotificationRead = (notificationId) =>
-  tryPost(
-    [
-      `/api/notifications/mark-read/${notificationId}`,
-      `/api/social/notifications/mark-read/${notificationId}`,
-      `/api/notifications/${notificationId}/read`,
-      `/api/social/notifications/${notificationId}/read`,
-    ],
-    {}
-  );
-
-export const markAllNotificationsRead = () =>
-  tryPost(
-    [
-      "/api/notifications/mark-all-read",
-      "/api/social/notifications/mark-all-read",
-      "/api/notifications/read-all",
-      "/api/social/notifications/read-all",
-    ],
-    {}
-  );
-
-export const deleteNotification = (notificationId) =>
-  tryDelete([
-    `/api/notifications/${notificationId}`,
-    `/api/social/notifications/${notificationId}`,
-  ]);
-
-export const getUnreadNotificationCount = () =>
-  tryGet([
-    "/api/notifications/unread-count",
-    "/api/social/notifications/unread-count",
-  ]);
 
 export const getTraders = (params) =>
   tryGet(["/api/traders", "/api/social/traders"], { params });
@@ -252,28 +165,9 @@ export const unsubscribeFromTrader = (traderId) =>
   );
 
 export const getTraderRatings = (traderId) =>
-  tryGet(
-    [
-      `/api/ratings/trader/${traderId}`,
-      `/api/ratings/${traderId}`,
-      `/api/social/ratings/${traderId}`,
-    ]
-  );
+  tryGet([`/api/ratings/${traderId}`, `/api/social/ratings/${traderId}`]);
 export const rateTrader = (traderId, payload) =>
-  tryPost(
-    [
-      "/api/ratings/rate",
-      `/api/ratings/${traderId}`,
-      `/api/social/ratings/${traderId}`,
-    ],
-    { trader_id: traderId, ...payload }
-  );
-export const getTraderRatingSummary = (traderId) =>
-  tryGet([`/api/ratings/trader/${traderId}/summary`]);
-export const getMyTraderRating = (traderId) =>
-  tryGet([`/api/ratings/my-rating/${traderId}`]);
-export const deleteMyTraderRating = (traderId) =>
-  tryDelete([`/api/ratings/rating/${traderId}`]);
+  tryPost([`/api/ratings/${traderId}`, `/api/social/ratings/${traderId}`], payload);
 export const getTopRatedTraders = () =>
   tryGet(["/api/ratings/leaderboard", "/api/social/ratings/leaderboard"]);
 export const getRecommendedTraders = () =>
@@ -322,23 +216,8 @@ export const getTraderSubscriptionStats = (traderId) =>
 export const checkSubscriptionStatus = (traderId) =>
   tryGet([`/api/subscriptions/check/${traderId}`]);
 
-export const getSubscriptionPrice = (traderId) =>
-  tryGet([
-    `/api/subscriptions/${traderId}/subscription-price`,
-    `/api/social/subscriptions/${traderId}/subscription-price`,
-  ]);
-
 export const tipPost = (postId, amount) =>
   tryPost(["/api/subscriptions/tip"], { post_id: postId, amount });
-
-export const getMySubscriptions = () =>
-  tryGet(
-    [
-      "/api/subscriptions/my-subscriptions",
-      "/api/subscriptions/mine",
-      "/api/social/subscriptions/mine",
-    ]
-  );
 
 export const savePost = (postId) =>
   tryPost([`/api/subscriptions/save-post/${postId}`], {});

@@ -35,14 +35,11 @@ async function fetchPlayerDefinition(cardId) {
   }
 }
 
-async function fetchPlayerPrice(cardId, platform) {
+async function fetchPlayerPrice(cardId) {
   try {
-    const r = await fetch(
-      `${API_BASE}/api/fut-player-price/${cardId}?platform=${encodeURIComponent(platform || "ps")}`,
-      {
+    const r = await fetch(`${API_BASE}/api/fut-player-price/${cardId}`, {
       credentials: "include",
-    }
-    );
+    });
     if (!r.ok) return null;
     const data = await r.json();
     return {
@@ -171,10 +168,7 @@ function CardBlock({ cardId, platform }) {
     let live = true;
     (async () => {
       setLoading(true);
-      const [d, p] = await Promise.all([
-        fetchPlayerDefinition(cardId),
-        fetchPlayerPrice(cardId, platform),
-      ]);
+      const [d, p] = await Promise.all([fetchPlayerDefinition(cardId), fetchPlayerPrice(cardId)]);
       if (!live) return;
       setDef(d);
       setPrice(p);
@@ -183,7 +177,7 @@ function CardBlock({ cardId, platform }) {
     return () => {
       live = false;
     };
-  }, [cardId, platform]);
+  }, [cardId]);
 
   const meta = useMemo(() => {
     const fullName =
@@ -387,7 +381,6 @@ export default function PlayerCompare() {
               >
                 <option value="ps">PS</option>
                 <option value="xbox">Xbox</option>
-                <option value="pc">PC</option>
               </select>
             </div>
           </div>

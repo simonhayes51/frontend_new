@@ -1,6 +1,5 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
 import api from '../axios';
-import { getTraderMe } from '../api/traders';
 
 const AuthContext = createContext();
 
@@ -49,93 +48,16 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('🔍 Checking auth status...');
       dispatch({ type: 'SET_LOADING', payload: true });
-      const tryCheck = async (path) => {
-        try {
-          const response = await api.get(path, {
-            validateStatus: (status) => status < 500,
-            __skipAuthRedirect: true,
-            headers: {
-              "Cache-Control": "no-cache",
-            },
-            params: {
-              _ts: Date.now(),
-            },
-          });
-          if (response.status === 401) {
-            return { authenticated: false };
-          }
-          if (response.status >= 400) {
-            return null;
-          }
-          return response.data || {};
-        } catch (error) {
-          return null;
-        }
-      };
-
-      const authData = (await tryCheck('/api/auth/me')) || (await tryCheck('/api/me'));
-
-      if (!authData) {
-        console.log('❌ Auth check failed: no usable response');
-        dispatch({ type: 'SET_UNAUTHENTICATED' });
-        return;
-      }
-
-      const authenticated =
-        authData.authenticated === true ||
-        !!authData.user_id ||
-        !!authData.user ||
-        !!authData.id;
-
-      if (authenticated) {
-        let userData = authData;
-        if (authData.user && typeof authData.user === 'object') {
-          userData = { ...authData, ...authData.user };
-        }
-
-        try {
-          const traderRes = await getTraderMe();
-          if (traderRes?.data) {
-            const trader = traderRes.data || {};
-            const merged = { ...userData, ...trader };
-            if (!merged.account_type && (trader.account_type || trader.tier)) {
-              merged.account_type = trader.account_type || 'trader';
-            }
-            if (!merged.is_trader) {
-              merged.is_trader = true;
-            }
-            if (!merged.avatar_url) {
-              merged.avatar_url =
-                trader.avatar_url ||
-                trader.avatar ||
-                userData.avatar_url ||
-                userData.avatar ||
-                '';
-            }
-            userData = merged;
-          }
-        } catch {
-        }
-
-        if (!userData.avatar_url) {
-          userData = {
-            ...userData,
-            avatar_url:
-              userData.avatar ||
-              userData.user_avatar ||
-              userData.image ||
-              userData.picture ||
-              '',
-          };
-        }
-
-        console.log('✅ User authenticated:', userData.user_id || userData.id);
-        dispatch({
-          type: 'SET_AUTHENTICATED',
-          payload: userData
+      const response = await api.get('/api/me');
+      
+      if (response.data.authenticated) {
+        console.log('✅ User authenticated:', response.data.user_id);
+        dispatch({ 
+          type: 'SET_AUTHENTICATED', 
+          payload: response.data 
         });
       } else {
-        console.log('❌ User not authenticated, reason:', authData.error);
+        console.log('❌ User not authenticated, reason:', response.data.error);
         dispatch({ type: 'SET_UNAUTHENTICATED' });
       }
     } catch (error) {
@@ -145,11 +67,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = () => {
-    const explicitApi =
-      (import.meta.env?.VITE_API_URL && import.meta.env.VITE_API_URL.replace(/\/$/, "")) ||
-      "";
-    const loginBase = explicitApi || api.defaults.baseURL;
-    window.location.href = `${loginBase}/api/login`;
+    window.location.href = `${api.defaults.baseURL}/api/login`;
   };
 
   const logout = async () => {

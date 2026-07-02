@@ -17,7 +17,6 @@ import {
 } from "../../api/social";
 
 const POST_TYPES = [
-  { value: "status", label: "Status" },
   { value: "quick_flip", label: "Quick Flip" },
   { value: "prediction", label: "Prediction" },
   { value: "tip", label: "Tip" },
@@ -153,31 +152,21 @@ const FeedPanel = ({ user, headline = "Share a trading update" }) => {
     try {
       const { data } = await reactToPost(postId, reaction);
       
-      const removed = data?.removed ?? currentReaction === reaction;
-      setUserReactions((prev) => {
-        if (removed) {
+      if (data?.removed) {
+        setUserReactions((prev) => {
           const next = { ...prev };
           delete next[postId];
           return next;
-        }
-        return { ...prev, [postId]: reaction };
-      });
+        });
+      } else {
+        setUserReactions((prev) => ({ ...prev, [postId]: reaction }));
+      }
       
       const stats = data?.stats || data?.post?.stats;
       if (stats) {
         updatePostStats(postId, stats);
       } else {
-        const current = posts.find((post) => post.id === postId);
-        const currentStats = getPostStats(current || {});
-        if (reaction === "like") {
-          const delta = removed ? -1 : 1;
-          updatePostStats(postId, { likes: Math.max(0, currentStats.likes + delta) });
-        } else if (reaction === "dislike") {
-          const delta = removed ? -1 : 1;
-          updatePostStats(postId, { dislikes: Math.max(0, currentStats.dislikes + delta) });
-        } else {
-          await loadFeed();
-        }
+        await loadFeed();
       }
       
     } catch (error) {

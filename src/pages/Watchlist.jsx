@@ -440,7 +440,6 @@ export default function Watchlist() {
                   >
                     <option value="ps">PS</option>
                     <option value="xbox">Xbox</option>
-                    <option value="pc">PC</option>
                   </select>
                 </div>
               </div>

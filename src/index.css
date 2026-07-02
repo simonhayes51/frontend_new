@@ -1,186 +1,217 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 240 15% 5%;
-    --foreground: 210 40% 98%;
+/* ------------------------------------
+   Theme tokens (tweak to taste)
+------------------------------------ */
+:root {
+  /* layout */
+  --sidebar-width: 16rem;
 
-    --card: 240 12% 8%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 240 12% 10%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 190 100% 50%;
-    --primary-foreground: 240 15% 5%;
-
-    --secondary: 300 100% 60%;
-    --secondary-foreground: 240 15% 5%;
-
-    --muted: 240 10% 15%;
-    --muted-foreground: 215 20% 65%;
-
-    --accent: 270 100% 65%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-
-    --success: 142 76% 45%;
-    --success-foreground: 210 40% 98%;
-
-    --warning: 38 92% 50%;
-    --warning-foreground: 240 15% 5%;
-
-    --border: 240 10% 18%;
-    --input: 240 10% 18%;
-    --ring: 190 100% 50%;
-
-    --radius: 0.75rem;
-
-    --gradient-primary: linear-gradient(135deg, hsl(190 100% 50%) 0%, hsl(280 100% 60%) 100%);
-    --gradient-secondary: linear-gradient(135deg, hsl(280 100% 60%) 0%, hsl(320 100% 55%) 100%);
-    --gradient-glow: linear-gradient(180deg, hsl(190 100% 50% / 0.15) 0%, transparent 100%);
-
-    --sidebar-background: 240 12% 6%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 190 100% 50%;
-    --sidebar-primary-foreground: 240 15% 5%;
-    --sidebar-accent: 240 10% 12%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 240 10% 15%;
-    --sidebar-ring: 190 100% 50%;
-  }
-
-  .dark {
-    --background: 240 15% 5%;
-    --foreground: 210 40% 98%;
-
-    --card: 240 12% 8%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 240 12% 10%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 190 100% 50%;
-    --primary-foreground: 240 15% 5%;
-
-    --secondary: 300 100% 60%;
-    --secondary-foreground: 240 15% 5%;
-
-    --muted: 240 10% 15%;
-    --muted-foreground: 215 20% 65%;
-
-    --accent: 270 100% 65%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-
-    --success: 142 76% 45%;
-    --success-foreground: 210 40% 98%;
-
-    --warning: 38 92% 50%;
-    --warning-foreground: 240 15% 5%;
-
-    --border: 240 10% 18%;
-    --input: 240 10% 18%;
-    --ring: 190 100% 50%;
-
-    --sidebar-background: 240 12% 6%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 190 100% 50%;
-    --sidebar-primary-foreground: 240 15% 5%;
-    --sidebar-accent: 240 10% 12%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 240 10% 15%;
-    --sidebar-ring: 190 100% 50%;
-  }
+  /* light palette (default) */
+  --bg: 255 255 255;                 /* bg-white */
+  --bg-muted: 248 250 252;           /* slate-50 */
+  --card: 255 255 255;               /* white */
+  --border: 226 232 240;             /* slate-200 */
+  --ring: 94 234 212;                /* teal-300 (subtle ring) */
+  --text: 17 24 39;                  /* gray-900 */
+  --text-muted: 71 85 105;           /* slate-600 */
+  --accent: 132 204 22;              /* lime-500 (your brand) */
+  --accent-ink: 17 24 39;            /* contrast text on accent */
+  --shadow: 2 6 23 / 0.06;           /* soft shadow */
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
-  }
-
-  html {
-    @apply dark;
-  }
+/* dark overrides via <html class="dark"> */
+.dark :root {
+  --bg: 0 0 0;                       /* black */
+  --bg-muted: 10 10 10;              /* near-black */
+  --card: 17 24 39;                  /* gray-900 */
+  --border: 38 38 38;                /* neutral-800 */
+  --ring: 132 204 22;                /* lime-500 */
+  --text: 241 245 249;               /* slate-100 */
+  --text-muted: 148 163 184;         /* slate-400 */
+  --accent: 132 204 22;              /* lime-500 */
+  --accent-ink: 0 0 0;               /* black text on lime */
+  --shadow: 0 0 0 / 0;               /* keep flat on dark */
 }
 
-@layer utilities {
-  .gradient-text {
-    @apply bg-clip-text text-transparent;
-    background-image: var(--gradient-primary);
-  }
-
-  .gradient-border {
-    position: relative;
-    background: hsl(var(--card));
-  }
-
-  .gradient-border::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    padding: 1px;
-    border-radius: inherit;
-    background: var(--gradient-primary);
-    -webkit-mask: 
-      linear-gradient(#fff 0 0) content-box, 
-      linear-gradient(#fff 0 0);
-    mask: 
-      linear-gradient(#fff 0 0) content-box, 
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-  }
-
-  .glow-primary {
-    box-shadow: 0 0 20px hsl(190 100% 50% / 0.3), 0 0 40px hsl(190 100% 50% / 0.1);
-  }
-
-  .glow-secondary {
-    box-shadow: 0 0 20px hsl(300 100% 60% / 0.3), 0 0 40px hsl(300 100% 60% / 0.1);
-  }
-
-  .animate-glow {
-    animation: glow 2s ease-in-out infinite alternate;
-  }
-
-  @keyframes glow {
-    from {
-      box-shadow: 0 0 10px hsl(190 100% 50% / 0.3);
-    }
-    to {
-      box-shadow: 0 0 25px hsl(190 100% 50% / 0.5), 0 0 50px hsl(280 100% 60% / 0.3);
-    }
-  }
-
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: hsl(var(--muted));
-    border-radius: 3px;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 3px;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground));
-  }
+/* ------------------------------------
+   Base (light is default)
+------------------------------------ */
+html, body, #root {
+  height: 100%;
 }
+
+body {
+  @apply antialiased;
+  background-color: rgb(var(--bg));
+  color: rgb(var(--text));
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+/* Useful global containers */
+.app-surface {
+  background-color: rgb(var(--bg-muted));
+}
+
+.card {
+  background-color: rgb(var(--card));
+  border: 1px solid rgb(var(--border));
+  box-shadow: 0 10px 25px rgba(var(--shadow));
+  @apply rounded-xl;
+}
+
+.card-hover {
+  @apply transition-transform;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+}
+
+/* Headings scale nicely in both themes */
+h1, h2, h3 {
+  @apply tracking-tight;
+}
+h1 { @apply text-3xl md:text-4xl font-bold; }
+h2 { @apply text-2xl md:text-3xl font-semibold; }
+h3 { @apply text-xl md:text-2xl font-semibold; }
+
+/* ------------------------------------
+   Interactive elements
+------------------------------------ */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all;
+  border: 1px solid rgb(var(--border));
+  background-color: rgb(var(--card));
+  color: rgb(var(--text));
+}
+.btn:hover {
+  box-shadow: 0 8px 20px rgba(var(--shadow));
+  transform: translateY(-1px);
+}
+
+.btn-accent {
+  background-color: rgb(var(--accent));
+  color: rgb(var(--accent-ink));
+  border-color: rgb(var(--accent));
+}
+.btn-accent:hover {
+  filter: brightness(0.95);
+}
+
+.input, .select, .textarea {
+  @apply w-full rounded-lg px-3 py-2 outline-none transition ring-0;
+  background-color: rgb(var(--card));
+  color: rgb(var(--text));
+  border: 1px solid rgb(var(--border));
+}
+.input:focus, .select:focus, .textarea:focus {
+  box-shadow: 0 0 0 4px rgba(var(--ring) / 0.25);
+  border-color: rgb(var(--accent));
+}
+
+/* Pills / tags */
+.pill {
+  @apply inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-sm;
+  background-color: rgb(var(--bg-muted));
+  color: rgb(var(--text-muted));
+  border: 1px solid rgb(var(--border));
+}
+
+/* ------------------------------------
+   Navigation / Sidebar
+------------------------------------ */
+.sidebar {
+  width: var(--sidebar-width);
+  background-color: rgb(var(--card));
+  border-right: 1px solid rgb(var(--border));
+}
+.nav-link {
+  @apply flex items-center gap-2 px-3 py-2 rounded-md transition;
+  color: rgb(var(--text-muted));
+}
+.nav-link:hover {
+  background-color: rgb(var(--bg-muted));
+  color: rgb(var(--text));
+}
+.nav-link.active {
+  background-color: rgba(var(--accent) / 0.12);
+  color: rgb(var(--text));
+  border: 1px solid rgba(var(--accent) / 0.35);
+}
+
+/* ------------------------------------
+   Tables
+------------------------------------ */
+.table {
+  @apply w-full text-sm;
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--card));
+  @apply rounded-xl overflow-hidden;
+}
+.table thead th {
+  @apply text-left font-semibold;
+  background: rgb(var(--bg-muted));
+  color: rgb(var(--text));
+  border-bottom: 1px solid rgb(var(--border));
+}
+.table tbody tr {
+  border-bottom: 1px solid rgb(var(--border));
+}
+.table tbody tr:hover {
+  background: rgb(var(--bg-muted));
+}
+.table td, .table th {
+  @apply px-4 py-3;
+}
+
+/* ------------------------------------
+   Scrollbars (light & dark)
+------------------------------------ */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100,116,139,.35) transparent; /* slate-500-ish */
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px; height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(100,116,139,.35);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(100,116,139,.55);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background-color: rgba(100,116,139,.75);
+}
+.custom-scrollbar::-webkit-scrollbar-button { display: none; }
+
+/* Dark-specific tweak for scrollbar to keep contrast */
+.dark .custom-scrollbar {
+  scrollbar-color: rgba(148,163,184,.35) transparent;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(148,163,184,.35);
+}
+.dark .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(148,163,184,.55);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background-color: rgba(148,163,184,.75);
+}
+
+/* ------------------------------------
+   Utilities (optional helpers)
+------------------------------------ */
+.text-muted { color: rgb(var(--text-muted)); }
+.border-token { border-color: rgb(var(--border)); }
+.bg-surface { background-color: rgb(var(--card)); }
+.bg-muted { background-color: rgb(var(--bg-muted)); }
+.ring-accent { box-shadow: 0 0 0 4px rgba(var(--ring) / 0.25); }

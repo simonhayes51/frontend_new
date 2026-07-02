@@ -61,15 +61,11 @@ const fetchPlayerDefinition = async (cardId) => {
   return null;
 };
 
-const fetchPlayerPrice = async (cardId, platform) => {
-  const plat = platform || "ps";
+const fetchPlayerPrice = async (cardId) => {
   try {
-    const response = await fetch(
-      `${API_BASE}/api/fut-player-price/${cardId}?platform=${encodeURIComponent(plat)}`,
-      {
-        credentials: "include",
-      }
-    );
+    const response = await fetch(`${API_BASE}/api/fut-player-price/${cardId}`, {
+      credentials: "include",
+    });
     if (response.ok) {
       const data = await response.json();
       return {
@@ -336,14 +332,14 @@ const PlayerDetail = ({ player, onBack }) => {
     (async () => {
       setLoading(true);
       const [priceInfo, defInfo] = await Promise.all([
-        fetchPlayerPrice(cardId, platform),
+        fetchPlayerPrice(cardId),
         fetchPlayerDefinition(cardId),
       ]);
       setPriceData(priceInfo);
       setPlayerData(defInfo);
       setLoading(false);
     })();
-  }, [cardId, platform]);
+  }, [cardId]);
 
   const formatPrice = (p) => (p ? p.toLocaleString() : "N/A");
 
@@ -662,7 +658,6 @@ const PlayerDetail = ({ player, onBack }) => {
             >
               <option value="ps">PS</option>
               <option value="xbox">Xbox</option>
-              <option value="pc">PC</option>
             </select>
             <input
               value={notes}

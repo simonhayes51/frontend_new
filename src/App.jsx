@@ -1,15 +1,14 @@
+// src/App.jsx
+
 import { lazy, Suspense } from "react";
-import { Toaster } from "react-hot-toast";
-import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { DashboardProvider } from "./context/DashboardContext";
 import { SettingsProvider } from "./context/SettingsContext";
 import { EntitlementsProvider } from "./context/EntitlementsContext";
-import { NotificationProvider } from "./context/NotificationContext";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
-import { MainLayout } from "./components/layout/MainLayout";
 import Loading from "./components/Loading";
 import PrivateRoute from "./components/PrivateRoute";
 import PremiumRoute from "./components/PremiumRoute";
@@ -27,7 +26,6 @@ const AddTrade      = lazy(() => import("./pages/AddTrade"));
 const Trades        = lazy(() => import("./pages/Trades"));
 const Profile       = lazy(() => import("./pages/Profile"));
 const Settings      = lazy(() => import("./pages/Settings"));
-const PaymentSettings = lazy(() => import("./pages/PaymentSettings"));
 const ProfitGraph   = lazy(() => import("./pages/ProfitGraph"));
 const PriceCheck    = lazy(() => import("./pages/PriceCheck"));
 const Trending      = lazy(() => import("./pages/Trending"));
@@ -59,69 +57,38 @@ const TradersArea = lazy(() => import("./pages/TradersArea"));
 const TraderProfile = lazy(() => import("./pages/TraderProfile"));
 const SavedPosts = lazy(() => import("./pages/SavedPosts"));
 
-// RADICAL REDESIGN - New OnlyFans-style pages
-const LandingPageNew = lazy(() => import("./pages/LandingPageNew"));
-const FeedNew = lazy(() => import("./pages/FeedNew"));
-const TraderProfileNew = lazy(() => import("./pages/TraderProfileNew"));
-const MessagesPage = lazy(() => import("./pages/MessagesPage"));
-const TraderDashboard = lazy(() => import("./pages/TraderDashboard"));
-const BecomeTrader = lazy(() => import("./pages/BecomeTrader"));
-const SubscriptionSuccess = lazy(() => import("./pages/SubscriptionSuccess"));
-const AppLayout = lazy(() => import("./components/AppLayout"));
-
-// PROFESSIONAL REDESIGN - Clean, modern layout
-const AppLayoutPro = lazy(() => import("./components/AppLayoutPro"));
-const Subscriptions = lazy(() => import("./pages/Subscriptions"));
-const Notifications = lazy(() => import("./pages/Notifications"));
-const CommunityPage = lazy(() => import("./pages/CommunityPage"));
-
 function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
         <EntitlementsProvider>
-          <NotificationProvider>
-            <Router>
-              <div className="bg-black min-h-screen text-white">
-                <Toaster position="top-right" />
-                <Suspense fallback={<Loading />}>
+          <Router>
+            <div className="bg-black min-h-screen text-white">
+              <Suspense fallback={<Loading />}>
                 <Routes>
                   {/* Public routes */}
                   <Route path="/login" element={<Login />} />
                   <Route path="/access-denied" element={<AccessDenied />} />
-                  {/* Landing removed */}
-          <Route path="/landing" element={<Navigate to="/" replace />} />
-                  
-                  {/* NEW: Radical Redesign Landing */}
-                  <Route path="/new" element={<LandingPageNew />} />
+                  <Route path="/landing" element={<Landing />} />
 
-                  {/* Protected shell - Now open to public */}
+                  {/* Protected shell */}
                   <Route
                     path="/"
                     element={
-                      <SettingsProvider>
-                        <DashboardProvider>
-                          <MainLayout />
-                        </DashboardProvider>
-                      </SettingsProvider>
+                      <PrivateRoute>
+                        <SettingsProvider>
+                          <DashboardProvider>
+                            <Layout />
+                          </DashboardProvider>
+                        </SettingsProvider>
+                      </PrivateRoute>
                     }
                   >
-                    {/* ✅ Feed is now the default landing page */}
+                    {/* ✅ Feed (default) */}
                     <Route index element={<Feed />} />
-                    {/* Optional aliases */}
+                    {/* Optional aliases – both load Dashboard */}
                     <Route path="overview" element={<Dashboard />} />
                     <Route path="dashboard" element={<Dashboard />} />
-                    
-                    {/* NEW: Radical Redesign Pages */}
-                    <Route path="feed" element={<FeedNew />} />
-                    <Route path="subscriptions" element={<Subscriptions />} />
-                    <Route path="notifications" element={<Notifications />} />
-                    <Route path="messages" element={<MessagesPage />} />
-                    <Route path="messages/:userId" element={<MessagesPage />} />
-                    <Route path="trader-dashboard" element={<TraderDashboard />} />
-                    <Route path="become-trader" element={<BecomeTrader />} />
-                    <Route path="trader/:traderId" element={<TraderProfileNew />} />
-                    <Route path="subscription/success" element={<SubscriptionSuccess />} />
 
                     {/* Free tier pages */}
                     <Route path="add-trade" element={<AddTrade />} />
@@ -130,7 +97,6 @@ function App() {
                     <Route path="player-compare" element={<PlayerCompare />} />
                     <Route path="profile" element={<Profile />} />
                     <Route path="settings" element={<Settings />} />
-                    <Route path="settings/payments" element={<PaymentSettings />} />
                     <Route path="analytics" element={<ProfitGraph />} />
                     <Route path="pricecheck" element={<PriceCheck />} />
                     <Route path="watchlist" element={<Watchlist />} />
@@ -141,8 +107,9 @@ function App() {
                     <Route path="profit-calculator" element={<ProfitCalculator />} />
                     <Route path="leaderboard" element={<Leaderboard />} />
                     <Route path="referrals" element={<ReferralProgram />} />
-                    <Route path="community" element={<CommunityPage />} />
+                    <Route path="community" element={<SocialHub />} />
                     <Route path="traders-area" element={<TradersArea />} />
+                    <Route path="trader/:traderId" element={<TraderProfile />} />
                     <Route path="saved-posts" element={<SavedPosts />} />
                     <Route path="admin/traders" element={<AdminTraders />} />
 
@@ -240,9 +207,8 @@ function App() {
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
-              </div>
-            </Router>
-          </NotificationProvider>
+            </div>
+          </Router>
         </EntitlementsProvider>
       </AuthProvider>
     </ErrorBoundary>

@@ -1,4 +1,4 @@
-import { API_BASE } from "../lib/apiBase";
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 export async function fetchNextEvent() {
   const r = await fetch(`${API_BASE}/api/events/next`);
