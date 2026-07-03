@@ -383,12 +383,18 @@ const PlayerDetail = ({ player, onBack }) => {
       playerData?.league?.imagePath,
       "https://game-assets.fut.gg/cdn-cgi/image/quality=100,format=auto,width=40/"
     ),
+    // futbin has no single flat card image - it composites a card-template
+    // background PNG with a separate player cutout PNG client-side. When
+    // both layers are available we stack them ourselves; otherwise fall
+    // back to whatever single image we do have.
+    cardBgImage: playerData?.bgImageUrl || null,
+    cardCutoutImage: playerData?.cutoutImageUrl || player.image_url || null,
     cardImage: playerData?.futggCardImagePath
       ? resolveImage(
           playerData.futggCardImagePath,
           "https://game-assets.fut.gg/cdn-cgi/image/quality=90,format=auto,width=500/"
         )
-      : player.image_url,
+      : playerData?.cutoutImageUrl || player.image_url,
     rating: playerData?.overall ?? player.rating,
     version: playerData?.rarity?.name || player.version || "Base",
     skillMoves: playerData?.skillMoves ?? 3,
@@ -469,19 +475,48 @@ const PlayerDetail = ({ player, onBack }) => {
 
       <div className="bg-black/40 backdrop-blur-md border border-white/10 text-white rounded-xl p-6">
         <div className="flex flex-col lg:flex-row items-start gap-6 mb-6">
-          <div className="relative">
-            <img
-              src={d.cardImage}
-              alt={d.fullName}
-              className="w-48 h-64 object-contain"
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                if (!e.currentTarget.dataset.triedProxy) {
-                  e.currentTarget.dataset.triedProxy = "1";
-                  e.currentTarget.src = buildProxy(d.cardImage);
-                }
-              }}
-            />
+          <div className="relative w-48 h-64">
+            {d.cardBgImage ? (
+              <>
+                <img
+                  src={d.cardBgImage}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-contain"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    if (!e.currentTarget.dataset.triedProxy) {
+                      e.currentTarget.dataset.triedProxy = "1";
+                      e.currentTarget.src = buildProxy(d.cardBgImage);
+                    }
+                  }}
+                />
+                <img
+                  src={d.cardCutoutImage}
+                  alt={d.fullName}
+                  className="absolute inset-0 w-full h-full object-contain"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    if (!e.currentTarget.dataset.triedProxy && d.cardCutoutImage) {
+                      e.currentTarget.dataset.triedProxy = "1";
+                      e.currentTarget.src = buildProxy(d.cardCutoutImage);
+                    }
+                  }}
+                />
+              </>
+            ) : (
+              <img
+                src={d.cardImage}
+                alt={d.fullName}
+                className="absolute inset-0 w-full h-full object-contain"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  if (!e.currentTarget.dataset.triedProxy) {
+                    e.currentTarget.dataset.triedProxy = "1";
+                    e.currentTarget.src = buildProxy(d.cardImage);
+                  }
+                }}
+              />
+            )}
             <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
               {d.version}
             </div>
