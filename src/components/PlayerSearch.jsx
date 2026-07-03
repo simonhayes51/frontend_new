@@ -142,6 +142,15 @@ const resolvePosition = (pd, fb) => {
   return "Unknown";
 };
 
+// fut.gg's definition API returned a relative imagePath that needed its own
+// CDN prefix; our own DB-backed definition endpoint returns a full,
+// ready-to-use image URL (from futbin) instead - support both.
+const resolveImage = (imagePath, cdnPrefix) => {
+  if (!imagePath) return "";
+  if (/^https?:\/\//i.test(imagePath)) return imagePath;
+  return `${cdnPrefix}${imagePath}`;
+};
+
 const getAttributeColor = (v) =>
   v >= 90 ? "text-green-400" :
   v >= 80 ? "text-green-300" :
@@ -360,19 +369,25 @@ const PlayerDetail = ({ player, onBack }) => {
         : `${player.name} (${player.rating})`),
     position: resolvePosition(playerData, player),
     club: playerData?.club?.name || player.club || "Unknown",
-    clubImage: playerData?.club?.imagePath
-      ? `https://game-assets.fut.gg/cdn-cgi/image/quality=100,format=auto,width=40/${playerData.club.imagePath}`
-      : "",
+    clubImage: resolveImage(
+      playerData?.club?.imagePath,
+      "https://game-assets.fut.gg/cdn-cgi/image/quality=100,format=auto,width=40/"
+    ),
     nation: playerData?.nation?.name || player.nation || "Unknown",
-    nationImage: playerData?.nation?.imagePath
-      ? `https://game-assets.fut.gg/cdn-cgi/image/quality=100,format=auto,width=40/${playerData.nation.imagePath}`
-      : "",
+    nationImage: resolveImage(
+      playerData?.nation?.imagePath,
+      "https://game-assets.fut.gg/cdn-cgi/image/quality=100,format=auto,width=40/"
+    ),
     league: playerData?.league?.name || "Unknown League",
-    leagueImage: playerData?.league?.imagePath
-      ? `https://game-assets.fut.gg/cdn-cgi/image/quality=100,format=auto,width=40/${playerData.league.imagePath}`
-      : "",
+    leagueImage: resolveImage(
+      playerData?.league?.imagePath,
+      "https://game-assets.fut.gg/cdn-cgi/image/quality=100,format=auto,width=40/"
+    ),
     cardImage: playerData?.futggCardImagePath
-      ? `https://game-assets.fut.gg/cdn-cgi/image/quality=90,format=auto,width=500/${playerData.futggCardImagePath}`
+      ? resolveImage(
+          playerData.futggCardImagePath,
+          "https://game-assets.fut.gg/cdn-cgi/image/quality=90,format=auto,width=500/"
+        )
       : player.image_url,
     rating: playerData?.overall ?? player.rating,
     version: playerData?.rarity?.name || player.version || "Base",
@@ -381,7 +396,7 @@ const PlayerDetail = ({ player, onBack }) => {
     age: playerData?.dateOfBirth
       ? new Date().getFullYear() - new Date(playerData.dateOfBirth).getFullYear()
       : null,
-    foot: playerData?.foot === 2 ? "Left" : "Right",
+    foot: playerData?.foot === 2 || playerData?.foot === "Left" ? "Left" : "Right",
     accelerateType: playerData?.accelerateType || "Controlled",
     stats: {
       pace: playerData?.facePace || 0,
