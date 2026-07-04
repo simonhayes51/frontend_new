@@ -151,6 +151,31 @@ const resolveImage = (imagePath, cdnPrefix) => {
   return `${cdnPrefix}${imagePath}`;
 };
 
+// TEMPORARY - card overlay calibration aid. Open the player page with
+// ?cardDebugGrid=1 to draw a 10%-spaced coordinate grid on top of the card
+// image so misaligned overlay elements (rating, stats, badges) can be
+// pinpointed exactly from a screenshot instead of estimated visually.
+// Safe to delete once the card overlay positioning is finalized.
+const CardDebugGrid = () => {
+  if (typeof window === "undefined") return null;
+  if (new URLSearchParams(window.location.search).get("cardDebugGrid") !== "1") return null;
+  const marks = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+  return (
+    <div className="absolute inset-0 pointer-events-none z-20">
+      {marks.map((pct) => (
+        <div key={`h${pct}`} className="absolute left-0 right-0 border-t border-red-500" style={{ top: `${pct}%` }}>
+          <span className="absolute left-0 bg-red-600 text-white text-[6px] leading-none px-0.5">{pct}</span>
+        </div>
+      ))}
+      {marks.map((pct) => (
+        <div key={`v${pct}`} className="absolute top-0 bottom-0 border-l border-cyan-400" style={{ left: `${pct}%` }}>
+          <span className="absolute top-0 bg-cyan-500 text-white text-[6px] leading-none px-0.5">{pct}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const getAttributeColor = (v) =>
   v >= 90 ? "text-green-400" :
   v >= 80 ? "text-green-300" :
@@ -582,6 +607,7 @@ const PlayerDetail = ({ player, onBack }) => {
             <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
               {d.version}
             </div>
+            <CardDebugGrid />
           </div>
 
           <div className="flex-1 min-w-0">
