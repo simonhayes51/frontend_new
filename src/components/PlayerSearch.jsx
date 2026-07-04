@@ -389,6 +389,10 @@ const PlayerDetail = ({ player, onBack }) => {
     // back to whatever single image we do have.
     cardBgImage: playerData?.bgImageUrl || null,
     cardCutoutImage: playerData?.cutoutImageUrl || player.image_url || null,
+    // futbin's own short display name (e.g. "Cristiano Ronaldo", not the
+    // full legal name) - no word-position guess on the full name is
+    // reliable, so prefer what futbin itself renders when we have it.
+    cardName: playerData?.cardName || null,
     cardImage: playerData?.futggCardImagePath
       ? resolveImage(
           playerData.futggCardImagePath,
@@ -517,7 +521,7 @@ const PlayerDetail = ({ player, onBack }) => {
 
                 <div className="absolute bottom-[5%] inset-x-0 px-2">
                   <div className="text-center text-[11px] font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)] truncate mb-1">
-                    {(d.fullName || "").trim().split(" ").slice(-1)[0]}
+                    {d.cardName || player.name || d.fullName}
                   </div>
                   <div className="grid grid-cols-6 gap-0.5 mb-1">
                     {[
