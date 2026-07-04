@@ -485,6 +485,18 @@ const PlayerDetail = ({ player, onBack }) => {
     },
   };
 
+  // Gold/silver/bronze ("base") card art is light-colored, so white overlay
+  // text reads poorly against it - special/rare cards are dark/colorful
+  // enough that white still works there.
+  const overlayTextClass =
+    d.cutoutType === "base"
+      ? "text-black [text-shadow:0_1px_2px_rgba(255,255,255,0.85)]"
+      : "text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]";
+  const overlayTextMutedClass =
+    d.cutoutType === "base"
+      ? "text-black/80 [text-shadow:0_1px_2px_rgba(255,255,255,0.85)]"
+      : "text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]";
+
   const onAddClick = async () => {
     try {
       setAdding(true);
@@ -556,16 +568,16 @@ const PlayerDetail = ({ player, onBack }) => {
                     it draws them as separate HTML on top. Same idea here,
                     laid out proportionally over the two stacked layers. */}
                 <div className="absolute top-[22%] left-[18%] flex flex-col items-center leading-none">
-                  <span className="text-xl font-extrabold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
+                  <span className={`text-xl font-extrabold ${overlayTextClass}`}>
                     {d.rating}
                   </span>
-                  <span className="text-[10px] font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)] mt-0.5">
+                  <span className={`text-[10px] font-bold mt-0.5 ${overlayTextClass}`}>
                     {d.position}
                   </span>
                 </div>
 
                 <div className="absolute bottom-[13%] inset-x-0 px-7">
-                  <div className="text-center text-sm font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)] truncate mb-0.5">
+                  <div className={`text-center text-sm font-bold truncate mb-0.5 ${overlayTextClass}`}>
                     {d.cardName || player.name || d.fullName}
                   </div>
                   <div className="grid grid-cols-6 gap-0.5 mb-0.5">
@@ -578,10 +590,10 @@ const PlayerDetail = ({ player, onBack }) => {
                       ["PHY", d.stats.physicality],
                     ].map(([label, value]) => (
                       <div key={label} className="text-center leading-tight">
-                        <div className="text-[10px] font-extrabold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
+                        <div className={`text-[10px] font-extrabold ${overlayTextClass}`}>
                           {value || "-"}
                         </div>
-                        <div className="text-[6px] font-semibold text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
+                        <div className={`text-[6px] font-semibold ${overlayTextMutedClass}`}>
                           {label}
                         </div>
                       </div>
