@@ -420,6 +420,12 @@ const PlayerDetail = ({ player, onBack }) => {
     // back to whatever single image we do have.
     cardBgImage: playerData?.bgImageUrl || null,
     cardCutoutImage: playerData?.cutoutImageUrl || player.image_url || null,
+    // Special-card cutouts read as pre-scaled to fill the card frame; base
+    // gold/silver/bronze cutouts are a closer, more generic headshot crop
+    // that renders far too large stretched to fill the same frame the same
+    // way - size each differently instead of treating every cutout as a
+    // full-bleed layer like the background.
+    cutoutType: playerData?.cutoutType || "special",
     // futbin's own short display name (e.g. "Cristiano Ronaldo", not the
     // full legal name) - no word-position guess on the full name is
     // reliable, so prefer what futbin itself renders when we have it.
@@ -532,7 +538,11 @@ const PlayerDetail = ({ player, onBack }) => {
                 <img
                   src={d.cardCutoutImage}
                   alt={d.fullName}
-                  className="absolute inset-0 w-full h-full object-contain"
+                  className={
+                    d.cutoutType === "base"
+                      ? "absolute left-1/2 top-[12%] -translate-x-1/2 w-[62%] h-[62%] object-contain"
+                      : "absolute inset-0 w-full h-full object-contain"
+                  }
                   referrerPolicy="no-referrer"
                   onError={(e) => {
                     if (!e.currentTarget.dataset.triedProxy && d.cardCutoutImage) {
