@@ -502,6 +502,54 @@ const PlayerDetail = ({ player, onBack }) => {
                     }
                   }}
                 />
+
+                {/* futbin doesn't bake rating/name/stats into either image -
+                    it draws them as separate HTML on top. Same idea here,
+                    laid out proportionally over the two stacked layers. */}
+                <div className="absolute top-[6%] left-[9%] flex flex-col items-center leading-none">
+                  <span className="text-xl font-extrabold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
+                    {d.rating}
+                  </span>
+                  <span className="text-[10px] font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)] mt-0.5">
+                    {d.position}
+                  </span>
+                </div>
+
+                <div className="absolute bottom-[5%] inset-x-0 px-2">
+                  <div className="text-center text-[11px] font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)] truncate mb-1">
+                    {(d.fullName || "").trim().split(" ").slice(-1)[0]}
+                  </div>
+                  <div className="grid grid-cols-6 gap-0.5 mb-1">
+                    {[
+                      ["PAC", d.stats.pace],
+                      ["SHO", d.stats.shooting],
+                      ["PAS", d.stats.passing],
+                      ["DRI", d.stats.dribbling],
+                      ["DEF", d.stats.defending],
+                      ["PHY", d.stats.physicality],
+                    ].map(([label, value]) => (
+                      <div key={label} className="text-center leading-tight">
+                        <div className="text-[10px] font-extrabold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
+                          {value || "-"}
+                        </div>
+                        <div className="text-[6px] font-semibold text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
+                          {label}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-center gap-1.5">
+                    {d.nationImage && (
+                      <img src={d.nationImage} alt="" className="w-3.5 h-3.5 object-contain" referrerPolicy="no-referrer" />
+                    )}
+                    {d.leagueImage && (
+                      <img src={d.leagueImage} alt="" className="w-3.5 h-3.5 object-contain" referrerPolicy="no-referrer" />
+                    )}
+                    {d.clubImage && (
+                      <img src={d.clubImage} alt="" className="w-3.5 h-3.5 object-contain" referrerPolicy="no-referrer" />
+                    )}
+                  </div>
+                </div>
               </>
             ) : (
               <img
