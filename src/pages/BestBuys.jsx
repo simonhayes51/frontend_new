@@ -431,9 +431,7 @@ export default function BestBuys() {
               return (
                 <div
                   key={r.player_card_id || i}
-                  className="group p-4 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
-                  onClick={() => goTo(name)}
-                  title="Open in Smart Buyer"
+                  className="group p-4 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     {img ? (

@@ -36,6 +36,7 @@ export default function SmartBuyerSimpleRedesign({
   hideHeaderReload = true,
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showTradePlan, setShowTradePlan] = useState(false);
   const [reloading, setReloading] = useState(false);
 
   const status = useMemo(() => {
@@ -179,16 +180,49 @@ export default function SmartBuyerSimpleRedesign({
           </ul>
 
           <button
-            onClick={() => onTradePlan && onTradePlan()}
+            onClick={() => {
+              setShowTradePlan((v) => !v);
+              onTradePlan && onTradePlan();
+            }}
             title="Create buy/list targets — does not place any orders"
             aria-label="Open trade plan"
-            className="mt-2 inline-flex items-center justify-center rounded-2xl bg-emerald-600 hover:bg-emerald-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/30"
+            disabled={!cheapZone && !expensiveZone && avgPrice == null}
+            className="mt-2 inline-flex items-center justify-center rounded-2xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/30"
           >
-            🧮 Trade Plan
+            🧮 {showTradePlan ? "Hide Trade Plan" : "Trade Plan"}
           </button>
           <p className="text-xs text-white/60 -mt-2">
             Helper only — we never buy or sell for you.
           </p>
+
+          {showTradePlan && (
+            <div className="rounded-2xl bg-black/30 border border-emerald-500/30 p-4 space-y-2">
+              <p className="text-sm font-semibold text-emerald-300">Suggested targets</p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-zinc-300">Buy at or below</span>
+                <span className="font-semibold text-white tabular-nums">
+                  {cheapZone ? formatCoins(Math.max(...cheapZone)) : "—"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-zinc-300">List between</span>
+                <span className="font-semibold text-white tabular-nums">
+                  {formatRange(expensiveZone)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-zinc-300">Reference average</span>
+                <span className="font-semibold text-white tabular-nums">{formatCoins(avgPrice)}</span>
+              </div>
+              {latestPrice != null && avgPrice != null && (
+                <p className="text-xs text-zinc-400 pt-1">
+                  Currently {latestPrice <= avgPrice ? "below" : "above"} average by{" "}
+                  {Math.abs(Math.round(((latestPrice - avgPrice) / avgPrice) * 100))}% — based on recent sale history,
+                  not a live order book.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Advanced Stats (no animation lib) */}
           <div className="mt-1">
