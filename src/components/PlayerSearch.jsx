@@ -420,6 +420,12 @@ const PlayerDetail = ({ player, onBack }) => {
     // back to whatever single image we do have.
     cardBgImage: playerData?.bgImageUrl || null,
     cardCutoutImage: playerData?.cutoutImageUrl || player.image_url || null,
+    // Special-card cutouts read as pre-scaled to fill the card frame; base
+    // gold/silver/bronze cutouts are a closer, more generic headshot crop
+    // that renders far too large stretched to fill the same frame the same
+    // way - size each differently instead of treating every cutout as a
+    // full-bleed layer like the background.
+    cutoutType: playerData?.cutoutType || "special",
     // futbin's own short display name (e.g. "Cristiano Ronaldo", not the
     // full legal name) - no word-position guess on the full name is
     // reliable, so prefer what futbin itself renders when we have it.
@@ -532,7 +538,11 @@ const PlayerDetail = ({ player, onBack }) => {
                 <img
                   src={d.cardCutoutImage}
                   alt={d.fullName}
-                  className="absolute inset-0 w-full h-full object-contain"
+                  className={
+                    d.cutoutType === "base"
+                      ? "absolute left-1/2 top-[12%] -translate-x-1/2 w-[62%] h-[62%] object-contain"
+                      : "absolute inset-0 w-full h-full object-contain"
+                  }
                   referrerPolicy="no-referrer"
                   onError={(e) => {
                     if (!e.currentTarget.dataset.triedProxy && d.cardCutoutImage) {
@@ -545,7 +555,7 @@ const PlayerDetail = ({ player, onBack }) => {
                 {/* futbin doesn't bake rating/name/stats into either image -
                     it draws them as separate HTML on top. Same idea here,
                     laid out proportionally over the two stacked layers. */}
-                <div className="absolute top-[12%] left-[18%] flex flex-col items-center leading-none">
+                <div className="absolute top-[22%] left-[18%] flex flex-col items-center leading-none">
                   <span className="text-xl font-extrabold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
                     {d.rating}
                   </span>
@@ -554,7 +564,7 @@ const PlayerDetail = ({ player, onBack }) => {
                   </span>
                 </div>
 
-                <div className="absolute bottom-[23%] inset-x-0 px-7">
+                <div className="absolute bottom-[13%] inset-x-0 px-7">
                   <div className="text-center text-sm font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)] truncate mb-0.5">
                     {d.cardName || player.name || d.fullName}
                   </div>
