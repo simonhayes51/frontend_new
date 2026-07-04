@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import PriceTrendChart from "../components/PriceTrendChart.jsx";
+import PlayerCardArt from "../components/PlayerCardArt.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const PLACEHOLDER = "/img/card-placeholder.png";
@@ -74,6 +75,15 @@ function priceRangeFromAuctions(auctions) {
   const values = (auctions || []).map((a) => a?.soldPrice).filter(Boolean);
   if (!values.length) return null;
   return { min: Math.min(...values), max: Math.max(...values) };
+}
+
+// our DB-backed definition endpoint returns full, ready-to-use image URLs
+// (from futbin) for club/nation/league - no CDN prefix needed, but keep
+// this cheap check in case a relative path ever shows up.
+function resolveImage(imagePath) {
+  if (!imagePath) return null;
+  if (/^https?:\/\//i.test(imagePath)) return imagePath;
+  return `https://game-assets.fut.gg/cdn-cgi/image/quality=100,format=auto,width=40/${imagePath}`;
 }
 
 // ---- tiny autocomplete (re-using your search endpoint) ----
@@ -183,6 +193,10 @@ function CardBlock({ cardId, platform }) {
     const fullName =
       def?.commonName ||
       (def?.firstName && def?.lastName ? `${def.firstName} ${def.lastName}` : `Card ${cardId}`);
+    // futbin's own short display name (e.g. "Vini Jr", not the full legal
+    // name "Vinícius José de Oliveira Júnior") - prefer it over commonName,
+    // which is often the full legal name as scraped from the listing page.
+    const displayName = def?.cardName || fullName;
     const club = def?.club?.name || "—";
     const nation = def?.nation?.name || "—";
     const league = def?.league?.name || "—";
@@ -196,10 +210,34 @@ function CardBlock({ cardId, platform }) {
       "—";
     const cardImage = def?.futggCardImagePath
       ? `https://game-assets.fut.gg/cdn-cgi/image/quality=90,format=auto,width=500/${def.futggCardImagePath}`
-      : PLACEHOLDER;
+      : def?.cutoutImageUrl || PLACEHOLDER;
 
-    return { fullName, club, nation, league, rating, version, position, cardImage };
-  }, [def]);
+    return {
+      fullName,
+      displayName,
+      club,
+      nation,
+      league,
+      rating,
+      version,
+      position,
+      cardImage,
+      bgImage: def?.bgImageUrl || null,
+      cutoutImage: def?.cutoutImageUrl || null,
+      cutoutType: def?.cutoutType || null,
+      nationImage: resolveImage(def?.nation?.imagePath),
+      leagueImage: resolveImage(def?.league?.imagePath),
+      clubImage: resolveImage(def?.club?.imagePath),
+      stats: {
+        pace: def?.facePace || 0,
+        shooting: def?.faceShooting || 0,
+        passing: def?.facePassing || 0,
+        dribbling: def?.faceDribbling || 0,
+        defending: def?.faceDefending || 0,
+        physicality: def?.facePhysicality || 0,
+      },
+    };
+  }, [def, cardId]);
 
   const range = useMemo(() => priceRangeFromAuctions(price?.auctions), [price]);
   const recentSales = (price?.auctions || []).slice(0, 8);
@@ -207,30 +245,26 @@ function CardBlock({ cardId, platform }) {
   return (
     <div className="bg-black/40 border border-white/10 rounded-2xl p-4">
       <div className="flex items-start gap-4">
-        <div className="relative">
-          <img
-            src={meta.cardImage}
-            alt={meta.fullName}
-            className="w-36 h-52 object-contain"
-            onError={(e) => {
-              const img = e.currentTarget;
-              if (!img.dataset.triedProxy && meta.cardImage) {
-                img.dataset.triedProxy = "1";
-                img.src = buildProxy(meta.cardImage);
-              } else {
-                img.src = PLACEHOLDER;
-              }
-            }}
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
-            {meta.version}
-          </div>
-        </div>
+        <PlayerCardArt
+          bgImage={meta.bgImage}
+          cutoutImage={meta.cutoutImage}
+          cutoutType={meta.cutoutType}
+          fallbackImage={meta.cardImage}
+          rating={meta.rating}
+          position={meta.position}
+          name={meta.displayName}
+          stats={meta.stats}
+          nationImage={meta.nationImage}
+          leagueImage={meta.leagueImage}
+          clubImage={meta.clubImage}
+          versionLabel={meta.version}
+          altText={meta.fullName}
+          widthClass="w-36"
+        />
 
         <div className="flex-1 min-w-0">
           <div className="text-xl font-semibold mb-1 truncate">
-            {meta.fullName} <span className="text-white/60">{meta.rating}</span>
+            {meta.displayName} <span className="text-white/60">{meta.rating}</span>
           </div>
           <div className="text-sm text-white/70 mb-3">
             {meta.position} · {meta.club} · {meta.league} · {meta.nation}
