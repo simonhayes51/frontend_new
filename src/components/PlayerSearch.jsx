@@ -520,7 +520,7 @@ const PlayerDetail = ({ player, onBack }) => {
                 {/* futbin doesn't bake rating/name/stats into either image -
                     it draws them as separate HTML on top. Same idea here,
                     laid out proportionally over the two stacked layers. */}
-                <div className="absolute top-[6%] left-[9%] flex flex-col items-center leading-none">
+                <div className="absolute top-[9%] left-[13%] flex flex-col items-center leading-none">
                   <span className="text-xl font-extrabold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
                     {d.rating}
                   </span>
@@ -529,7 +529,7 @@ const PlayerDetail = ({ player, onBack }) => {
                   </span>
                 </div>
 
-                <div className="absolute bottom-[5%] inset-x-0 px-2">
+                <div className="absolute bottom-[14%] inset-x-0 px-6">
                   <div className="text-center text-sm font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)] truncate mb-1">
                     {d.cardName || player.name || d.fullName}
                   </div>
