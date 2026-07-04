@@ -529,11 +529,11 @@ const PlayerDetail = ({ player, onBack }) => {
                   </span>
                 </div>
 
-                <div className="absolute bottom-[14%] inset-x-0 px-6">
-                  <div className="text-center text-sm font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)] truncate mb-1">
+                <div className="absolute bottom-[18%] inset-x-0 px-7">
+                  <div className="text-center text-sm font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)] truncate mb-0.5">
                     {d.cardName || player.name || d.fullName}
                   </div>
-                  <div className="grid grid-cols-6 gap-0.5 mb-1">
+                  <div className="grid grid-cols-6 gap-0.5 mb-0.5">
                     {[
                       ["PAC", d.stats.pace],
                       ["SHO", d.stats.shooting],
@@ -552,15 +552,15 @@ const PlayerDetail = ({ player, onBack }) => {
                       </div>
                     ))}
                   </div>
-                  <div className="flex items-center justify-center gap-1.5">
+                  <div className="flex items-center justify-center gap-1">
                     {d.nationImage && (
-                      <img src={d.nationImage} alt="" className="w-3.5 h-3.5 object-contain" referrerPolicy="no-referrer" />
+                      <img src={d.nationImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
                     )}
                     {d.leagueImage && (
-                      <img src={d.leagueImage} alt="" className="w-3.5 h-3.5 object-contain" referrerPolicy="no-referrer" />
+                      <img src={d.leagueImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
                     )}
                     {d.clubImage && (
-                      <img src={d.clubImage} alt="" className="w-3.5 h-3.5 object-contain" referrerPolicy="no-referrer" />
+                      <img src={d.clubImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
                     )}
                   </div>
                 </div>
