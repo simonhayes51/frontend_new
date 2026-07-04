@@ -1,6 +1,26 @@
 import React, { useState } from "react";
 import axios from "axios";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
+// There is no `/api/pricecheck` endpoint on the backend - this page used to
+// call it and 404 on every search. The real, working price-lookup flow
+// (see src/components/PlayerSearch.jsx) is two calls: resolve the typed
+// name to a card_id via `/api/search-players`, then fetch that card's live
+// price via `/api/fut-player-price/{card_id}`. We reuse that same pair of
+// real endpoints here, just kept lightweight for this single-purpose tool.
+
+// Accepts input like "Lamine Yamal 97" and splits off a trailing rating so
+// we can disambiguate when a name matches multiple cards.
+const parsePlayerQuery = (input) => {
+  const trimmed = input.trim();
+  const match = trimmed.match(/^(.*?)\s+(\d{2,3})$/);
+  if (match) {
+    return { name: match[1].trim(), rating: parseInt(match[2], 10) };
+  }
+  return { name: trimmed, rating: null };
+};
+
 const PriceCheck = () => {
   const [player, setPlayer] = useState("");
   const [platform, setPlatform] = useState("console");
@@ -18,11 +38,36 @@ const PriceCheck = () => {
     setPriceData(null);
 
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/pricecheck`, {
-        params: { player_name: player, platform },
+      const { name, rating } = parsePlayerQuery(player);
+      if (!name) {
+        setError("Please enter a player name & rating, e.g. 'Lamine Yamal 97'");
+        return;
+      }
+
+      const searchResponse = await axios.get(`${API_BASE}/api/search-players`, {
+        params: { q: name },
         withCredentials: true,
       });
-      setPriceData(response.data);
+      const players = searchResponse.data?.players || [];
+      if (players.length === 0) {
+        setError(`No player found matching "${name}".`);
+        return;
+      }
+      const match = (rating != null ? players.find((p) => p.rating === rating) : null) || players[0];
+
+      const priceResponse = await axios.get(`${API_BASE}/api/fut-player-price/${match.card_id}`, {
+        params: { platform },
+        withCredentials: true,
+      });
+      const currentPrice = priceResponse.data?.data?.currentPrice;
+
+      setPriceData({
+        player: match.name,
+        rating: match.rating,
+        platform: platform === "console" ? "Console" : "PC",
+        price: currentPrice && !currentPrice.isExtinct && currentPrice.price != null ? currentPrice.price : "N/A",
+        source: "Futbin",
+      });
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to fetch player data. Please try again.");
     } finally {

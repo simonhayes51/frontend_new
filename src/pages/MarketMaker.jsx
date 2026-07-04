@@ -111,16 +111,18 @@ const MarketMaker = () => {
     setLoading(true);
     try {
       const { data } = await api.post('/api/trades/bulk', {
+        // Backend's TradeItem model (backend/app/routers/trades.py) requires
+        // `buy`/`sell` (not buyPrice/sellPrice) and expects integer prices.
         trades: bulkTrades.map(t => ({
           player: t.player,
-          buyPrice: parseFloat(t.buyPrice),
-          sellPrice: parseFloat(t.sellPrice),
+          buy: parseInt(t.buyPrice),
+          sell: parseInt(t.sellPrice),
           quantity: parseInt(t.quantity),
           platform: t.platform
         }))
       });
 
-      toast.success(`Successfully logged ${data.count} trades!`);
+      toast.success(`Successfully logged ${data.inserted_count} trades!`);
       setBulkTrades([]);
       setSummary(null);
     } catch (error) {
