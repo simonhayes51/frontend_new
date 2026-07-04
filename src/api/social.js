@@ -197,17 +197,11 @@ export const assignTraderRole = (payload) =>
 // NEW: Tier-based subscriptions, tips, and saved posts
 // ============================================================================
 
-export const subscribeToTier = (traderId, tier) =>
-  tryPost([`/api/subscriptions/tier/${traderId}`], { tier });
-
 export const getTraderSubscriptionStats = (traderId) =>
   tryGet([`/api/subscriptions/trader/${traderId}/subscription-stats`]);
 
 export const checkSubscriptionStatus = (traderId) =>
   tryGet([`/api/subscriptions/check/${traderId}`]);
-
-export const tipPost = (postId, amount) =>
-  tryPost(["/api/subscriptions/tip"], { post_id: postId, amount });
 
 export const savePost = (postId) =>
   tryPost([`/api/subscriptions/save-post/${postId}`], {});

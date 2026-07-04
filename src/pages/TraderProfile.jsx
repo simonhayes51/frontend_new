@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
+import api from "../axios";
 import {
   Star,
   Users,
@@ -28,9 +29,7 @@ import {
   getTraderProfile,
   checkSubscriptionStatus,
   getTraderSubscriptionStats,
-  subscribeToTier,
   unsubscribeFromTrader,
-  tipPost,
   savePost,
   unsavePost,
   getFeed,
@@ -60,8 +59,9 @@ const CONVICTION_LEVELS = [
 export default function TraderProfile() {
   const { traderId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  
+
   const [trader, setTrader] = useState(null);
   const [posts, setPosts] = useState([]);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -78,6 +78,35 @@ export default function TraderProfile() {
   useEffect(() => {
     loadTraderProfile();
   }, [traderId]);
+
+  // If we're returning from a Stripe Checkout redirect for a tip, confirm the
+  // payment with the backend (which verifies it with Stripe) before it's
+  // recorded - the tip is never written on the initial /tip request anymore.
+  useEffect(() => {
+    const tipSession = searchParams.get("tipSession");
+    if (!tipSession) return;
+
+    (async () => {
+      try {
+        const { data } = await api.post("/api/subscriptions/tip/confirm", {
+          session_id: tipSession,
+        });
+        toast.success(data.message || "Tip sent! 🎉");
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === data.post_id ? { ...p, tips_total: data.total_tips } : p
+          )
+        );
+      } catch (error) {
+        toast.error(error.response?.data?.detail || "Failed to confirm tip");
+      } finally {
+        const next = new URLSearchParams(searchParams);
+        next.delete("tipSession");
+        setSearchParams(next, { replace: true });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const loadTraderProfile = async () => {
     setLoading(true);
@@ -115,15 +144,18 @@ export default function TraderProfile() {
       navigate("/login");
       return;
     }
-    
+
     try {
-      const { data } = await subscribeToTier(traderId, selectedTier);
-      toast.success(data.message || `Subscribed to ${selectedTier} tier!`);
-      setIsSubscribed(true);
-      setIsFoundingSubscriber(data.is_founding_subscriber);
-      loadTraderProfile(); // Reload to get updated stats
+      // Paid tiers must go through real billing - this creates a Stripe
+      // Checkout Session and redirects the user to pay. The subscription is
+      // only activated by the payment-success webhook, never on this call.
+      const { data } = await api.post("/api/billing/create-checkout-session", {
+        traderId,
+        tier: selectedTier,
+      });
+      window.location.href = data.checkoutUrl;
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to subscribe");
+      toast.error(error.response?.data?.detail || "Failed to start checkout");
     }
   };
 
@@ -152,14 +184,16 @@ export default function TraderProfile() {
       navigate("/login");
       return;
     }
-    
+
     try {
-      const { data } = await tipPost(postId, amount);
-      toast.success(`Tipped $${amount}! 🎉`);
-      // Update post tips in local state
-      setPosts(prev => prev.map(p => 
-        p.id === postId ? { ...p, tips_total: data.total_tips } : p
-      ));
+      // Tips now require an actual Stripe charge: this creates a Checkout
+      // Session and redirects to pay. The tip is only recorded once we
+      // return and confirm the payment (see the tipSession effect above).
+      const { data } = await api.post("/api/subscriptions/tip", {
+        post_id: postId,
+        amount,
+      });
+      window.location.href = data.checkoutUrl;
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to send tip");
     }
