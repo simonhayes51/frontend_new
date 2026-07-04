@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { apiFetch } from '../api/http';
 import { 
@@ -68,7 +69,12 @@ const Settings = () => {
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [newQuickTag, setNewQuickTag] = useState('');
-  const [activeSection, setActiveSection] = useState('trading');
+  const [searchParams] = useSearchParams();
+  const VALID_SECTIONS = ['trading', 'alerts', 'display', 'analysis', 'data'];
+  const [activeSection, setActiveSection] = useState(() => {
+    const requested = searchParams.get('section');
+    return VALID_SECTIONS.includes(requested) ? requested : 'trading';
+  });
   const [hasChanges, setHasChanges] = useState(false);
   const [originalSettings, setOriginalSettings] = useState(null);
   const [stats, setStats] = useState(null);
@@ -244,11 +250,11 @@ const Settings = () => {
 
   if (loading && !originalSettings) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen p-6">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-center py-20">
             <RefreshCw className="animate-spin h-8 w-8 text-blue-500" />
-            <span className="ml-3 text-gray-600">Loading settings...</span>
+            <span className="ml-3 text-gray-400">Loading settings...</span>
           </div>
         </div>
       </div>
@@ -256,50 +262,50 @@ const Settings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-          <p className="text-gray-600">Configure your FUT trading dashboard experience</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Settings</h1>
+          <p className="text-gray-400">Configure your FUT trading dashboard experience</p>
           
           {stats && (
             <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white rounded-lg p-4 shadow-sm border">
+              <div className="bg-gray-900 rounded-lg p-4 shadow-sm border">
                 <div className="flex items-center">
                   <BarChart3 className="h-8 w-8 text-blue-500" />
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-500">Total Trades</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.trades_count}</p>
+                    <p className="text-sm font-medium text-gray-400">Total Trades</p>
+                    <p className="text-2xl font-semibold text-white">{stats.trades_count}</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg p-4 shadow-sm border">
+              <div className="bg-gray-900 rounded-lg p-4 shadow-sm border">
                 <div className="flex items-center">
                   <DollarSign className="h-8 w-8 text-green-500" />
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-500">Net Profit</p>
-                    <p className={`text-2xl font-semibold ${stats.total_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className="text-sm font-medium text-gray-400">Net Profit</p>
+                    <p className={`text-2xl font-semibold ${stats.total_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {formatCurrency(stats.total_profit)}
                     </p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg p-4 shadow-sm border">
+              <div className="bg-gray-900 rounded-lg p-4 shadow-sm border">
                 <div className="flex items-center">
                   <FileText className="h-8 w-8 text-orange-500" />
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-500">EA Tax Paid</p>
-                    <p className="text-2xl font-semibold text-gray-900">{formatCurrency(stats.total_tax)}</p>
+                    <p className="text-sm font-medium text-gray-400">EA Tax Paid</p>
+                    <p className="text-2xl font-semibold text-white">{formatCurrency(stats.total_tax)}</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg p-4 shadow-sm border">
+              <div className="bg-gray-900 rounded-lg p-4 shadow-sm border">
                 <div className="flex items-center">
                   <Target className="h-8 w-8 text-purple-500" />
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-500">Trading Goals</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.goals_count}</p>
+                    <p className="text-sm font-medium text-gray-400">Trading Goals</p>
+                    <p className="text-2xl font-semibold text-white">{stats.goals_count}</p>
                   </div>
                 </div>
               </div>
@@ -317,8 +323,8 @@ const Settings = () => {
                   onClick={() => setActiveSection(section.id)}
                   className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md ${
                     activeSection === section.id
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-blue-900/30 text-blue-300 border-r-2 border-blue-500'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                   }`}
                 >
                   <section.icon className="h-5 w-5 mr-3" />
@@ -330,19 +336,19 @@ const Settings = () => {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            <div className="bg-white shadow-sm rounded-lg">
+            <div className="bg-gray-900 shadow-sm rounded-lg">
               {/* Trading Preferences */}
               {activeSection === 'trading' && (
                 <div className="p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-6">Trading Preferences</h3>
+                  <h3 className="text-lg font-medium text-white mb-6">Trading Preferences</h3>
                   
                   <div className="space-y-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Default Platform</label>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">Default Platform</label>
                       <select
                         value={settings.default_platform}
                         onChange={(e) => updateSetting('default_platform', e.target.value)}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="Console">PlayStation (Console)</option>
                         <option value="Xbox">Xbox</option>
@@ -352,23 +358,23 @@ const Settings = () => {
 
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">Auto-calculate EA Tax</label>
-                        <p className="text-sm text-gray-500">Automatically deduct EA tax from profit calculations</p>
+                        <label className="block text-sm font-medium text-gray-200">Auto-calculate EA Tax</label>
+                        <p className="text-sm text-gray-400">Automatically deduct EA tax from profit calculations</p>
                       </div>
                       <button
                         onClick={() => updateSetting('auto_calculate_tax', !settings.auto_calculate_tax)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          settings.auto_calculate_tax ? 'bg-blue-600' : 'bg-gray-200'
+                          settings.auto_calculate_tax ? 'bg-blue-600' : 'bg-gray-700'
                         }`}
                       >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-gray-900 transition-transform ${
                           settings.auto_calculate_tax ? 'translate-x-6' : 'translate-x-1'
                         }`} />
                       </button>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">EA Tax Rate (%)</label>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">EA Tax Rate (%)</label>
                       <input
                         type="number"
                         min="0"
@@ -376,16 +382,16 @@ const Settings = () => {
                         step="0.1"
                         value={settings.tax_rate}
                         onChange={(e) => updateSetting('tax_rate', parseFloat(e.target.value) || 5)}
-                        className="block w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-32 px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Profit Display Mode</label>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">Profit Display Mode</label>
                       <select
                         value={settings.profit_display_mode}
                         onChange={(e) => updateSetting('profit_display_mode', e.target.value)}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="after_tax">After Tax (Default)</option>
                         <option value="before_tax">Before Tax</option>
@@ -394,20 +400,20 @@ const Settings = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Target Profit Margin (%)</label>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">Target Profit Margin (%)</label>
                       <input
                         type="number"
                         min="1"
                         max="100"
                         value={settings.target_profit_margin}
                         onChange={(e) => updateSetting('target_profit_margin', parseInt(e.target.value) || 10)}
-                        className="block w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-32 px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       />
-                      <p className="text-sm text-gray-500 mt-1">Used for trade suggestions and analysis</p>
+                      <p className="text-sm text-gray-400 mt-1">Used for trade suggestions and analysis</p>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Quick Tags</label>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">Quick Tags</label>
                       <div className="flex space-x-2 mb-3">
                         <input
                           type="text"
@@ -415,7 +421,7 @@ const Settings = () => {
                           onChange={(e) => setNewQuickTag(e.target.value)}
                           onKeyPress={(e) => e.key === 'Enter' && addQuickTag()}
                           placeholder="Add a quick tag..."
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          className="flex-1 px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         />
                         <button
                           onClick={addQuickTag}
@@ -428,7 +434,7 @@ const Settings = () => {
                         {settings.quick_tags.map((tag) => (
                           <span
                             key={tag}
-                            className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-900/40 text-blue-300"
                           >
                             {tag}
                             <button
@@ -448,65 +454,65 @@ const Settings = () => {
               {/* Notifications & Alerts */}
               {activeSection === 'alerts' && (
                 <div className="p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-6">Notifications & Alerts</h3>
+                  <h3 className="text-lg font-medium text-white mb-6">Notifications & Alerts</h3>
                   
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">Browser Notifications</label>
-                        <p className="text-sm text-gray-500">Get desktop notifications for important events</p>
+                        <label className="block text-sm font-medium text-gray-200">Browser Notifications</label>
+                        <p className="text-sm text-gray-400">Get desktop notifications for important events</p>
                       </div>
                       <button
                         onClick={() => updateSetting('browser_notifications', !settings.browser_notifications)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          settings.browser_notifications ? 'bg-blue-600' : 'bg-gray-200'
+                          settings.browser_notifications ? 'bg-blue-600' : 'bg-gray-700'
                         }`}
                       >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-gray-900 transition-transform ${
                           settings.browser_notifications ? 'translate-x-6' : 'translate-x-1'
                         }`} />
                       </button>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Price Alert Threshold (%)</label>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">Price Alert Threshold (%)</label>
                       <input
                         type="number"
                         min="1"
                         max="50"
                         value={settings.price_alert_threshold}
                         onChange={(e) => updateSetting('price_alert_threshold', parseInt(e.target.value) || 10)}
-                        className="block w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-32 px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       />
-                      <p className="text-sm text-gray-500 mt-1">Alert when player prices change by this percentage</p>
+                      <p className="text-sm text-gray-400 mt-1">Alert when player prices change by this percentage</p>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">Profit Milestone Alerts</label>
-                        <p className="text-sm text-gray-500">Get notified when you reach profit milestones</p>
+                        <label className="block text-sm font-medium text-gray-200">Profit Milestone Alerts</label>
+                        <p className="text-sm text-gray-400">Get notified when you reach profit milestones</p>
                       </div>
                       <button
                         onClick={() => updateSetting('profit_milestone_alerts', !settings.profit_milestone_alerts)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          settings.profit_milestone_alerts ? 'bg-blue-600' : 'bg-gray-200'
+                          settings.profit_milestone_alerts ? 'bg-blue-600' : 'bg-gray-700'
                         }`}
                       >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-gray-900 transition-transform ${
                           settings.profit_milestone_alerts ? 'translate-x-6' : 'translate-x-1'
                         }`} />
                       </button>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Daily Summary Time</label>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">Daily Summary Time</label>
                       <input
                         type="time"
                         value={settings.daily_summary_time}
                         onChange={(e) => updateSetting('daily_summary_time', e.target.value)}
-                        className="block w-40 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-40 px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       />
-                      <p className="text-sm text-gray-500 mt-1">When to send daily trading summary</p>
+                      <p className="text-sm text-gray-400 mt-1">When to send daily trading summary</p>
                     </div>
                   </div>
                 </div>
@@ -515,15 +521,15 @@ const Settings = () => {
               {/* Display & Format */}
               {activeSection === 'display' && (
                 <div className="p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-6">Display & Format</h3>
+                  <h3 className="text-lg font-medium text-white mb-6">Display & Format</h3>
                   
                   <div className="space-y-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Currency Display Format</label>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">Currency Display Format</label>
                       <select
                         value={settings.currency_display}
                         onChange={(e) => updateSetting('currency_display', e.target.value)}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="coins">Full Coins (1,250,000)</option>
                         <option value="k_format">K Format (1.25M, 250K)</option>
@@ -533,16 +539,16 @@ const Settings = () => {
 
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">Show Percentages</label>
-                        <p className="text-sm text-gray-500">Display profit/loss as percentages</p>
+                        <label className="block text-sm font-medium text-gray-200">Show Percentages</label>
+                        <p className="text-sm text-gray-400">Display profit/loss as percentages</p>
                       </div>
                       <button
                         onClick={() => updateSetting('show_percentages', !settings.show_percentages)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          settings.show_percentages ? 'bg-blue-600' : 'bg-gray-200'
+                          settings.show_percentages ? 'bg-blue-600' : 'bg-gray-700'
                         }`}
                       >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-gray-900 transition-transform ${
                           settings.show_percentages ? 'translate-x-6' : 'translate-x-1'
                         }`} />
                       </button>
@@ -550,16 +556,16 @@ const Settings = () => {
 
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">Highlight Profitable Trades</label>
-                        <p className="text-sm text-gray-500">Use color coding for profitable vs losing trades</p>
+                        <label className="block text-sm font-medium text-gray-200">Highlight Profitable Trades</label>
+                        <p className="text-sm text-gray-400">Use color coding for profitable vs losing trades</p>
                       </div>
                       <button
                         onClick={() => updateSetting('highlight_profitable_trades', !settings.highlight_profitable_trades)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          settings.highlight_profitable_trades ? 'bg-blue-600' : 'bg-gray-200'
+                          settings.highlight_profitable_trades ? 'bg-blue-600' : 'bg-gray-700'
                         }`}
                       >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-gray-900 transition-transform ${
                           settings.highlight_profitable_trades ? 'translate-x-6' : 'translate-x-1'
                         }`} />
                       </button>
@@ -571,15 +577,15 @@ const Settings = () => {
               {/* Trading Analysis */}
               {activeSection === 'analysis' && (
                 <div className="p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-6">Trading Analysis</h3>
+                  <h3 className="text-lg font-medium text-white mb-6">Trading Analysis</h3>
                   
                   <div className="space-y-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Risk Tolerance</label>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">Risk Tolerance</label>
                       <select
                         value={settings.risk_tolerance}
                         onChange={(e) => updateSetting('risk_tolerance', e.target.value)}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="low">Low - Conservative trading</option>
                         <option value="medium">Medium - Balanced approach</option>
@@ -588,11 +594,11 @@ const Settings = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Investment Horizon</label>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">Investment Horizon</label>
                       <select
                         value={settings.investment_horizon}
                         onChange={(e) => updateSetting('investment_horizon', e.target.value)}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="short">Short-term (Hours to Days)</option>
                         <option value="medium">Medium-term (Days to Weeks)</option>
@@ -602,16 +608,16 @@ const Settings = () => {
 
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">Smart Suggestions</label>
-                        <p className="text-sm text-gray-500">Get AI-powered trading suggestions</p>
+                        <label className="block text-sm font-medium text-gray-200">Smart Suggestions</label>
+                        <p className="text-sm text-gray-400">Get AI-powered trading suggestions</p>
                       </div>
                       <button
                         onClick={() => updateSetting('smart_suggestions', !settings.smart_suggestions)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          settings.smart_suggestions ? 'bg-blue-600' : 'bg-gray-200'
+                          settings.smart_suggestions ? 'bg-blue-600' : 'bg-gray-700'
                         }`}
                       >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-gray-900 transition-transform ${
                           settings.smart_suggestions ? 'translate-x-6' : 'translate-x-1'
                         }`} />
                       </button>
@@ -619,27 +625,27 @@ const Settings = () => {
 
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">Market Trend Analysis</label>
-                        <p className="text-sm text-gray-500">Enable advanced market trend detection</p>
+                        <label className="block text-sm font-medium text-gray-200">Market Trend Analysis</label>
+                        <p className="text-sm text-gray-400">Enable advanced market trend detection</p>
                       </div>
                       <button
                         onClick={() => updateSetting('market_trend_analysis', !settings.market_trend_analysis)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          settings.market_trend_analysis ? 'bg-blue-600' : 'bg-gray-200'
+                          settings.market_trend_analysis ? 'bg-blue-600' : 'bg-gray-700'
                         }`}
                       >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-gray-900 transition-transform ${
                           settings.market_trend_analysis ? 'translate-x-6' : 'translate-x-1'
                         }`} />
                       </button>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Auto Price Updates (Minutes)</label>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">Auto Price Updates (Minutes)</label>
                       <select
                         value={settings.price_update_interval}
                         onChange={(e) => updateSetting('price_update_interval', parseInt(e.target.value))}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value={1}>1 minute</option>
                         <option value={5}>5 minutes</option>
@@ -655,35 +661,35 @@ const Settings = () => {
               {/* Data Management */}
               {activeSection === 'data' && (
                 <div className="p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-6">Data Management</h3>
+                  <h3 className="text-lg font-medium text-white mb-6">Data Management</h3>
                   
                   <div className="space-y-6">
                     {/* Data Overview */}
                     {stats && (
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="text-sm font-medium text-gray-900 mb-3">Your Trading Data</h4>
+                      <div className="bg-gray-800 rounded-lg p-4">
+                        <h4 className="text-sm font-medium text-white mb-3">Your Trading Data</h4>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
-                            <span className="text-gray-500">Total Trades:</span>
+                            <span className="text-gray-400">Total Trades:</span>
                             <span className="ml-2 font-medium">{stats.trades_count}</span>
                           </div>
                           <div>
-                            <span className="text-gray-500">Trading Goals:</span>
+                            <span className="text-gray-400">Trading Goals:</span>
                             <span className="ml-2 font-medium">{stats.goals_count}</span>
                           </div>
                           <div>
-                            <span className="text-gray-500">Net Profit:</span>
-                            <span className={`ml-2 font-medium ${stats.total_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <span className="text-gray-400">Net Profit:</span>
+                            <span className={`ml-2 font-medium ${stats.total_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                               {formatCurrency(stats.total_profit)}
                             </span>
                           </div>
                           <div>
-                            <span className="text-gray-500">EA Tax Paid:</span>
+                            <span className="text-gray-400">EA Tax Paid:</span>
                             <span className="ml-2 font-medium">{formatCurrency(stats.total_tax)}</span>
                           </div>
                         </div>
                         {stats.earliest_trade && (
-                          <p className="text-xs text-gray-500 mt-3">
+                          <p className="text-xs text-gray-400 mt-3">
                             Trading since: {new Date(stats.earliest_trade).toLocaleDateString()}
                           </p>
                         )}
@@ -691,19 +697,19 @@ const Settings = () => {
                     )}
 
                     {/* Export Data */}
-                    <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="border border-gray-800 rounded-lg p-4">
                       <div className="flex items-center mb-3">
                         <Download className="h-5 w-5 text-gray-400 mr-2" />
-                        <h4 className="text-sm font-medium text-gray-900">Export Trading Data</h4>
+                        <h4 className="text-sm font-medium text-white">Export Trading Data</h4>
                       </div>
-                      <p className="text-sm text-gray-600 mb-4">
+                      <p className="text-sm text-gray-400 mb-4">
                         Download your complete trading history for backup or analysis
                       </p>
                       <div className="flex flex-wrap gap-3">
                         <button
                           onClick={() => exportData('csv')}
                           disabled={loading}
-                          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                          className="inline-flex items-center px-4 py-2 border border-gray-700 rounded-md shadow-sm bg-gray-900 text-sm font-medium text-gray-200 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                         >
                           <FileText className="h-4 w-4 mr-2" />
                           Export CSV
@@ -711,7 +717,7 @@ const Settings = () => {
                         <button
                           onClick={() => exportData('json')}
                           disabled={loading}
-                          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                          className="inline-flex items-center px-4 py-2 border border-gray-700 rounded-md shadow-sm bg-gray-900 text-sm font-medium text-gray-200 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                         >
                           <FileText className="h-4 w-4 mr-2" />
                           Export JSON
@@ -720,32 +726,32 @@ const Settings = () => {
                     </div>
 
                     {/* Import Data */}
-                    <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="border border-gray-800 rounded-lg p-4">
                       <div className="flex items-center mb-3">
                         <Upload className="h-5 w-5 text-gray-400 mr-2" />
-                        <h4 className="text-sm font-medium text-gray-900">Import Trading Data</h4>
+                        <h4 className="text-sm font-medium text-white">Import Trading Data</h4>
                       </div>
-                      <p className="text-sm text-gray-600 mb-4">
+                      <p className="text-sm text-gray-400 mb-4">
                         Upload a CSV or JSON file to import your trading history
                       </p>
                       <input
                         type="file"
                         accept=".json,.csv"
                         onChange={(e) => e.target.files[0] && importData(e.target.files[0])}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-900/40 file:text-blue-300 hover:file:bg-blue-900/60"
                       />
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-gray-400 mt-2">
                         Supports CSV and JSON formats. Duplicate trades will be skipped.
                       </p>
                     </div>
 
                     {/* Data Retention */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Data Retention Period</label>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">Data Retention Period</label>
                       <select
                         value={settings.data_retention_days}
                         onChange={(e) => updateSetting('data_retention_days', parseInt(e.target.value))}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value={90}>90 days</option>
                         <option value={180}>6 months</option>
@@ -753,7 +759,7 @@ const Settings = () => {
                         <option value={730}>2 years</option>
                         <option value={-1}>Keep forever</option>
                       </select>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-sm text-gray-400 mt-1">
                         How long to keep your trading data before automatic cleanup
                       </p>
                     </div>
@@ -761,16 +767,16 @@ const Settings = () => {
                     {/* Privacy Settings */}
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">Anonymous Analytics</label>
-                        <p className="text-sm text-gray-500">Help improve the platform with anonymous usage data</p>
+                        <label className="block text-sm font-medium text-gray-200">Anonymous Analytics</label>
+                        <p className="text-sm text-gray-400">Help improve the platform with anonymous usage data</p>
                       </div>
                       <button
                         onClick={() => updateSetting('anonymous_analytics', !settings.anonymous_analytics)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          settings.anonymous_analytics ? 'bg-blue-600' : 'bg-gray-200'
+                          settings.anonymous_analytics ? 'bg-blue-600' : 'bg-gray-700'
                         }`}
                       >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-gray-900 transition-transform ${
                           settings.anonymous_analytics ? 'translate-x-6' : 'translate-x-1'
                         }`} />
                       </button>
@@ -778,33 +784,33 @@ const Settings = () => {
 
                     {/* Backup Frequency */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Automatic Backup Frequency</label>
+                      <label className="block text-sm font-medium text-gray-200 mb-2">Automatic Backup Frequency</label>
                       <select
                         value={settings.backup_frequency}
                         onChange={(e) => updateSetting('backup_frequency', e.target.value)}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="never">Never</option>
                         <option value="weekly">Weekly</option>
                         <option value="monthly">Monthly</option>
                       </select>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-sm text-gray-400 mt-1">
                         Automatically create backups of your data
                       </p>
                     </div>
 
                     {/* Danger Zone */}
-                    <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+                    <div className="border border-red-900/50 rounded-lg p-4 bg-red-900/20">
                       <div className="flex items-center mb-3">
                         <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
-                        <h4 className="text-sm font-medium text-red-900">Danger Zone</h4>
+                        <h4 className="text-sm font-medium text-red-300">Danger Zone</h4>
                       </div>
-                      <p className="text-sm text-red-700 mb-4">
+                      <p className="text-sm text-red-300/90 mb-4">
                         Permanently delete all your trading data. This action cannot be undone.
                       </p>
                       <button
                         onClick={() => setShowDeleteModal(true)}
-                        className="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm bg-white text-sm font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        className="inline-flex items-center px-4 py-2 border border-red-800 rounded-md shadow-sm bg-gray-900 text-sm font-medium text-red-300 hover:bg-red-900/30 focus:outline-none focus:ring-2 focus:ring-red-500"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete All Data
@@ -815,13 +821,13 @@ const Settings = () => {
               )}
 
               {/* Save Button - Always visible at bottom */}
-              <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 rounded-b-lg">
+              <div className="border-t border-gray-800 px-6 py-4 bg-gray-800 rounded-b-lg">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-4">
                     <button
                       onClick={loadSettings}
                       disabled={loading}
-                      className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 disabled:opacity-50"
+                      className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-400 hover:text-gray-100 disabled:opacity-50"
                     >
                       <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                       Reset Changes
@@ -853,30 +859,30 @@ const Settings = () => {
         {/* Delete Confirmation Modal */}
         {showDeleteModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="bg-gray-900 rounded-lg max-w-md w-full p-6">
               <div className="flex items-center mb-4">
                 <AlertTriangle className="h-6 w-6 text-red-500 mr-3" />
-                <h3 className="text-lg font-medium text-gray-900">Delete All Trading Data</h3>
+                <h3 className="text-lg font-medium text-white">Delete All Trading Data</h3>
               </div>
               <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-2">
+                <p className="text-sm text-gray-400 mb-2">
                   This will permanently delete:
                 </p>
-                <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+                <ul className="text-sm text-gray-400 list-disc list-inside space-y-1">
                   <li>All {stats?.trades_count || 0} trades</li>
                   <li>All {stats?.goals_count || 0} trading goals</li>
                   <li>Portfolio balance and settings</li>
                   <li>All historical data and analytics</li>
                 </ul>
               </div>
-              <p className="text-sm text-gray-700 mb-4">
-                Type <span className="font-mono font-bold bg-gray-100 px-2 py-1 rounded">DELETE</span> to confirm:
+              <p className="text-sm text-gray-200 mb-4">
+                Type <span className="font-mono font-bold bg-gray-800 text-gray-100 px-2 py-1 rounded">DELETE</span> to confirm:
               </p>
               <input
                 type="text"
                 value={deleteConfirm}
                 onChange={(e) => setDeleteConfirm(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 mb-4"
+                className="w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 mb-4"
                 placeholder="Type DELETE"
               />
               <div className="flex space-x-3">
@@ -885,7 +891,7 @@ const Settings = () => {
                     setShowDeleteModal(false);
                     setDeleteConfirm('');
                   }}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-200 bg-gray-900 border border-gray-700 rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   Cancel
                 </button>
