@@ -529,7 +529,7 @@ const PlayerDetail = ({ player, onBack }) => {
                   </span>
                 </div>
 
-                <div className="absolute bottom-[18%] inset-x-0 px-7">
+                <div className="absolute bottom-[23%] inset-x-0 px-7">
                   <div className="text-center text-sm font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)] truncate mb-0.5">
                     {d.cardName || player.name || d.fullName}
                   </div>
