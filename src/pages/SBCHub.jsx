@@ -43,8 +43,129 @@ function DownloadCSVButton({ filename = "sbc-solution.csv", rows = [] }) {
   );
 }
 
+// Lets a user browse real SBC sets/challenges from the backend instead of
+// having to already know a challenge code.
+function ChallengeBrowser({ currentCode, onPick }) {
+  const [query, setQuery] = useState("");
+  const [sets, setSets] = useState([]);
+  const [setsLoading, setSetsLoading] = useState(false);
+  const [selectedSet, setSelectedSet] = useState(null);
+  const [challenges, setChallenges] = useState([]);
+  const [challengesLoading, setChallengesLoading] = useState(false);
+
+  // Debounced search over GET /api/sbc/sets
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setSetsLoading(true);
+      try {
+        const params = new URLSearchParams({ limit: "30" });
+        if (query.trim()) params.set("q", query.trim());
+        const res = await fetch(`${API_BASE}/api/sbc/sets?${params}`, { credentials: "include" });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled) setSets(Array.isArray(data?.data) ? data.data : []);
+      } catch {
+        if (!cancelled) setSets([]);
+      } finally {
+        if (!cancelled) setSetsLoading(false);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [query]);
+
+  const pickSet = async (set) => {
+    setSelectedSet(set);
+    setChallenges([]);
+    setChallengesLoading(true);
+    try {
+      const params = new URLSearchParams({ set_id: String(set.set_id), limit: "100" });
+      const res = await fetch(`${API_BASE}/api/sbc/challenges?${params}`, { credentials: "include" });
+      const data = await res.json().catch(() => ({}));
+      setChallenges(Array.isArray(data?.data) ? data.data : []);
+    } catch {
+      setChallenges([]);
+    } finally {
+      setChallengesLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 border rounded-2xl p-4 bg-white text-black">
+      <h2 className="font-semibold mb-3">Browse SBC challenges</h2>
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search SBC sets (e.g. Icon, TOTW, Marquee Matchups)"
+        className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-black mb-3 focus:outline-none focus:ring focus:ring-zinc-400"
+      />
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <div className="text-xs uppercase text-zinc-500 mb-2">Sets</div>
+          <div className="max-h-64 overflow-y-auto border rounded-xl divide-y">
+            {setsLoading ? (
+              <div className="px-3 py-2 text-sm text-zinc-500">Loading sets…</div>
+            ) : sets.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-zinc-500">No sets found</div>
+            ) : (
+              sets.map((s) => (
+                <button
+                  key={s.set_id}
+                  type="button"
+                  onClick={() => pickSet(s)}
+                  className={cx(
+                    "w-full text-left px-3 py-2 text-sm hover:bg-zinc-100",
+                    selectedSet?.set_id === s.set_id && "bg-zinc-100 font-medium"
+                  )}
+                >
+                  {s.name}
+                  {s.challenges_count != null && (
+                    <span className="text-zinc-400"> · {s.challenges_count} challenges</span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs uppercase text-zinc-500 mb-2">Challenges</div>
+          <div className="max-h-64 overflow-y-auto border rounded-xl divide-y">
+            {!selectedSet ? (
+              <div className="px-3 py-2 text-sm text-zinc-500">Pick a set to see its challenges</div>
+            ) : challengesLoading ? (
+              <div className="px-3 py-2 text-sm text-zinc-500">Loading challenges…</div>
+            ) : challenges.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-zinc-500">No challenges found for this set</div>
+            ) : (
+              challenges.map((c) => (
+                <button
+                  key={c.challenge_code}
+                  type="button"
+                  onClick={() => onPick(c.challenge_code)}
+                  className={cx(
+                    "w-full text-left px-3 py-2 text-sm hover:bg-zinc-100",
+                    currentCode === c.challenge_code && "bg-zinc-100 font-medium"
+                  )}
+                >
+                  <div>{c.name || c.challenge_code}</div>
+                  <div className="text-xs text-zinc-400">
+                    {c.min_squad_rating ? `Min rating ${c.min_squad_rating}` : ""}
+                    {c.formation ? ` · ${c.formation}` : ""}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SBCHub() {
-  const [challengeCode, setChallengeCode] = useState("TEST_BASIC");
+  const [challengeCode, setChallengeCode] = useState("");
   const [useClubOnly, setUseClubOnly] = useState(false);
   const [preferUntradeable, setPreferUntradeable] = useState(true);
   const [maxCandidates, setMaxCandidates] = useState(100);
@@ -70,7 +191,13 @@ export default function SBCHub() {
     }
   };
 
-  const fetchSolution = async () => {
+  const fetchSolution = async (codeOverride) => {
+    const code = (codeOverride ?? (challengeCode || "")).trim();
+    if (!code) {
+      setError("Pick a challenge below (or type a challenge code) first.");
+      setSolution(null);
+      return;
+    }
     setLoading(true);
     setError("");
     setSolution(null);
@@ -80,7 +207,7 @@ export default function SBCHub() {
         headers: { "Content-Type": "application/json" },
         credentials: "include", // important if your API uses cookie auth
         body: JSON.stringify({
-          challenge_code: challengeCode || "TEST_BASIC",
+          challenge_code: code,
           account_id: null,
           use_club_only: useClubOnly,
           prefer_untradeable: preferUntradeable,
@@ -100,11 +227,10 @@ export default function SBCHub() {
     }
   };
 
-  useEffect(() => {
-    // auto-load on first render
-    fetchSolution();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const pickChallenge = (code) => {
+    setChallengeCode(code);
+    fetchSolution(code);
+  };
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -116,7 +242,7 @@ export default function SBCHub() {
           <input
             value={challengeCode}
             onChange={(e) => setChallengeCode(e.target.value)}
-            placeholder="TEST_BASIC"
+            placeholder="Pick a challenge below, or type a code"
             className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-black focus:outline-none focus:ring focus:ring-zinc-400"
           />
         </div>
@@ -149,7 +275,7 @@ export default function SBCHub() {
             />
           </div>
           <button
-            onClick={fetchSolution}
+            onClick={() => fetchSolution()}
             disabled={loading}
             className={cx("h-10 px-4 rounded-xl text-white shadow-sm", loading ? "bg-zinc-400" : "bg-black hover:bg-zinc-800")}
           >
@@ -157,6 +283,8 @@ export default function SBCHub() {
           </button>
         </div>
       </div>
+
+      <ChallengeBrowser currentCode={challengeCode} onPick={pickChallenge} />
 
       {error && (
         <div className="mt-4 p-3 rounded-xl bg-red-50 text-red-700 text-sm border border-red-200">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, TrendingUp, TrendingDown, MessageCircle, Twitter, Users, AlertCircle } from 'lucide-react';
+import { Activity, TrendingUp, Users, BarChart3, Lightbulb } from 'lucide-react';
 import api from '../axios';
 import toast from 'react-hot-toast';
 
@@ -32,12 +32,13 @@ const MarketSentiment = () => {
     return 'text-red-400 bg-red-400/10';
   };
 
-  const getSentimentLabel = (score) => {
-    if (score >= 70) return 'Very Bullish';
-    if (score >= 50) return 'Bullish';
-    if (score >= 30) return 'Bearish';
-    return 'Very Bearish';
-  };
+  // sentiment.score/label come straight from the backend (derived from this
+  // community's own logged trades) - no external social data involved.
+  const score = sentimentData?.sentiment?.score ?? 0;
+  const label = sentimentData?.sentiment?.label || 'Neutral';
+  const marketStats = sentimentData?.market_stats || null;
+  const trendingPlayers = sentimentData?.trending_players || [];
+  const insights = sentimentData?.insights || [];
 
   return (
     <div className="min-h-screen bg-[#0e1320] text-white p-6">
@@ -53,7 +54,8 @@ const MarketSentiment = () => {
             <h1 className="text-4xl font-black">Market Sentiment</h1>
           </div>
           <p className="text-slate-400">
-            Real-time sentiment analysis from social media, Discord, and community signals
+            Community trade sentiment — derived entirely from this app's own users' recent buy/sell
+            activity, not external social media or Discord signals.
           </p>
         </motion.div>
 
@@ -87,7 +89,7 @@ const MarketSentiment = () => {
               className="bg-gradient-to-br from-slate-900/50 to-slate-800/30 rounded-2xl p-8 mb-6 border border-white/10"
             >
               <div className="text-center">
-                <p className="text-sm text-slate-400 mb-2">Overall Market Sentiment</p>
+                <p className="text-sm text-slate-400 mb-2">Community Trade Sentiment</p>
                 <div className="relative w-48 h-48 mx-auto mb-4">
                   <svg className="w-48 h-48 transform -rotate-90">
                     <circle
@@ -107,23 +109,27 @@ const MarketSentiment = () => {
                       strokeWidth="12"
                       fill="none"
                       strokeDasharray={`${2 * Math.PI * 80}`}
-                      strokeDashoffset={`${2 * Math.PI * 80 * (1 - sentimentData.overallScore / 100)}`}
-                      className={`${getSentimentColor(sentimentData.overallScore).split(' ')[0]} transition-all duration-1000`}
+                      strokeDashoffset={`${2 * Math.PI * 80 * (1 - score / 100)}`}
+                      className={`${getSentimentColor(score).split(' ')[0]} transition-all duration-1000`}
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-5xl font-black">{sentimentData.overallScore}</span>
+                    <span className="text-5xl font-black">{score}</span>
                     <span className="text-sm text-slate-400">/ 100</span>
                   </div>
                 </div>
-                <h2 className={`text-3xl font-black ${getSentimentColor(sentimentData.overallScore).split(' ')[0]}`}>
-                  {getSentimentLabel(sentimentData.overallScore)}
+                <h2 className={`text-3xl font-black ${getSentimentColor(score).split(' ')[0]}`}>
+                  {label}
                 </h2>
-                <p className="text-slate-400 mt-2">{sentimentData.summary}</p>
+                <p className="text-slate-400 mt-2">
+                  {marketStats
+                    ? `Based on ${marketStats.total_trades.toLocaleString()} trades logged by our users in the last ${timeframe} (${marketStats.win_rate}% profitable).`
+                    : "Not enough trade activity in this window to compute a score."}
+                </p>
               </div>
             </motion.div>
 
-            {/* Sentiment Sources */}
+            {/* Underlying trade stats */}
             <div className="grid md:grid-cols-3 gap-6 mb-6">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -132,25 +138,16 @@ const MarketSentiment = () => {
                 className="bg-slate-900/50 rounded-2xl p-6 border border-white/10"
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-[#1DA1F2]/20 rounded-xl flex items-center justify-center">
-                    <Twitter className="w-6 h-6 text-[#1DA1F2]" />
+                  <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                    <BarChart3 className="w-6 h-6 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="font-bold">Twitter</h3>
-                    <p className="text-sm text-slate-400">
-                      {sentimentData.sources?.twitter?.mentions || 0} mentions
-                    </p>
+                    <h3 className="font-bold">Trades Logged</h3>
+                    <p className="text-sm text-slate-400">in this timeframe</p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-black">
-                    {sentimentData.sources?.twitter?.score || 0}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                    getSentimentColor(sentimentData.sources?.twitter?.score || 0)
-                  }`}>
-                    {getSentimentLabel(sentimentData.sources?.twitter?.score || 0)}
-                  </span>
+                <div className="text-2xl font-black">
+                  {marketStats ? marketStats.total_trades.toLocaleString() : '—'}
                 </div>
               </motion.div>
 
@@ -161,25 +158,16 @@ const MarketSentiment = () => {
                 className="bg-slate-900/50 rounded-2xl p-6 border border-white/10"
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-[#5865F2]/20 rounded-xl flex items-center justify-center">
-                    <MessageCircle className="w-6 h-6 text-[#5865F2]" />
+                  <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-green-400" />
                   </div>
                   <div>
-                    <h3 className="font-bold">Discord</h3>
-                    <p className="text-sm text-slate-400">
-                      {sentimentData.sources?.discord?.messages || 0} messages
-                    </p>
+                    <h3 className="font-bold">Profitable Trades</h3>
+                    <p className="text-sm text-slate-400">of trades logged</p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-black">
-                    {sentimentData.sources?.discord?.score || 0}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                    getSentimentColor(sentimentData.sources?.discord?.score || 0)
-                  }`}>
-                    {getSentimentLabel(sentimentData.sources?.discord?.score || 0)}
-                  </span>
+                <div className="text-2xl font-black">
+                  {marketStats ? marketStats.profitable_trades.toLocaleString() : '—'}
                 </div>
               </motion.div>
 
@@ -194,112 +182,80 @@ const MarketSentiment = () => {
                     <Users className="w-6 h-6 text-purple-400" />
                   </div>
                   <div>
-                    <h3 className="font-bold">Community</h3>
-                    <p className="text-sm text-slate-400">
-                      {sentimentData.sources?.community?.traders || 0} traders
-                    </p>
+                    <h3 className="font-bold">Win Rate</h3>
+                    <p className="text-sm text-slate-400">across logged trades</p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-black">
-                    {sentimentData.sources?.community?.score || 0}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                    getSentimentColor(sentimentData.sources?.community?.score || 0)
-                  }`}>
-                    {getSentimentLabel(sentimentData.sources?.community?.score || 0)}
-                  </span>
+                <div className="text-2xl font-black">
+                  {marketStats ? `${marketStats.win_rate}%` : '—'}
                 </div>
               </motion.div>
             </div>
 
-            {/* Trending Topics */}
+            {/* Most Traded Players (real backend data: trending_players) */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
-              className="bg-slate-900/50 rounded-2xl p-6 border border-white/10 mb-6"
-            >
-              <h2 className="text-xl font-bold mb-4">Trending Topics</h2>
-              <div className="grid md:grid-cols-2 gap-4">
-                {sentimentData.trendingTopics?.map((topic, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-4 bg-slate-800/30 rounded-xl border border-white/5"
-                  >
-                    <div className="flex items-center gap-3">
-                      {topic.trend === 'up' ? (
-                        <TrendingUp className="w-5 h-5 text-green-400" />
-                      ) : (
-                        <TrendingDown className="w-5 h-5 text-red-400" />
-                      )}
-                      <div>
-                        <p className="font-bold">#{topic.hashtag}</p>
-                        <p className="text-sm text-slate-400">{topic.mentions} mentions</p>
-                      </div>
-                    </div>
-                    <div className={`px-3 py-1 rounded-full text-sm font-bold ${
-                      topic.sentiment === 'positive' ? 'bg-green-400/10 text-green-400' :
-                      topic.sentiment === 'negative' ? 'bg-red-400/10 text-red-400' :
-                      'bg-yellow-400/10 text-yellow-400'
-                    }`}>
-                      {topic.sentiment}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Player Buzz */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="bg-slate-900/50 rounded-2xl border border-white/10 overflow-hidden"
+              className="bg-slate-900/50 rounded-2xl border border-white/10 overflow-hidden mb-6"
             >
               <div className="p-6 border-b border-white/10">
-                <h2 className="text-xl font-bold">Most Talked About Players</h2>
+                <h2 className="text-xl font-bold">Most Traded Players</h2>
+                <p className="text-sm text-slate-400 mt-1">
+                  Players our community traded most often in this timeframe
+                </p>
               </div>
-              <div className="divide-y divide-white/5">
-                {sentimentData.topPlayers?.map((player, idx) => (
-                  <div key={idx} className="p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <span className="text-2xl font-black text-slate-600">#{idx + 1}</span>
-                      <div>
-                        <p className="font-bold">{player.name}</p>
-                        <p className="text-sm text-slate-400">
-                          {player.mentions} mentions • {player.changePercent >= 0 ? '+' : ''}
-                          {player.changePercent}% price change
-                        </p>
+              {trendingPlayers.length === 0 ? (
+                <div className="p-6 text-slate-500 text-sm">
+                  Not enough trade activity in this window to show trending players.
+                </div>
+              ) : (
+                <div className="divide-y divide-white/5">
+                  {trendingPlayers.map((player) => (
+                    <div key={player.rank} className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <span className="text-2xl font-black text-slate-600">#{player.rank}</span>
+                        <div>
+                          <p className="font-bold">{player.player}</p>
+                          <p className="text-sm text-slate-400">
+                            {player.trade_count} trades • avg profit {player.avg_profit.toLocaleString()} coins
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`px-3 py-1 rounded-full text-sm font-bold ${getSentimentColor(player.win_rate)}`}>
+                          {player.win_rate}% win rate
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className={`px-3 py-1 rounded-full text-sm font-bold ${
-                        getSentimentColor(player.sentimentScore)
-                      }`}>
-                        {getSentimentLabel(player.sentimentScore)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </motion.div>
 
-            {/* AI Insights */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="mt-6 bg-blue-900/20 border border-blue-500/30 rounded-xl p-6"
-            >
-              <div className="flex gap-3">
-                <AlertCircle className="w-6 h-6 text-blue-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="font-bold text-blue-400 mb-2">AI Market Insight</h3>
-                  <p className="text-slate-300">{sentimentData.aiInsight}</p>
+            {/* Insights generated from the same trade data above */}
+            {insights.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="mt-6 bg-blue-900/20 border border-blue-500/30 rounded-xl p-6"
+              >
+                <div className="flex gap-3">
+                  <Lightbulb className="w-6 h-6 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-bold text-blue-400 mb-2">Community Trading Insights</h3>
+                    <ul className="space-y-1 list-disc list-inside">
+                      {insights.map((insight, idx) => (
+                        <li key={idx} className="text-slate-300">
+                          {insight}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            )}
           </>
         )}
       </div>
