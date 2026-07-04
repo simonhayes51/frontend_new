@@ -334,6 +334,12 @@ const PlayerDetail = ({ player, onBack }) => {
   const [adding, setAdding] = useState(false);
   const [platform, setPlatform] = useState("ps");
   const [notes, setNotes] = useState("");
+  // futbin's card images don't all share one fixed aspect ratio, and
+  // object-contain inside a hardcoded box letterboxes whichever ones don't
+  // match - shifting the overlay (rating/stats/badges) away from the
+  // card's actual visible edges. Measuring the real image once it loads
+  // and sizing the box to match eliminates the letterboxing entirely.
+  const [cardAspect, setCardAspect] = useState(0.75);
 
   const cardId = player.card_id || player.id;
 
@@ -479,7 +485,7 @@ const PlayerDetail = ({ player, onBack }) => {
 
       <div className="bg-black/40 backdrop-blur-md border border-white/10 text-white rounded-xl p-6">
         <div className="flex flex-col lg:flex-row items-start gap-6 mb-6">
-          <div className="relative w-48 h-64">
+          <div className="relative w-48" style={{ aspectRatio: cardAspect }}>
             {d.cardBgImage ? (
               <>
                 <img
@@ -487,6 +493,10 @@ const PlayerDetail = ({ player, onBack }) => {
                   alt=""
                   className="absolute inset-0 w-full h-full object-contain"
                   referrerPolicy="no-referrer"
+                  onLoad={(e) => {
+                    const { naturalWidth, naturalHeight } = e.currentTarget;
+                    if (naturalWidth && naturalHeight) setCardAspect(naturalWidth / naturalHeight);
+                  }}
                   onError={(e) => {
                     if (!e.currentTarget.dataset.triedProxy) {
                       e.currentTarget.dataset.triedProxy = "1";
@@ -520,7 +530,7 @@ const PlayerDetail = ({ player, onBack }) => {
                 </div>
 
                 <div className="absolute bottom-[5%] inset-x-0 px-2">
-                  <div className="text-center text-[11px] font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)] truncate mb-1">
+                  <div className="text-center text-sm font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)] truncate mb-1">
                     {d.cardName || player.name || d.fullName}
                   </div>
                   <div className="grid grid-cols-6 gap-0.5 mb-1">
