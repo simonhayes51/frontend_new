@@ -30,6 +30,9 @@ import {
   ShieldCheck,
   Award,
   Bookmark,
+  LogOut,
+  Layers,
+  Compass,
 } from "lucide-react";
 import { isAdminUser } from "../utils/admin";
 
@@ -76,13 +79,27 @@ const DesktopSidebar = () => {
     { path: "/watchlist", label: "Watchlist", icon: Eye },
     { path: "/trending", label: "Trending", icon: Target },
     { path: "/squad", label: "Squad Builder", icon: Users },
+    { path: "/sbc", label: "SBC Hub", icon: Layers },
     { path: "/leaderboard", label: "Leaderboard", icon: Trophy },
-    { path: "/community", label: "Community", icon: Users },
+    { path: "/community", label: "Community", icon: Compass },
     { path: "/traders-area", label: "Traders Area", icon: Award, highlight: true },
     { path: "/saved-posts", label: "Saved Posts", icon: Bookmark },
+    { path: "/referrals", label: "Referrals", icon: Gift },
     ...(isAdminUser(user)
       ? [{ path: "/admin/traders", label: "Trader Requests", icon: ShieldCheck }]
       : []),
+  ];
+
+  const premiumItems = [
+    { path: "/smart-buy", label: "Smart Buy", icon: Zap, premium: true },
+    { path: "/smart-buyer-ai", label: "Smart Buyer AI", icon: Bot, premium: true },
+    { path: "/best-buys", label: "Best Buys", icon: Sparkles, premium: true },
+    { path: "/trade-finder", label: "Trade Finder", icon: Target, premium: true },
+    { path: "/advanced-analytics", label: "Advanced Analytics", icon: BarChart3, premium: true },
+    { path: "/portfolio-optimizer", label: "Portfolio Optimizer", icon: Activity, premium: true },
+    { path: "/trade-copilot", label: "Trade Copilot", icon: MessageSquare, premium: true },
+    { path: "/market-sentiment", label: "Market Sentiment", icon: TrendingUp, premium: true },
+    { path: "/market-maker", label: "Market Maker", icon: Target, premium: true },
   ];
 
   const isActive = (p) => location.pathname === p;
@@ -156,6 +173,34 @@ const DesktopSidebar = () => {
             </div>
           )}
         </button>
+
+        {userMenuOpen && (
+          <div className="absolute left-0 top-full mt-2 z-20 w-52 bg-gray-900 border border-gray-700/70 rounded-xl shadow-xl overflow-hidden py-1">
+            <Link
+              to="/profile"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800"
+            >
+              <User className="w-4 h-4" /> Profile
+            </Link>
+            <Link
+              to="/settings"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800"
+            >
+              <Settings className="w-4 h-4" /> Settings
+            </Link>
+            <button
+              type="button"
+              onClick={async () => {
+                setUserMenuOpen(false);
+                await logout();
+                navigate("/login");
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-300 hover:bg-gray-800 text-left"
+            >
+              <LogOut className="w-4 h-4" /> Log out
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Nav items */}
@@ -182,6 +227,40 @@ const DesktopSidebar = () => {
                            } ${locked ? "opacity-80" : ""}`}
               >
                 <item.icon className={`w-5 h-5 shrink-0 ${isHighlighted && !isActive(item.path) ? "text-purple-400" : ""}`} />
+                {!collapsed && <span className="text-sm">{item.label}</span>}
+                {locked && !collapsed && (
+                  <span className="ml-auto flex items-center gap-1 text-xs text-yellow-300">
+                    <Lock className="w-3.5 h-3.5" />
+                    <Crown className="w-3.5 h-3.5" />
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+
+          {!collapsed && (
+            <p className="px-2.5 pt-4 pb-1 text-[11px] uppercase tracking-wide text-gray-500">
+              Premium Tools
+            </p>
+          )}
+          {collapsed && <div className="my-2 border-t border-gray-700/50" />}
+
+          {premiumItems.map((item) => {
+            const locked = item.premium && !isPremium;
+            return (
+              <Link
+                key={item.path}
+                to={locked ? "/billing" : item.path}
+                onClick={(e) => onPremiumClick(e, item)}
+                className={`flex items-center rounded-lg transition-colors h-9
+                           ${collapsed ? "justify-center" : "gap-2 px-2.5"}
+                           ${
+                             isActive(item.path)
+                               ? "bg-purple-600/20 text-purple-300 border-r-2 border-purple-500"
+                               : "text-gray-300 hover:text-white hover:bg-gray-800/60"
+                           } ${locked ? "opacity-80" : ""}`}
+              >
+                <item.icon className="w-5 h-5 shrink-0" />
                 {!collapsed && <span className="text-sm">{item.label}</span>}
                 {locked && !collapsed && (
                   <span className="ml-auto flex items-center gap-1 text-xs text-yellow-300">

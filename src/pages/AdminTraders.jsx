@@ -29,6 +29,9 @@ export default function AdminTraders() {
     setLoading(true);
     try {
       const { data } = await getTraderRoleRequests();
+      // GET /api/admin/pending-traders returns a plain array of
+      // trader_profiles rows (primary keyed by user_id - there is no `id`
+      // field) joined with the account's username/avatar_url.
       const items = Array.isArray(data)
         ? data
         : data?.requests || data?.items || data?.results || [];
@@ -67,21 +70,21 @@ export default function AdminTraders() {
     return () => clearTimeout(handler);
   }, [adminAccess, searchQuery]);
 
-  const handleApprove = async (requestId) => {
+  const handleApprove = async (userId) => {
     try {
-      await approveTraderRoleRequest(requestId);
+      await approveTraderRoleRequest(userId);
       toast.success("Trader request approved");
-      setRequests((prev) => prev.filter((req) => req.id !== requestId));
+      setRequests((prev) => prev.filter((req) => req.user_id !== userId));
     } catch (error) {
       toast.error(error.userMessage || "Failed to approve request");
     }
   };
 
-  const handleReject = async (requestId) => {
+  const handleReject = async (userId) => {
     try {
-      await rejectTraderRoleRequest(requestId);
+      await rejectTraderRoleRequest(userId);
       toast.success("Trader request rejected");
-      setRequests((prev) => prev.filter((req) => req.id !== requestId));
+      setRequests((prev) => prev.filter((req) => req.user_id !== userId));
     } catch (error) {
       toast.error(error.userMessage || "Failed to reject request");
     }
@@ -222,22 +225,22 @@ export default function AdminTraders() {
           ) : (
             <div className="divide-y divide-white/5">
               {requests.map((request) => (
-                <div key={request.id} className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div key={request.user_id} className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold">
-                      {request.user?.username || request.username || "User"}
+                      {request.username || "User"}
                     </p>
                     <p className="text-xs text-slate-400">
                       Requested {formatDate(request.created_at)} • User ID: {request.user_id}
                     </p>
-                    {request.note && (
-                      <p className="text-xs text-slate-300 mt-1">“{request.note}”</p>
+                    {request.bio && (
+                      <p className="text-xs text-slate-300 mt-1">“{request.bio}”</p>
                     )}
                   </div>
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => handleApprove(request.id)}
+                      onClick={() => handleApprove(request.user_id)}
                       className="flex items-center gap-1 bg-emerald-400 text-black text-sm font-semibold px-3 py-2 rounded-xl"
                     >
                       <CheckCircle2 className="w-4 h-4" />
@@ -245,7 +248,7 @@ export default function AdminTraders() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleReject(request.id)}
+                      onClick={() => handleReject(request.user_id)}
                       className="flex items-center gap-1 bg-red-500/70 text-white text-sm font-semibold px-3 py-2 rounded-xl"
                     >
                       <XCircle className="w-4 h-4" />

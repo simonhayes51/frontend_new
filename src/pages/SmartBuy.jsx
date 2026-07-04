@@ -5,9 +5,8 @@ import {
   TrendingUp, 
   TrendingDown, 
   AlertTriangle, 
-  Target, 
-  Clock, 
-  DollarSign,
+  Target,
+  Clock,
   Settings,
   RefreshCw,
   Star,
@@ -97,30 +96,20 @@ export async function fetchMarketIntelligence() {
     const response = await fetch(`${API_BASE_URL}/api/smart-buy/market-intelligence`, {
       credentials: 'include'
     });
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
-    
-    // Transform to match expected format
+
+    // Only surface fields the backend actually returns
+    // (GET /api/smart-buy/market-intelligence -> { state, confidence, platform, detected_at })
     return {
-      current_state_confidence: data.confidence || 75,
-      market_trend: data.state === 'normal' ? 'neutral' : 'bullish',
-      upcoming_events: [
-        {
-          name: "Daily Content Drop",
-          date: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-          impact: "medium",
-          description: "Daily 6PM content release"
-        }
-      ],
-      volume_indicators: {
-        current_volume: 'normal',
-        price_volatility: 'low',
-        liquidity: 'good'
-      }
+      market_state: data.state || 'normal',
+      current_state_confidence: typeof data.confidence === 'number' ? data.confidence : null,
+      platform: data.platform || null,
+      detected_at: data.detected_at || null
     };
   } catch (error) {
     console.error('Failed to fetch market intelligence:', error);
@@ -133,19 +122,21 @@ export async function fetchSuggestionStats() {
     const response = await fetch(`${API_BASE_URL}/api/smart-buy/stats`, {
       credentials: 'include'
     });
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
-    
-    // Return mock stats since your endpoint is minimal
+
+    // Only surface fields the backend actually returns
+    // (GET /api/smart-buy/stats -> { suggestions_taken, success_rate }).
+    // success_rate isn't computed by the backend yet (always 0), so we don't
+    // treat it as a real measured stat - just pass through whatever came back
+    // and let the UI decide whether there's enough to show.
     return {
-      success_rate: 82,
-      avg_profit: 35000,
-      total_suggestions: data.suggestions_taken + 25,
-      suggestions_taken: data.suggestions_taken || 8
+      suggestions_taken: typeof data.suggestions_taken === 'number' ? data.suggestions_taken : null,
+      success_rate: typeof data.success_rate === 'number' ? data.success_rate : null
     };
   } catch (error) {
     console.error('Failed to fetch suggestion stats:', error);
@@ -187,6 +178,7 @@ export async function addWatch(watchData) {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include', // required for session-based auth, matches other calls in this file
       body: JSON.stringify(watchData)
     });
 
@@ -309,19 +301,21 @@ const MarketStateIndicator = React.memo(({ state, confidence, intelligence }) =>
         </div>
         <div className="flex-1">
           <div className={`font-semibold ${config.color}`}>{config.label}</div>
-          <div className="text-xs text-gray-400">Confidence: {confidence}%</div>
+          <div className="text-xs text-gray-400">
+            Confidence: {typeof confidence === 'number' ? `${confidence}%` : 'Not enough data yet'}
+          </div>
         </div>
         <Info size={14} className="text-gray-500" />
       </div>
-      
+
       {/* Tooltip */}
       <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10">
         <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm w-64 shadow-xl">
           <div className={`font-medium ${config.color} mb-1`}>{config.label}</div>
           <div className="text-gray-300 mb-2">{config.description}</div>
-          {intelligence?.upcoming_events?.length > 0 && (
+          {intelligence?.detected_at && (
             <div className="text-xs text-gray-400">
-              Next event: {intelligence.upcoming_events[0].name}
+              Last detected: {new Date(intelligence.detected_at).toLocaleString()}
             </div>
           )}
         </div>
@@ -804,40 +798,36 @@ export default function SmartBuy() {
 
         {/* Enhanced Market State & Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MarketStateIndicator 
-            state={marketState} 
-            confidence={marketIntelligence?.current_state_confidence || 0}
+          <MarketStateIndicator
+            state={marketState}
+            confidence={marketIntelligence?.current_state_confidence}
             intelligence={marketIntelligence}
           />
-          
+
           {stats && (
             <>
-              <div className={`${cardBase} bg-green-400/10 hover:bg-green-400/15 transition-colors`}>
-                <div className="flex items-center gap-3">
-                  <Star className="text-green-400" size={16} />
-                  <div>
-                    <div className="font-semibold text-green-400">{stats.success_rate}%</div>
-                    <div className="text-xs text-gray-400">Success Rate</div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className={`${cardBase} bg-blue-400/10 hover:bg-blue-400/15 transition-colors`}>
-                <div className="flex items-center gap-3">
-                  <DollarSign className="text-blue-400" size={16} />
-                  <div>
-                    <div className="font-semibold text-blue-400">{stats.avg_profit.toLocaleString()}</div>
-                    <div className="text-xs text-gray-400">Avg Profit</div>
-                  </div>
-                </div>
-              </div>
-              
+              {/* Real stat: backend counts actual feedback rows for this */}
               <div className={`${cardBase} bg-purple-400/10 hover:bg-purple-400/15 transition-colors`}>
                 <div className="flex items-center gap-3">
                   <Target className="text-purple-400" size={16} />
                   <div>
-                    <div className="font-semibold text-purple-400">{stats.suggestions_taken}/{stats.total_suggestions}</div>
+                    <div className="font-semibold text-purple-400">
+                      {stats.suggestions_taken !== null ? stats.suggestions_taken : '—'}
+                    </div>
                     <div className="text-xs text-gray-400">Suggestions Taken</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Backend doesn't compute a real success rate yet - be honest about that
+                  instead of showing a permanent 0% (or a fabricated number) that would
+                  look like a measured outcome. */}
+              <div className={`${cardBase} bg-gray-800/40`}>
+                <div className="flex items-center gap-3">
+                  <Star className="text-gray-500" size={16} />
+                  <div>
+                    <div className="font-semibold text-gray-400 text-sm">Not tracked yet</div>
+                    <div className="text-xs text-gray-500">Success Rate</div>
                   </div>
                 </div>
               </div>

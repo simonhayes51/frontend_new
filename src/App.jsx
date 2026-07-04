@@ -1,7 +1,7 @@
 // src/App.jsx
 
 import { lazy, Suspense } from "react";
-import { HashRouter as Router, Routes, Route } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { DashboardProvider } from "./context/DashboardContext";
 import { SettingsProvider } from "./context/SettingsContext";
@@ -48,7 +48,6 @@ const TradeCopilot = lazy(() => import("./pages/TradeCopilot"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const ReferralProgram = lazy(() => import("./pages/ReferralProgram"));
 const MarketSentiment = lazy(() => import("./pages/MarketSentiment"));
-const PricingTiers = lazy(() => import("./pages/PricingTiers"));
 const MarketMaker = lazy(() => import("./pages/MarketMaker"));
 const SocialHub = lazy(() => import("./pages/SocialHub"));
 const Feed = lazy(() => import("./pages/Feed"));
@@ -102,7 +101,11 @@ function App() {
                     <Route path="watchlist" element={<Watchlist />} />
                     <Route path="squad" element={<SquadBuilder />} />
                     <Route path="billing" element={<Billing />} />
-                    <Route path="pricing" element={<PricingTiers />} />
+                    {/* PricingTiers (3-tier plan) was removed - it described a pricing
+                        model that never matched the app's real one (a single flat
+                        Premium tier sold on Billing.jsx), and its checkout call sent a
+                        payload the backend didn't understand. Old links redirect here. */}
+                    <Route path="pricing" element={<Navigate to="/billing" replace />} />
                     <Route path="sbc" element={<SBCHub />} />
                     <Route path="profit-calculator" element={<ProfitCalculator />} />
                     <Route path="leaderboard" element={<Leaderboard />} />

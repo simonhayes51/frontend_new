@@ -671,7 +671,7 @@ export default function Dashboard() {
               >
                 Enable
               </button>
-              <Link to="/settings#alerts" className="text-xs underline text-gray-300 hover:text-white inline-flex items-center gap-1">
+              <Link to="/settings?section=alerts" className="text-xs underline text-gray-300 hover:text-white inline-flex items-center gap-1">
                 Open Settings
               </Link>
             </div>
@@ -724,7 +724,7 @@ export default function Dashboard() {
                   <option value="discord">Discord DM</option>
                 </select>
               </label>
-              <Link to="/settings#alerts" className="text-[12px] underline text-gray-300 hover:text-white mt-1">
+              <Link to="/settings?section=alerts" className="text-[12px] underline text-gray-300 hover:text-white mt-1">
                 Open full settings →
               </Link>
             </div>

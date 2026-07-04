@@ -29,7 +29,7 @@ export default function Billing() {
       trialDays: 7
     },
     yearly: {
-      price: "£3.08", // £25 ÷ 12 months = £2.08/month
+      price: "£2.08", // £25 ÷ 12 months = £2.08/month
       period: "per month",
       total: "£25.00 for the season (12 months)",
       savings: "Save £11.00 (30% off)", // £3×12-£25 = £11 savings

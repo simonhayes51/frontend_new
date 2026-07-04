@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   TrendingUp,
@@ -15,7 +16,7 @@ import {
   Activity,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { createPost, getFeed } from "../api/social";
+import { createPost, getFeed, getTraderProfile } from "../api/social";
 import toast from "react-hot-toast";
 import FeedPanel from "../components/social/FeedPanel";
 
@@ -134,6 +135,7 @@ const ImageUploadZone = ({ images, onAdd, onRemove }) => {
 
 export default function TradersArea() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isTrader, setIsTrader] = useState(false);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
@@ -169,12 +171,29 @@ export default function TradersArea() {
       const trader = user?.account_type === "trader" || user?.role === "trader" || user?.is_trader;
       setIsTrader(trader);
       if (trader) {
-        setStats({
-          followers: user?.total_followers || 127,
-          rating: user?.avg_rating || 4.7,
-          posts: user?.total_posts || 42,
-          winRate: user?.win_rate || 73,
-        });
+        // The Discord-OAuth `user` object never carries follower/rating/post
+        // stats - those live in the trader_profiles row on the backend.
+        // GET /api/traders/{traderId} (same real endpoint TraderProfile.jsx
+        // uses for other traders) returns that row for the current user too.
+        const currentUserId = user?.user_id || user?.id;
+        if (currentUserId) {
+          try {
+            const { data } = await getTraderProfile(currentUserId);
+            setStats({
+              followers: data?.total_followers || 0,
+              rating: data?.avg_rating || 0,
+              posts: data?.total_posts || 0,
+              // Backend doesn't track a win-rate metric yet - show a
+              // genuine zero rather than a fake placeholder.
+              winRate: data?.win_rate || 0,
+            });
+          } catch (statsError) {
+            console.error("Failed to load trader stats:", statsError);
+            setStats({ followers: 0, rating: 0, posts: 0, winRate: 0 });
+          }
+        } else {
+          setStats({ followers: 0, rating: 0, posts: 0, winRate: 0 });
+        }
       }
     } catch (error) {
       console.error(error);
@@ -254,7 +273,7 @@ export default function TradersArea() {
               insights with the community.
             </p>
             <button
-              onClick={() => (window.location.href = "/social-hub")}
+              onClick={() => navigate("/community")}
               className="bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 text-white px-6 py-3 rounded-xl font-semibold"
             >
               Request Trader Access

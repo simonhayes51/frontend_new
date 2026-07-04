@@ -173,30 +173,20 @@ export const getTopRatedTraders = () =>
 export const getRecommendedTraders = () =>
   tryGet(["/api/subscriptions/recommended", "/api/social/subscriptions/recommended"]);
 
-export const getTraderRoleRequests = () =>
-  tryGet([
-    "/api/admin/traders/requests",
-    "/api/traders/requests",
-    "/api/social/traders/requests",
-  ]);
-export const approveTraderRoleRequest = (requestId) =>
-  tryPost(
-    [
-      `/api/admin/traders/requests/${requestId}/approve`,
-      `/api/traders/requests/${requestId}/approve`,
-      `/api/social/traders/requests/${requestId}/approve`,
-    ],
-    {}
-  );
-export const rejectTraderRoleRequest = (requestId) =>
-  tryPost(
-    [
-      `/api/admin/traders/requests/${requestId}/reject`,
-      `/api/traders/requests/${requestId}/reject`,
-      `/api/social/traders/requests/${requestId}/reject`,
-    ],
-    {}
-  );
+// Real, working backend implementation lives in
+// backend/app/routers/admin_traders.py - it exposes pending (unverified)
+// trader profiles and approve/reject actions keyed by the trader's user_id.
+// The previous /api/admin/traders/requests-style paths never existed.
+export const getTraderRoleRequests = () => tryGet(["/api/admin/pending-traders"]);
+export const approveTraderRoleRequest = (userId) =>
+  tryPost([`/api/admin/pending-traders/${userId}/approve`], {});
+export const rejectTraderRoleRequest = (userId) =>
+  tryPost([`/api/admin/pending-traders/${userId}/reject`], {});
+// NOTE: there is no confirmed backend endpoint for granting the trader role
+// to an arbitrary user by manual ID/username search (checked
+// admin_traders.py and the rest of the backend routers - only the
+// pending-traders approve/reject flow above exists). Leaving this call
+// target as a best-guess path; it will 404 until a real endpoint exists.
 export const assignTraderRole = (payload) =>
   tryPost(
     ["/api/admin/traders/assign", "/api/traders/assign", "/api/social/traders/assign"],
@@ -207,17 +197,11 @@ export const assignTraderRole = (payload) =>
 // NEW: Tier-based subscriptions, tips, and saved posts
 // ============================================================================
 
-export const subscribeToTier = (traderId, tier) =>
-  tryPost([`/api/subscriptions/tier/${traderId}`], { tier });
-
 export const getTraderSubscriptionStats = (traderId) =>
   tryGet([`/api/subscriptions/trader/${traderId}/subscription-stats`]);
 
 export const checkSubscriptionStatus = (traderId) =>
   tryGet([`/api/subscriptions/check/${traderId}`]);
-
-export const tipPost = (postId, amount) =>
-  tryPost(["/api/subscriptions/tip"], { post_id: postId, amount });
 
 export const savePost = (postId) =>
   tryPost([`/api/subscriptions/save-post/${postId}`], {});
