@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Search, TrendingUp, TrendingDown, Minus, Loader2, Target } from "lucide-react";
 import PriceTrendChart from "./PriceTrendChart.jsx";
+import PlayerCardArt from "./PlayerCardArt.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const buildProxy = (url) => `${API_BASE}/img?url=${encodeURIComponent(url)}`;
@@ -334,12 +335,6 @@ const PlayerDetail = ({ player, onBack }) => {
   const [adding, setAdding] = useState(false);
   const [platform, setPlatform] = useState("ps");
   const [notes, setNotes] = useState("");
-  // futbin's card images don't all share one fixed aspect ratio, and
-  // object-contain inside a hardcoded box letterboxes whichever ones don't
-  // match - shifting the overlay (rating/stats/badges) away from the
-  // card's actual visible edges. Measuring the real image once it loads
-  // and sizing the box to match eliminates the letterboxing entirely.
-  const [cardAspect, setCardAspect] = useState(0.75);
 
   const cardId = player.card_id || player.id;
 
@@ -460,18 +455,6 @@ const PlayerDetail = ({ player, onBack }) => {
     },
   };
 
-  // Gold/silver/bronze ("base") card art is light-colored, so white overlay
-  // text reads poorly against it - special/rare cards are dark/colorful
-  // enough that white still works there.
-  const overlayTextClass =
-    d.cutoutType === "base"
-      ? "text-black [text-shadow:0_1px_2px_rgba(255,255,255,0.85)]"
-      : "text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]";
-  const overlayTextMutedClass =
-    d.cutoutType === "base"
-      ? "text-black/80 [text-shadow:0_1px_2px_rgba(255,255,255,0.85)]"
-      : "text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]";
-
   const onAddClick = async () => {
     try {
       setAdding(true);
@@ -503,112 +486,26 @@ const PlayerDetail = ({ player, onBack }) => {
 
       <div className="bg-black/40 backdrop-blur-md border border-white/10 text-white rounded-xl p-6">
         <div className="flex flex-col lg:flex-row items-start gap-6 mb-6">
-          <div className="relative w-48" style={{ aspectRatio: cardAspect }}>
-            {d.cardBgImage ? (
-              <>
-                <img
-                  src={d.cardBgImage}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-contain"
-                  referrerPolicy="no-referrer"
-                  onLoad={(e) => {
-                    const { naturalWidth, naturalHeight } = e.currentTarget;
-                    if (naturalWidth && naturalHeight) setCardAspect(naturalWidth / naturalHeight);
-                  }}
-                  onError={(e) => {
-                    if (!e.currentTarget.dataset.triedProxy) {
-                      e.currentTarget.dataset.triedProxy = "1";
-                      e.currentTarget.src = buildProxy(d.cardBgImage);
-                    }
-                  }}
-                />
-                <img
-                  src={d.cardCutoutImage}
-                  alt={d.fullName}
-                  className={
-                    d.cutoutType === "base"
-                      ? "absolute left-1/2 top-[12%] -translate-x-1/2 w-[62%] h-[62%] object-contain"
-                      : "absolute inset-0 w-full h-full object-contain"
-                  }
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    if (!e.currentTarget.dataset.triedProxy && d.cardCutoutImage) {
-                      e.currentTarget.dataset.triedProxy = "1";
-                      e.currentTarget.src = buildProxy(d.cardCutoutImage);
-                    }
-                  }}
-                />
-
-                {/* futbin doesn't bake rating/name/stats into either image -
-                    it draws them as separate HTML on top. Same idea here,
-                    laid out proportionally over the two stacked layers. */}
-                <div className="absolute top-[22%] left-[18%] flex flex-col items-center leading-none">
-                  <span className={`text-xl font-extrabold ${overlayTextClass}`}>
-                    {d.rating}
-                  </span>
-                  <span className={`text-[10px] font-bold mt-0.5 ${overlayTextClass}`}>
-                    {d.position}
-                  </span>
-                </div>
-
-                <div className="absolute bottom-[13%] inset-x-0 px-7">
-                  <div className={`text-center text-sm font-bold truncate mb-0.5 ${overlayTextClass}`}>
-                    {d.cardName || player.name || d.fullName}
-                  </div>
-                  <div className="grid grid-cols-6 gap-0.5 mb-0.5">
-                    {[
-                      ["PAC", d.stats.pace],
-                      ["SHO", d.stats.shooting],
-                      ["PAS", d.stats.passing],
-                      ["DRI", d.stats.dribbling],
-                      ["DEF", d.stats.defending],
-                      ["PHY", d.stats.physicality],
-                    ].map(([label, value]) => (
-                      <div key={label} className="text-center leading-tight">
-                        <div className={`text-[10px] font-extrabold ${overlayTextClass}`}>
-                          {value || "-"}
-                        </div>
-                        <div className={`text-[6px] font-semibold ${overlayTextMutedClass}`}>
-                          {label}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-center gap-1">
-                    {d.nationImage && (
-                      <img src={d.nationImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
-                    )}
-                    {d.leagueImage && (
-                      <img src={d.leagueImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
-                    )}
-                    {d.clubImage && (
-                      <img src={d.clubImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <img
-                src={d.cardImage}
-                alt={d.fullName}
-                className="absolute inset-0 w-full h-full object-contain"
-                referrerPolicy="no-referrer"
-                onError={(e) => {
-                  if (!e.currentTarget.dataset.triedProxy) {
-                    e.currentTarget.dataset.triedProxy = "1";
-                    e.currentTarget.src = buildProxy(d.cardImage);
-                  }
-                }}
-              />
-            )}
-            <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
-              {d.version}
-            </div>
-          </div>
+          <PlayerCardArt
+            bgImage={d.cardBgImage}
+            cutoutImage={d.cardCutoutImage}
+            cutoutType={d.cutoutType}
+            fallbackImage={d.cardImage}
+            rating={d.rating}
+            position={d.position}
+            name={d.cardName || player.name || d.fullName}
+            stats={d.stats}
+            nationImage={d.nationImage}
+            leagueImage={d.leagueImage}
+            clubImage={d.clubImage}
+            versionLabel={d.version}
+            altText={d.fullName}
+            widthClass="w-48"
+          />
 
           <div className="flex-1 min-w-0">
             <h1 className="mb-2 font-extrabold leading-tight tracking-tight break-words text-3xl sm:text-4xl md:text-5xl">
-              {d.fullName}
+              {d.cardName || player.name || d.fullName}
             </h1>
 
             {/* Price / Range / Trend / AcceleRATE */}
