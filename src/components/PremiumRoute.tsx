@@ -6,7 +6,18 @@ import PremiumGate from "./PremiumGate";
 
 type Props = {
   /** Premium feature requirement - "any" means any premium; or pass a specific backend feature key */
-  feature?: "smart_buy" | "trade_finder" | "deal_confidence" | "backtest" | "smart_trending" | "any";
+  feature?:
+    | "smart_buy"
+    | "trade_finder"
+    | "deal_confidence"
+    | "backtest"
+    | "smart_trending"
+    | "portfolio_optimizer"
+    | "ai_copilot"
+    | "market_sentiment"
+    | "market_maker"
+    | "advanced_analytics"
+    | "any";
   /** Human-readable name for the feature (e.g. "Smart Buy AI", "Advanced Market Trends") */
   featureName?: string;
   /** Child components to render if access is granted */
