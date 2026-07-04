@@ -59,8 +59,8 @@ function normaliseSmart(it) {
     rating: it.rating ?? null,
     pid: it.pid ?? it.card_id ?? it.id,
     image: it.image ?? it.image_url ?? null,
-    // 6h move used for ranking/colouring; also show 24h
-    percent6: it.percent_6h ?? it.percent ?? null,
+    // 4h move used for ranking/colouring; also show 24h
+    percent6: it.percent_4h ?? it.percent ?? null,
     percent24: it.percent_24h ?? null,
     version: it.version ?? "",
   };
@@ -101,7 +101,7 @@ function mean(nums) {
 export default function Trending() {
   // tabs: 'fallers' | 'risers' | 'smart'
   const [tab, setTab] = useState("fallers");
-  const [timeframe, setTimeframe] = useState("24"); // for risers/fallers only
+  const [timeframe, setTimeframe] = useState("24"); // for risers/fallers only - "4" or "24" (futbin's own windows)
 
   // risers/fallers state
   const [items, setItems] = useState([]);
@@ -139,7 +139,7 @@ export default function Trending() {
 
   useEffect(() => { fetchTrending(); }, [fetchTrending]);
 
-  /* ------- fetch smart movers once (6h vs 24h) ------- */
+  /* ------- fetch smart movers once (4h vs 24h) ------- */
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -263,7 +263,7 @@ export default function Trending() {
             <>
               <div className="h-6 w-px bg-gray-700 hidden md:block" />
               <div className="inline-flex rounded-xl border border-gray-800 overflow-hidden">
-                {["6", "12", "24"].map((tf) => (
+                {["4", "24"].map((tf) => (
                   <button
                     key={tf}
                     onClick={() => setTimeframe(tf)}
@@ -296,7 +296,7 @@ export default function Trending() {
       <div className="flex items-center justify-between">
         <div className="text-xs text-gray-400">
           {tab === "smart" ? (
-            <>Showing <span className="font-medium">Smart Movers</span> (6h vs 24h divergence).</>
+            <>Showing <span className="font-medium">Smart Movers</span> (4h vs 24h divergence).</>
           ) : (
             <>Showing {tab} for <span className="font-medium">{timeframe}h</span>. Add players to your watchlist using the button on each card.</>
           )}
@@ -372,7 +372,7 @@ export default function Trending() {
                         {tab === "smart" ? (
                           <>
                             <strong className="tabular-nums" style={{ color: isUp ? ACCENT : "#f87171" }}>
-                              6h: {pctString(p.percent6)}
+                              4h: {pctString(p.percent6)}
                             </strong>
                             <span className="text-gray-400 tabular-nums">24h: {pctString(p.percent24)}</span>
                           </>
