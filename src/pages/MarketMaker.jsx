@@ -108,6 +108,33 @@ const MarketMaker = () => {
       return;
     }
 
+    // A freshly-added row (or a malformed CSV line) starts with blank
+    // buy/sell prices - parseInt('') is NaN, which JSON.stringify turns into
+    // null, which the backend's TradeItem model rejects outright. Catch that
+    // here with a specific message instead of sending it and getting back an
+    // opaque error.
+    const rowErrors = [];
+    bulkTrades.forEach((t, idx) => {
+      const buy = parseInt(t.buyPrice, 10);
+      const sell = parseInt(t.sellPrice, 10);
+      const qty = parseInt(t.quantity, 10);
+      const label = t.player?.trim() || `Row ${idx + 1}`;
+      if (!t.player?.trim()) rowErrors.push(`${label}: missing player name`);
+      if (!Number.isFinite(buy) || buy <= 0) rowErrors.push(`${label}: buy price is missing or invalid`);
+      if (!Number.isFinite(sell) || sell <= 0) rowErrors.push(`${label}: sell price is missing or invalid`);
+      if (Number.isFinite(buy) && Number.isFinite(sell) && buy >= sell) rowErrors.push(`${label}: buy price must be less than sell price`);
+      if (!Number.isFinite(qty) || qty <= 0) rowErrors.push(`${label}: quantity is missing or invalid`);
+    });
+
+    if (rowErrors.length) {
+      toast.error(
+        rowErrors.length === 1
+          ? rowErrors[0]
+          : `${rowErrors.length} rows need fixing before you can execute:\n${rowErrors.slice(0, 3).join('\n')}${rowErrors.length > 3 ? '\n…' : ''}`
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const { data } = await api.post('/api/trades/bulk', {
@@ -115,12 +142,20 @@ const MarketMaker = () => {
         // `buy`/`sell` (not buyPrice/sellPrice) and expects integer prices.
         trades: bulkTrades.map(t => ({
           player: t.player,
-          buy: parseInt(t.buyPrice),
-          sell: parseInt(t.sellPrice),
-          quantity: parseInt(t.quantity),
+          buy: parseInt(t.buyPrice, 10),
+          sell: parseInt(t.sellPrice, 10),
+          quantity: parseInt(t.quantity, 10),
           platform: t.platform
         }))
       });
+
+      if (data.ok === false) {
+        // Backend validated per-row and rejected some (e.g. buy >= sell
+        // slipped past the client check some other way) - it returns 200
+        // with ok:false and a list of per-row errors rather than a 4xx/5xx.
+        toast.error(data.message || 'Some trades failed validation');
+        return;
+      }
 
       toast.success(`Successfully logged ${data.inserted_count} trades!`);
       setBulkTrades([]);
