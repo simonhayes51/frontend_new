@@ -3,6 +3,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } f
 import { Search, TrendingUp, TrendingDown, Minus, Loader2, Target } from "lucide-react";
 import PriceTrendChart from "./PriceTrendChart.jsx";
 import PlayerCardArt from "./PlayerCardArt.jsx";
+import BacktestPanel from "./BacktestPanel.jsx";
 
 // PlayerSearch is eager-loaded (App.jsx), but lightweight-charts is only
 // needed once someone actually opens a player's detail view - lazy-load it
@@ -812,6 +813,8 @@ const PlayerDetail = ({ player, onBack }) => {
             <SalesCandleChart cardId={cardId} bucketHours={1} days={7} height={300} />
           </Suspense>
         </div>
+
+        <BacktestPanel cardId={cardId} className="mb-6" />
 
         {priceData?.auctions?.length > 0 && (
           <div className="bg-white/5 border border-white/10 rounded-lg p-4">
