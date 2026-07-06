@@ -21,8 +21,10 @@ import {
   Target,
   Calculator,
   Eye,
-  EyeOff
+  EyeOff,
+  Key
 } from 'lucide-react';
+import ApiKeysSettings from '../components/ApiKeysSettings.jsx';
 
 const Settings = () => {
   const [settings, setSettings] = useState({
@@ -245,7 +247,8 @@ const Settings = () => {
     { id: 'alerts', label: 'Notifications & Alerts', icon: Bell },
     { id: 'display', label: 'Display & Format', icon: Eye },
     { id: 'analysis', label: 'Trading Analysis', icon: TrendingUp },
-    { id: 'data', label: 'Data Management', icon: Shield }
+    { id: 'data', label: 'Data Management', icon: Shield },
+    { id: 'api', label: 'API Access', icon: Key }
   ];
 
   if (loading && !originalSettings) {
@@ -817,6 +820,14 @@ const Settings = () => {
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* API Access */}
+              {activeSection === 'api' && (
+                <div className="p-6">
+                  <h3 className="text-lg font-medium text-white mb-6">API Access</h3>
+                  <ApiKeysSettings />
                 </div>
               )}
 
