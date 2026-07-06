@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, TrendingUp, Users, BarChart3, Lightbulb } from 'lucide-react';
+import { Activity, TrendingUp, TrendingDown, BarChart3, Lightbulb } from 'lucide-react';
 import api from '../axios';
 import toast from 'react-hot-toast';
 
@@ -32,13 +32,35 @@ const MarketSentiment = () => {
     return 'text-red-400 bg-red-400/10';
   };
 
-  // sentiment.score/label come straight from the backend (derived from this
-  // community's own logged trades) - no external social data involved.
+  // sentiment.score/label are computed market-wide from real completed
+  // sales (bin_history/sales_history) across every tracked Gold Rare
+  // card - not from this app's own users' logged trades.
   const score = sentimentData?.sentiment?.score ?? 0;
   const label = sentimentData?.sentiment?.label || 'Neutral';
   const marketStats = sentimentData?.market_stats || null;
-  const trendingPlayers = sentimentData?.trending_players || [];
+  const topRisers = sentimentData?.top_risers || [];
+  const topFallers = sentimentData?.top_fallers || [];
   const insights = sentimentData?.insights || [];
+
+  const MoverRow = ({ m, positive }) => (
+    <div className="p-4 flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        {m.image_url && (
+          <img src={m.image_url} alt="" className="w-8 h-11 object-contain" />
+        )}
+        <div>
+          <p className="font-bold">{m.name || `Card ${m.player_id}`} {m.rating ? <span className="text-slate-400">({m.rating})</span> : null}</p>
+          <p className="text-sm text-slate-400">
+            {m.salesRecent} sales • median {m.medianRecent?.toLocaleString()} (was {m.medianPrior?.toLocaleString()})
+          </p>
+        </div>
+      </div>
+      <div className={`px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1 ${positive ? 'text-green-400 bg-green-400/10' : 'text-red-400 bg-red-400/10'}`}>
+        {positive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+        {m.pctChange > 0 ? '+' : ''}{m.pctChange}%
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#0e1320] text-white p-6">
@@ -54,8 +76,8 @@ const MarketSentiment = () => {
             <h1 className="text-4xl font-black">Market Sentiment</h1>
           </div>
           <p className="text-slate-400">
-            Community trade sentiment — derived entirely from this app's own users' recent buy/sell
-            activity, not external social media or Discord signals.
+            Real market breadth — computed from actual completed sales across every tracked Gold Rare
+            card, comparing this window to the one before it, not from any single trader's activity.
           </p>
         </motion.div>
 
@@ -89,7 +111,7 @@ const MarketSentiment = () => {
               className="bg-gradient-to-br from-slate-900/50 to-slate-800/30 rounded-2xl p-8 mb-6 border border-white/10"
             >
               <div className="text-center">
-                <p className="text-sm text-slate-400 mb-2">Community Trade Sentiment</p>
+                <p className="text-sm text-slate-400 mb-2">Market Breadth (Real Sales Data)</p>
                 <div className="relative w-48 h-48 mx-auto mb-4">
                   <svg className="w-48 h-48 transform -rotate-90">
                     <circle
@@ -123,13 +145,13 @@ const MarketSentiment = () => {
                 </h2>
                 <p className="text-slate-400 mt-2">
                   {marketStats
-                    ? `Based on ${marketStats.total_trades.toLocaleString()} trades logged by our users in the last ${timeframe} (${marketStats.win_rate}% profitable).`
-                    : "Not enough trade activity in this window to compute a score."}
+                    ? `${marketStats.cards_rising} cards rising vs ${marketStats.cards_falling} falling, out of ${marketStats.cards_compared} with enough sales to compare in the last ${timeframe}.`
+                    : "Not enough sales data in this window to compute a score."}
                 </p>
               </div>
             </motion.div>
 
-            {/* Underlying trade stats */}
+            {/* Underlying market stats */}
             <div className="grid md:grid-cols-3 gap-6 mb-6">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -142,12 +164,12 @@ const MarketSentiment = () => {
                     <BarChart3 className="w-6 h-6 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="font-bold">Trades Logged</h3>
+                    <h3 className="font-bold">Completed Sales</h3>
                     <p className="text-sm text-slate-400">in this timeframe</p>
                   </div>
                 </div>
                 <div className="text-2xl font-black">
-                  {marketStats ? marketStats.total_trades.toLocaleString() : '—'}
+                  {marketStats ? marketStats.total_sales_recent.toLocaleString() : '—'}
                 </div>
               </motion.div>
 
@@ -162,12 +184,14 @@ const MarketSentiment = () => {
                     <TrendingUp className="w-6 h-6 text-green-400" />
                   </div>
                   <div>
-                    <h3 className="font-bold">Profitable Trades</h3>
-                    <p className="text-sm text-slate-400">of trades logged</p>
+                    <h3 className="font-bold">Volume vs Prior Window</h3>
+                    <p className="text-sm text-slate-400">same-length window before this one</p>
                   </div>
                 </div>
                 <div className="text-2xl font-black">
-                  {marketStats ? marketStats.profitable_trades.toLocaleString() : '—'}
+                  {marketStats?.volume_change_pct != null
+                    ? `${marketStats.volume_change_pct > 0 ? '+' : ''}${marketStats.volume_change_pct}%`
+                    : '—'}
                 </div>
               </motion.div>
 
@@ -179,61 +203,65 @@ const MarketSentiment = () => {
               >
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 bg-purple-600/20 rounded-xl flex items-center justify-center">
-                    <Users className="w-6 h-6 text-purple-400" />
+                    <Activity className="w-6 h-6 text-purple-400" />
                   </div>
                   <div>
-                    <h3 className="font-bold">Win Rate</h3>
-                    <p className="text-sm text-slate-400">across logged trades</p>
+                    <h3 className="font-bold">Cards Compared</h3>
+                    <p className="text-sm text-slate-400">had enough sales both windows</p>
                   </div>
                 </div>
                 <div className="text-2xl font-black">
-                  {marketStats ? `${marketStats.win_rate}%` : '—'}
+                  {marketStats ? marketStats.cards_compared.toLocaleString() : '—'}
                 </div>
               </motion.div>
             </div>
 
-            {/* Most Traded Players (real backend data: trending_players) */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="bg-slate-900/50 rounded-2xl border border-white/10 overflow-hidden mb-6"
-            >
-              <div className="p-6 border-b border-white/10">
-                <h2 className="text-xl font-bold">Most Traded Players</h2>
-                <p className="text-sm text-slate-400 mt-1">
-                  Players our community traded most often in this timeframe
-                </p>
-              </div>
-              {trendingPlayers.length === 0 ? (
-                <div className="p-6 text-slate-500 text-sm">
-                  Not enough trade activity in this window to show trending players.
+            {/* Top risers / fallers (real backend data from sales_history) */}
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="bg-slate-900/50 rounded-2xl border border-white/10 overflow-hidden"
+              >
+                <div className="p-6 border-b border-white/10">
+                  <h2 className="text-xl font-bold">Top Risers</h2>
+                  <p className="text-sm text-slate-400 mt-1">Biggest real sold-price gains this window</p>
                 </div>
-              ) : (
-                <div className="divide-y divide-white/5">
-                  {trendingPlayers.map((player) => (
-                    <div key={player.rank} className="p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <span className="text-2xl font-black text-slate-600">#{player.rank}</span>
-                        <div>
-                          <p className="font-bold">{player.player}</p>
-                          <p className="text-sm text-slate-400">
-                            {player.trade_count} trades • avg profit {player.avg_profit.toLocaleString()} coins
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`px-3 py-1 rounded-full text-sm font-bold ${getSentimentColor(player.win_rate)}`}>
-                          {player.win_rate}% win rate
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </motion.div>
+                {topRisers.length === 0 ? (
+                  <div className="p-6 text-slate-500 text-sm">No qualifying risers in this window.</div>
+                ) : (
+                  <div className="divide-y divide-white/5">
+                    {topRisers.map((m) => (
+                      <MoverRow key={m.player_id} m={m} positive />
+                    ))}
+                  </div>
+                )}
+              </motion.div>
 
-            {/* Insights generated from the same trade data above */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="bg-slate-900/50 rounded-2xl border border-white/10 overflow-hidden"
+              >
+                <div className="p-6 border-b border-white/10">
+                  <h2 className="text-xl font-bold">Top Fallers</h2>
+                  <p className="text-sm text-slate-400 mt-1">Biggest real sold-price drops this window</p>
+                </div>
+                {topFallers.length === 0 ? (
+                  <div className="p-6 text-slate-500 text-sm">No qualifying fallers in this window.</div>
+                ) : (
+                  <div className="divide-y divide-white/5">
+                    {topFallers.map((m) => (
+                      <MoverRow key={m.player_id} m={m} positive={false} />
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            </div>
+
+            {/* Insights generated from the same real sales data above */}
             {insights.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -244,7 +272,7 @@ const MarketSentiment = () => {
                 <div className="flex gap-3">
                   <Lightbulb className="w-6 h-6 text-blue-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="font-bold text-blue-400 mb-2">Community Trading Insights</h3>
+                    <h3 className="font-bold text-blue-400 mb-2">Market Insights</h3>
                     <ul className="space-y-1 list-disc list-inside">
                       {insights.map((insight, idx) => (
                         <li key={idx} className="text-slate-300">
