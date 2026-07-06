@@ -22,3 +22,22 @@ export async function refreshWatch(id) {
   const { data } = await api.post(`/api/watchlist/${id}/refresh`);
   return data;
 }
+
+// Price/liquidity threshold alerts - note the hyphenated path, a separate
+// endpoint group from /api/watchlist above (both live in the backend's
+// main.py, not app/routers/watchlist.py).
+export async function getAlerts() {
+  const { data } = await api.get("/api/watchlist-alerts");
+  return data;
+}
+
+export async function createAlert(payload) {
+  // payload: { card_id, platform, metric: 'price'|'liquidity', rise_pct, fall_pct, cooloff_minutes }
+  const { data } = await api.post("/api/watchlist-alerts", payload);
+  return data;
+}
+
+export async function deleteAlert(id) {
+  const { data } = await api.delete(`/api/watchlist-alerts/${id}`);
+  return data;
+}

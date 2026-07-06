@@ -1,6 +1,6 @@
 // src/pages/Watchlist.jsx
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
-import { getWatchlist, addWatch, deleteWatch, refreshWatch } from "../api/watchlist";
+import { getWatchlist, addWatch, deleteWatch, refreshWatch, getAlerts, createAlert, deleteAlert } from "../api/watchlist";
 import { Link } from "react-router-dom";
 import api from "../axios";
 import { apiFetch } from "../api/http"; // ✅ use the same fetch wrapper as the rest of the app
@@ -26,6 +26,12 @@ const Icon = {
   Sort: (props) => (
     <svg className={`w-4 h-4 ${props.className||""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 7h13M3 12h9M3 17h5" />
+    </svg>
+  ),
+  Bell: (props) => (
+    <svg className={`w-4 h-4 ${props.className||""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M10.3 21a1.94 1.94 0 003.4 0" />
     </svg>
   ),
 };
@@ -102,6 +108,13 @@ export default function Watchlist() {
   const [busyId, setBusyId] = useState(null);
   const [sort, setSort] = useState(SORTS.SMART);
 
+  // Price/liquidity threshold alerts
+  const [alerts, setAlerts] = useState([]);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [alertTarget, setAlertTarget] = useState(null); // watch item being configured
+  const [alertForm, setAlertForm] = useState({ metric: "price", rise_pct: 10, fall_pct: 10, cooloff_minutes: 30 });
+  const [busyAlert, setBusyAlert] = useState(false);
+
   // autocomplete state
   const [suggestions, setSuggestions] = useState([]);
   const [sugLoading, setSugLoading] = useState(false);
@@ -123,7 +136,54 @@ export default function Watchlist() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  const loadAlerts = async () => {
+    try {
+      const data = await getAlerts();
+      setAlerts(Array.isArray(data?.items) ? data.items : []);
+    } catch (e) {
+      console.error("Failed to load alerts:", e);
+    }
+  };
+
+  useEffect(() => { load(); loadAlerts(); }, []);
+
+  const openAlertModal = (item) => {
+    setAlertTarget(item);
+    setAlertForm({ metric: "price", rise_pct: 10, fall_pct: 10, cooloff_minutes: 30 });
+  };
+
+  const handleCreateAlert = async (e) => {
+    e.preventDefault();
+    if (!alertTarget) return;
+    setBusyAlert(true);
+    try {
+      await createAlert({
+        card_id: Number(alertTarget.card_id),
+        platform: (alertTarget.platform || "ps").toLowerCase(),
+        metric: alertForm.metric,
+        rise_pct: Number(alertForm.rise_pct) || 0,
+        fall_pct: Number(alertForm.fall_pct) || 0,
+        cooloff_minutes: Number(alertForm.cooloff_minutes) || 30,
+      });
+      setAlertTarget(null);
+      await loadAlerts();
+      setAlertsOpen(true);
+    } catch (err) {
+      alert(err?.response?.data?.detail || err.message || "Failed to create alert");
+    } finally {
+      setBusyAlert(false);
+    }
+  };
+
+  const handleDeleteAlert = async (id) => {
+    setBusyAlert(true);
+    try {
+      await deleteAlert(id);
+      await loadAlerts();
+    } finally {
+      setBusyAlert(false);
+    }
+  };
 
   // sort
   const sorted = useMemo(() => {
@@ -296,6 +356,19 @@ export default function Watchlist() {
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
+          {/* My Alerts */}
+          <button
+            onClick={() => setAlertsOpen((v) => !v)}
+            className="px-3 py-2 rounded-md bg-gray-800 hover:bg-gray-700 text-white flex items-center gap-2"
+            title="Price/liquidity alerts"
+          >
+            <Icon.Bell />
+            <span className="hidden sm:inline">Alerts</span>
+            {alerts.length > 0 && (
+              <span className="text-xs bg-purple-600/80 rounded-full px-1.5">{alerts.length}</span>
+            )}
+          </button>
+
           {/* Add */}
           <button
             onClick={() => setShowAdd(true)}
@@ -306,6 +379,47 @@ export default function Watchlist() {
           </button>
         </div>
       </div>
+
+      {/* Alerts panel */}
+      {alertsOpen && (
+        <div className="bg-[#111318]/70 rounded-xl border border-[#2A2F36] p-4 mb-6">
+          <h2 className="text-white font-semibold mb-3">Your Alerts</h2>
+          {alerts.length === 0 ? (
+            <div className="text-gray-400 text-sm">
+              No alerts yet. Click the <Icon.Bell className="inline w-3.5 h-3.5" /> icon on a watched
+              player to set a price or liquidity threshold.
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {alerts.map((a) => (
+                <li
+                  key={a.id}
+                  className="flex items-center justify-between bg-black/30 rounded-lg px-3 py-2 text-sm"
+                >
+                  <div className="text-gray-200">
+                    <span className="text-white font-medium">Card {a.card_id}</span>{" "}
+                    <span className="text-gray-400">
+                      ({a.platform?.toUpperCase()} • {a.metric === "liquidity" ? "liquidity" : "price"})
+                    </span>
+                    <div className="text-xs text-gray-500">
+                      Rise ≥{Number(a.rise_pct).toFixed(1)}% or fall ≥{Number(a.fall_pct).toFixed(1)}% from ref •
+                      cooloff {a.cooloff_minutes}m
+                      {a.last_alert_at && ` • last fired ${new Date(a.last_alert_at).toLocaleString()}`}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteAlert(a.id)}
+                    disabled={busyAlert}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-red-600/80 hover:bg-red-600 text-white text-xs"
+                  >
+                    <Icon.Trash />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-[#111318]/70 rounded-xl border border-[#2A2F36] overflow-hidden">
@@ -360,6 +474,13 @@ export default function Watchlist() {
                 </div>
 
                 <div className="col-span-3 text-right flex justify-end gap-2">
+                  <button
+                    onClick={() => openAlertModal(it)}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-purple-700/70 hover:bg-purple-700 text-white text-xs"
+                    title="Set price/liquidity alert"
+                  >
+                    <Icon.Bell />
+                  </button>
                   <button
                     onClick={() => handleRefreshRow(it.id)}
                     disabled={busyId === it.id}
@@ -505,6 +626,87 @@ export default function Watchlist() {
                 className="w-full py-2 rounded-md bg-lime-500/90 hover:bg-lime-500 text-black font-bold"
               >
                 {busyAdd ? "Adding…" : "Add to Watchlist"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Set Alert Modal */}
+      {alertTarget && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="w-full max-w-md bg-[#111318] border border-[#2A2F36] rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white">Set Alert — {alertTarget.player_name}</h2>
+              <button
+                onClick={() => setAlertTarget(null)}
+                className="text-gray-400 hover:text-white p-1 rounded-md hover:bg-gray-800/60"
+                aria-label="Close"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAlert} className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-300 mb-1">Metric</label>
+                <select
+                  className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                  value={alertForm.metric}
+                  onChange={(e) => setAlertForm((f) => ({ ...f, metric: e.target.value }))}
+                >
+                  <option value="price">Price</option>
+                  <option value="liquidity">Liquidity (sales/hour)</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {alertForm.metric === "liquidity"
+                    ? "Baseline is the current sales/hour for this card, snapshotted now."
+                    : "Baseline is the card's last known price."}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Alert if rises ≥ %</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                    value={alertForm.rise_pct}
+                    onChange={(e) => setAlertForm((f) => ({ ...f, rise_pct: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Alert if falls ≥ %</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                    value={alertForm.fall_pct}
+                    onChange={(e) => setAlertForm((f) => ({ ...f, fall_pct: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-1">Cooloff (minutes between alerts)</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="w-full px-3 py-2 rounded-md bg-black/40 border border-[#2A2F36] text-white"
+                  value={alertForm.cooloff_minutes}
+                  onChange={(e) => setAlertForm((f) => ({ ...f, cooloff_minutes: e.target.value }))}
+                />
+              </div>
+
+              <button
+                disabled={busyAlert}
+                className="w-full py-2 rounded-md bg-purple-600/90 hover:bg-purple-600 text-white font-bold"
+              >
+                {busyAlert ? "Saving…" : "Create Alert"}
               </button>
             </form>
           </div>
