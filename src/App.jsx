@@ -39,7 +39,6 @@ const Billing       = lazy(() => import("./pages/Billing"));
 // NEW pages
 const SmartBuyerAI  = lazy(() => import("./pages/SmartBuyerAI"));
 const BestBuys      = lazy(() => import("./pages/BestBuys"));
-const SBCHub        = lazy(() => import("./pages/SBCHub"));
 
 // ENHANCED features
 const PortfolioOptimizer = lazy(() => import("./pages/PortfolioOptimizer"));
@@ -49,12 +48,6 @@ const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const ReferralProgram = lazy(() => import("./pages/ReferralProgram"));
 const MarketSentiment = lazy(() => import("./pages/MarketSentiment"));
 const MarketMaker = lazy(() => import("./pages/MarketMaker"));
-const SocialHub = lazy(() => import("./pages/SocialHub"));
-const Feed = lazy(() => import("./pages/Feed"));
-const AdminTraders = lazy(() => import("./pages/AdminTraders"));
-const TradersArea = lazy(() => import("./pages/TradersArea"));
-const TraderProfile = lazy(() => import("./pages/TraderProfile"));
-const SavedPosts = lazy(() => import("./pages/SavedPosts"));
 
 function App() {
   return (
@@ -83,8 +76,8 @@ function App() {
                       </PrivateRoute>
                     }
                   >
-                    {/* ✅ Feed (default) */}
-                    <Route index element={<Feed />} />
+                    {/* Dashboard (default) */}
+                    <Route index element={<Dashboard />} />
                     {/* Optional aliases – both load Dashboard */}
                     <Route path="overview" element={<Dashboard />} />
                     <Route path="dashboard" element={<Dashboard />} />
@@ -106,15 +99,9 @@ function App() {
                         Premium tier sold on Billing.jsx), and its checkout call sent a
                         payload the backend didn't understand. Old links redirect here. */}
                     <Route path="pricing" element={<Navigate to="/billing" replace />} />
-                    <Route path="sbc" element={<SBCHub />} />
                     <Route path="profit-calculator" element={<ProfitCalculator />} />
                     <Route path="leaderboard" element={<Leaderboard />} />
                     <Route path="referrals" element={<ReferralProgram />} />
-                    <Route path="community" element={<SocialHub />} />
-                    <Route path="traders-area" element={<TradersArea />} />
-                    <Route path="trader/:traderId" element={<TraderProfile />} />
-                    <Route path="saved-posts" element={<SavedPosts />} />
-                    <Route path="admin/traders" element={<AdminTraders />} />
 
                     {/* Basic trending (free tier gets limited access) */}
                     <Route path="trending" element={<Trending />} />

@@ -7,14 +7,10 @@ import {
   User,
   Settings as SettingsIcon,
   LogOut,
-  Eye,
   Target,
   Users,
   Trophy,
-  Award,
-  Bookmark,
   ArrowLeftRight,
-  Layers,
   Gift,
   Zap,
   Bot,
@@ -29,14 +25,10 @@ const NAV_H = 72;
 const LIME = "#91db32";
 
 const MORE_LINKS = [
-  { to: "/watchlist", label: "Watchlist", icon: Eye },
   { to: "/trending", label: "Trending", icon: Target },
   { to: "/squad", label: "Squad Builder", icon: Users },
-  { to: "/sbc", label: "SBC Hub", icon: Layers },
   { to: "/player-compare", label: "Compare Players", icon: ArrowLeftRight },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
-  { to: "/traders-area", label: "Traders Area", icon: Award },
-  { to: "/saved-posts", label: "Saved Posts", icon: Bookmark },
   { to: "/referrals", label: "Referrals", icon: Gift },
 ];
 
@@ -100,7 +92,7 @@ export default function MobileNavigation() {
   const tabs = [
     {
       to: "/",
-      label: "Feed",
+      label: "Home",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path
@@ -128,16 +120,17 @@ export default function MobileNavigation() {
       ),
     },
     {
-      to: "/community",
-      label: "Community",
+      to: "/watchlist",
+      label: "Watchlist",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            d="M7 8h10M7 12h6M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z"
+            d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"
           />
+          <circle cx="12" cy="12" r="3" strokeWidth="2" />
         </svg>
       ),
     },

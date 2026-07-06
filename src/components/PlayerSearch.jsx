@@ -62,6 +62,20 @@ const fetchPlayerDefinition = async (cardId) => {
   return null;
 };
 
+// Real price/liquidity/volatility/snipe/margin data from bin_history and
+// sales_history - what actually happened in the market, not just BIN.
+const fetchMarketMetrics = async (cardId) => {
+  try {
+    const response = await fetch(`${API_BASE}/api/players/${cardId}/market-metrics`, {
+      credentials: "include",
+    });
+    if (response.ok) return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch market metrics:", error);
+  }
+  return null;
+};
+
 const fetchPlayerPrice = async (cardId) => {
   try {
     const response = await fetch(`${API_BASE}/api/fut-player-price/${cardId}`, {
@@ -330,6 +344,7 @@ const PriceTrend = ({ auctions }) => {
 const PlayerDetail = ({ player, onBack }) => {
   const [priceData, setPriceData] = useState(null);
   const [playerData, setPlayerData] = useState(null);
+  const [marketMetrics, setMarketMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const [adding, setAdding] = useState(false);
@@ -341,12 +356,14 @@ const PlayerDetail = ({ player, onBack }) => {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [priceInfo, defInfo] = await Promise.all([
+      const [priceInfo, defInfo, marketInfo] = await Promise.all([
         fetchPlayerPrice(cardId),
         fetchPlayerDefinition(cardId),
+        fetchMarketMetrics(cardId),
       ]);
       setPriceData(priceInfo);
       setPlayerData(defInfo);
+      setMarketMetrics(marketInfo);
       setLoading(false);
     })();
   }, [cardId]);
@@ -723,6 +740,60 @@ const PlayerDetail = ({ player, onBack }) => {
             )}
           </div>
         </div>
+
+        {/* Real Market Data - what actually sold, not just what's asked */}
+        {marketMetrics?.realPrice?.sampleSize24h > 0 && (
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">
+            <h3 className="font-semibold mb-1 text-lg">Real Market Data</h3>
+            <p className="text-xs text-white/60 mb-3">
+              From {marketMetrics.realPrice.sampleSize24h} actual completed sales in the last 24h (PS market) - not just the asking price.
+            </p>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                <div className="text-white/80 text-xs mb-1">Median Sold (24h)</div>
+                <div className="font-bold text-yellow-300">
+                  {Math.round(marketMetrics.realPrice.medianSold24h).toLocaleString()}
+                </div>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                <div className="text-white/80 text-xs mb-1">vs Current BIN</div>
+                <div className={`font-bold ${marketMetrics.divergencePct24h < 0 ? "text-red-300" : "text-green-300"}`}>
+                  {marketMetrics.divergencePct24h != null
+                    ? `${marketMetrics.divergencePct24h > 0 ? "+" : ""}${marketMetrics.divergencePct24h}%`
+                    : "N/A"}
+                </div>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                <div className="text-white/80 text-xs mb-1">Liquidity</div>
+                <div className="font-bold text-blue-300">
+                  {marketMetrics.liquidity?.salesPerHour24h ?? "N/A"}/hr
+                </div>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                <div className="text-white/80 text-xs mb-1">Volatility (CV)</div>
+                <div className="font-bold text-purple-300">
+                  {marketMetrics.volatility?.coefficientOfVariation24h ?? "N/A"}
+                </div>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                <div className="text-white/80 text-xs mb-1">Snipe Index</div>
+                <div className="font-bold text-lime-300">
+                  {marketMetrics.snipeIndex24h != null ? `${Math.round(marketMetrics.snipeIndex24h * 100)}%` : "N/A"}
+                </div>
+              </div>
+            </div>
+            {marketMetrics.taxAwareMargin && (
+              <div className="mt-3 text-sm text-white/80">
+                Buy at BIN ({marketMetrics.taxAwareMargin.buyAt.toLocaleString()}), sell at median (
+                {marketMetrics.taxAwareMargin.sellAt.toLocaleString()}) → net after EA tax{" "}
+                <span className={marketMetrics.taxAwareMargin.estMarginCoins >= 0 ? "text-green-300" : "text-red-300"}>
+                  {marketMetrics.taxAwareMargin.estMarginCoins >= 0 ? "+" : ""}
+                  {marketMetrics.taxAwareMargin.estMarginCoins.toLocaleString()} ({marketMetrics.taxAwareMargin.estMarginPct}%)
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Price History */}
         <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">

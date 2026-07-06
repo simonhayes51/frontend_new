@@ -27,14 +27,8 @@ import {
   Gift,
   TrendingUp,
   MessageSquare,
-  ShieldCheck,
-  Award,
-  Bookmark,
   LogOut,
-  Layers,
-  Compass,
 } from "lucide-react";
-import { isAdminUser } from "../utils/admin";
 
 const DesktopSidebar = () => {
   const location = useLocation();
@@ -69,7 +63,6 @@ const DesktopSidebar = () => {
   useEffect(() => setUserMenuOpen(false), [location.pathname]);
 
   const navItems = [
-    { path: "/", label: "Feed", icon: MessageSquare },
     { path: "/dashboard", label: "Dashboard", icon: Home },
     { path: "/add-trade", label: "Add Trade", icon: Plus },
     { path: "/trades", label: "Recent Trades", icon: BarChart3 },
@@ -79,15 +72,8 @@ const DesktopSidebar = () => {
     { path: "/watchlist", label: "Watchlist", icon: Eye },
     { path: "/trending", label: "Trending", icon: Target },
     { path: "/squad", label: "Squad Builder", icon: Users },
-    { path: "/sbc", label: "SBC Hub", icon: Layers },
     { path: "/leaderboard", label: "Leaderboard", icon: Trophy },
-    { path: "/community", label: "Community", icon: Compass },
-    { path: "/traders-area", label: "Traders Area", icon: Award, highlight: true },
-    { path: "/saved-posts", label: "Saved Posts", icon: Bookmark },
     { path: "/referrals", label: "Referrals", icon: Gift },
-    ...(isAdminUser(user)
-      ? [{ path: "/admin/traders", label: "Trader Requests", icon: ShieldCheck }]
-      : []),
   ];
 
   const premiumItems = [

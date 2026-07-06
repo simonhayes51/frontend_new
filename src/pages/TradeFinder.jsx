@@ -3,6 +3,23 @@ import React, { useEffect, useMemo, useState } from "react";
 import { RefreshCcw, Info, PlusCircle, AlertTriangle } from "lucide-react";
 import { fetchTradeFinder as fetchDeals, fetchDealInsight as explainDeal } from "../api/tradeFinder";
 import { addWatch as addToWatchlist } from "../api/watchlist";
+import { apiFetch } from "../api/http";
+
+// Real liquidity/real-price/snipe metrics for many cards at once, from
+// bin_history/sales_history - see /api/players/batch/market-metrics.
+async function fetchMarketMetrics(cardIds) {
+  const ids = [...new Set(cardIds.filter(Boolean))];
+  if (!ids.length) return {};
+  try {
+    const res = await apiFetch("/api/players/batch/market-metrics", {
+      query: { ids: ids.join(",") },
+    });
+    return res?.items || {};
+  } catch (e) {
+    console.error("Failed to fetch market metrics:", e);
+    return {};
+  }
+}
 
 // Debug logging - remove this after fixing
 console.log('🔍 TradeFinder Environment Check:');
@@ -30,7 +47,29 @@ const Chip = ({ children }) => (
   <span className="px-2 py-0.5 rounded-full text-xs bg-zinc-800 border border-zinc-700">{children}</span>
 );
 
-function DealCard({ deal, onExplain, onQuickAdd }) {
+function MarketChips({ m }) {
+  if (!m || !m.realPrice?.sampleSize24h) return null;
+  const perHour = m.liquidity?.salesPerHour24h;
+  const div = m.divergencePct24h;
+  const snipe = m.snipeIndex24h;
+  return (
+    <>
+      {perHour != null && (
+        <Chip>
+          {perHour}/hr liquidity
+        </Chip>
+      )}
+      {div !== null && div !== undefined && (
+        <Chip>{div > 0 ? "+" : ""}{div}% vs BIN</Chip>
+      )}
+      {snipe !== null && snipe !== undefined && snipe > 0 && (
+        <Chip>Snipe {Math.round(snipe * 100)}%</Chip>
+      )}
+    </>
+  );
+}
+
+function DealCard({ deal, metrics, onExplain, onQuickAdd }) {
   return (
     <div className="rounded-2xl bg-zinc-900/70 border border-zinc-800 p-4 flex gap-4 items-center shadow-sm">
       <img
@@ -60,6 +99,7 @@ function DealCard({ deal, onExplain, onQuickAdd }) {
           {deal.tags?.map((t) => (
             <Chip key={t}>{t}</Chip>
           ))}
+          <MarketChips m={metrics?.[String(deal.card_id ?? deal.pid ?? deal.player_id)]} />
           {deal.vol_score != null && <Chip>Vol {Number(deal.vol_score).toFixed(3)}</Chip>}
           {deal.timeframe_hours ? (
             <Chip>
@@ -116,6 +156,7 @@ export default function TradeFinder() {
 
   const [loading, setLoading] = useState(false);
   const [deals, setDeals] = useState([]);
+  const [metrics, setMetrics] = useState({});
   const [error, setError] = useState("");
   const [relaxed, setRelaxed] = useState(false);
 
@@ -160,6 +201,7 @@ export default function TradeFinder() {
         if (data.length) setRelaxed(true);
       }
       setDeals(data);
+      setMetrics(await fetchMarketMetrics(data.map((d) => d.card_id ?? d.pid ?? d.player_id)));
     } catch (e) {
       console.error('🚨 TradeFinder error:', e);
       setError(e?.message || "Failed to load deals");
@@ -299,6 +341,7 @@ export default function TradeFinder() {
           <DealCard
             key={`${d.card_id || d.pid || d.player_id}-${d.platform}-${d.timeframe_hours || "t"}`}
             deal={d}
+            metrics={metrics}
             onExplain={() => onExplain(d)}
             onQuickAdd={() => onQuickAdd(d)}
           />

@@ -46,6 +46,28 @@ function Change({ change, pct }) {
   );
 }
 
+// Real market data (liquidity + real-vs-BIN divergence) from bin_history/
+// sales_history, not just the asking price - see /api/players/batch/market-metrics.
+function MarketBadge({ m }) {
+  if (!m) return <span className="text-gray-500 text-xs">No sales data</span>;
+  const perHour = m.liquidity?.salesPerHour24h;
+  const div = m.divergencePct24h;
+  const sample = m.realPrice?.sampleSize24h || 0;
+  if (!sample) return <span className="text-gray-500 text-xs">No sales (24h)</span>;
+  return (
+    <div className="text-xs space-y-0.5">
+      <div className={perHour >= 1 ? "text-emerald-400" : perHour > 0 ? "text-yellow-400" : "text-gray-500"}>
+        {perHour != null ? `${perHour}/hr` : "—"} liquidity
+      </div>
+      {div !== null && div !== undefined && (
+        <div className={div < 0 ? "text-red-400" : "text-emerald-400"}>
+          {div > 0 ? "+" : ""}{div}% vs BIN
+        </div>
+      )}
+    </div>
+  );
+}
+
 const SORTS = {
   SMART: "smart",
   CHANGE_DESC: "change_desc",
@@ -55,8 +77,24 @@ const SORTS = {
   NAME_ASC: "name_asc",
 };
 
+// Batch-fetch liquidity/real-price/snipe metrics for every watched card in
+// one request, keyed by card_id string, so the table doesn't do N+1 calls.
+const fetchMarketMetrics = async (cardIds) => {
+  if (!cardIds.length) return {};
+  try {
+    const res = await apiFetch("/api/players/batch/market-metrics", {
+      query: { ids: cardIds.join(",") },
+    });
+    return res?.items || {};
+  } catch (e) {
+    console.error("Failed to fetch market metrics:", e);
+    return {};
+  }
+};
+
 export default function Watchlist() {
   const [items, setItems] = useState([]);
+  const [metrics, setMetrics] = useState({});
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ player_name: "", card_id: "", version: "", platform: "ps", notes: "" });
@@ -78,6 +116,8 @@ export default function Watchlist() {
       // ✅ accept either {items: [...]} or a plain array
       const list = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
       setItems(list);
+      const ids = [...new Set(list.map((it) => it.card_id).filter(Boolean))];
+      setMetrics(await fetchMarketMetrics(ids));
     } finally {
       setLoading(false);
     }
@@ -269,12 +309,13 @@ export default function Watchlist() {
 
       {/* Table */}
       <div className="bg-[#111318]/70 rounded-xl border border-[#2A2F36] overflow-hidden">
-        <div className="grid grid-cols-12 px-4 py-3 text-xs uppercase tracking-wider text-gray-400 bg-black/30">
-          <div className="col-span-4">Player</div>
+        <div className="grid grid-cols-[repeat(14,minmax(0,1fr))] px-4 py-3 text-xs uppercase tracking-wider text-gray-400 bg-black/30">
+          <div className="col-span-3">Player</div>
           <div className="col-span-2">Started</div>
           <div className="col-span-2">Current</div>
           <div className="col-span-2">Change</div>
-          <div className="col-span-2 text-right">Actions</div>
+          <div className="col-span-2">Market</div>
+          <div className="col-span-3 text-right">Actions</div>
         </div>
 
         {loading ? (
@@ -286,8 +327,8 @@ export default function Watchlist() {
         ) : (
           <ul className="divide-y divide-[#1c1f26]">
             {sorted.map((it) => (
-              <li key={it.id} className="grid grid-cols-12 px-4 py-3 items-center text-sm">
-                <div className="col-span-4">
+              <li key={it.id} className="grid grid-cols-[repeat(14,minmax(0,1fr))] px-4 py-3 items-center text-sm">
+                <div className="col-span-3">
                   <div className="text-white font-semibold">{it.player_name}</div>
                   <div className="text-xs text-gray-400">
                     ID {it.card_id} • {it.version || "Base"} • {it.platform?.toUpperCase()}
@@ -314,7 +355,11 @@ export default function Watchlist() {
                   <Change change={it.change} pct={it.change_pct} />
                 </div>
 
-                <div className="col-span-2 text-right flex justify-end gap-2">
+                <div className="col-span-2">
+                  <MarketBadge m={metrics[String(it.card_id)]} />
+                </div>
+
+                <div className="col-span-3 text-right flex justify-end gap-2">
                   <button
                     onClick={() => handleRefreshRow(it.id)}
                     disabled={busyId === it.id}
