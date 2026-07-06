@@ -1,14 +1,10 @@
 // src/components/PlayerSearch.jsx
-import React, { useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Search, TrendingUp, TrendingDown, Minus, Loader2, Target } from "lucide-react";
 import PriceTrendChart from "./PriceTrendChart.jsx";
 import PlayerCardArt from "./PlayerCardArt.jsx";
 import BacktestPanel from "./BacktestPanel.jsx";
-
-// PlayerSearch is eager-loaded (App.jsx), but lightweight-charts is only
-// needed once someone actually opens a player's detail view - lazy-load it
-// so it doesn't bloat the initial bundle for every user.
-const SalesCandleChart = lazy(() => import("./SalesCandleChart.jsx"));
+import SalesLineChart from "./SalesLineChart.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const buildProxy = (url) => `${API_BASE}/img?url=${encodeURIComponent(url)}`;
@@ -807,11 +803,9 @@ const PlayerDetail = ({ player, onBack }) => {
           <PriceTrendChart playerId={cardId} platform={platform} initialTimeframe="today" height={300} />
         </div>
 
-        {/* Real sold-price candles, Gold Rare cards only (bin_sales_history_sync.py coverage) */}
+        {/* Real sold-price trend, Gold Rare cards only (bin_sales_history_sync.py coverage) */}
         <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">
-          <Suspense fallback={<div className="text-sm text-slate-400 py-2">Loading chart…</div>}>
-            <SalesCandleChart cardId={cardId} bucketHours={1} days={7} height={300} />
-          </Suspense>
+          <SalesLineChart cardId={cardId} days={1} height={260} />
         </div>
 
         <BacktestPanel cardId={cardId} className="mb-6" />
