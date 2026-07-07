@@ -6,13 +6,26 @@
 // src/components/TradingGoals.jsx.)
 
 export const registerSW = () => {
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js").catch(() => {
-        // SW is progressive enhancement - never break the app over it.
-      });
+  if (!("serviceWorker" in navigator)) return;
+
+  // Visitors with the OLD service worker (cache-first forever, no
+  // versioning - see public/sw.js) already have it installed and serving
+  // stale builds. The new one calls skipWaiting()/clients.claim(), so as
+  // soon as the browser finishes installing it in the background,
+  // 'controllerchange' fires - reload once, automatically, so people don't
+  // need to know to hard-refresh to escape a broken cache they can't see.
+  let reloadedForUpdate = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloadedForUpdate) return;
+    reloadedForUpdate = true;
+    window.location.reload();
+  });
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // SW is progressive enhancement - never break the app over it.
     });
-  }
+  });
 };
 
 export const requestNotificationPermission = async () => {
