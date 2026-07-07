@@ -4,6 +4,11 @@ import path from "path";
 
 export default defineConfig({
   plugins: [react()],
+  esbuild: {
+    // Strip console/debugger from production bundles - 28 console.log calls
+    // (including env dumps) were shipping to users.
+    drop: process.env.NODE_ENV === "production" ? ["console", "debugger"] : [],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

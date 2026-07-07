@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
 import { useSettings, ALL_WIDGET_KEYS } from "../context/SettingsContext";
 import PremiumGate from "../components/PremiumGate";
+import OnboardingBanner from "../components/OnboardingBanner";
 import {
   LineChart, PencilLine, RotateCcw, Plus, X, CalendarClock, TrendingUp, TrendingDown,
   Bell, Settings as Cog, Target, Zap, Trophy, Activity, BarChart3, Timer, Download
@@ -893,9 +894,10 @@ export default function Dashboard() {
   /* -------------------- Render -------------------- */
   return (
     <div className="p-4 max-w-6xl mx-auto">
+      <OnboardingBanner />
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
-        <h1 className="text-xl font-bold">Dashboard</h1>
+        <h1 className="text-xl font-bold">Your Grind, Live 📈</h1>
         <div className="flex items-center gap-2">
           <div className="text-xs text-gray-400">Last updated: {formatDate(new Date())}</div>
           <div className="w-px h-4 bg-gray-700" />

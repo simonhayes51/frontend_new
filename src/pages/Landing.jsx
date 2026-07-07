@@ -45,20 +45,28 @@ const Landing = () => {
         <div className="container mx-auto px-5">
           <header className="mb-8">
             <h2 className="text-3xl font-black">
-              Everything you need to <span className="text-[#2bf57a]">win the market</span>
+              Stop guessing. <span className="text-[#2bf57a]">Start printing.</span>
             </h2>
-            <p className="text-slate-400">Dark, clean, and neon highlights — same vibe as your dashboard.</p>
+            <p className="text-slate-400">
+              Built on real completed sales — not asking prices. Know what a card is
+              actually worth before the market does.
+            </p>
           </header>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <FeatureCard icon="🔥" title="Undervalued Board">
+              A live board of cards listed below what they're actually selling for.
+              Real sold data, refreshed every few minutes. Catch steals first.
+            </FeatureCard>
             <FeatureCard icon="🤖" title="AI Trade Copilot">
-              Chat with AI for instant trading advice, market analysis, and strategy guidance.
+              Instant trading advice grounded in your own stats and real market data.
             </FeatureCard>
             <FeatureCard icon="✨" title="Portfolio Optimizer">
               AI-powered portfolio analysis with risk metrics, diversification insights, and optimization.
             </FeatureCard>
-            <FeatureCard icon="📈" title="Live Price Checks">
-              Ultra-fast lookups with console prices and trend spark lines. Extinct flag included.
+            <FeatureCard icon="📈" title="Fair Value on Every Card">
+              Every price gets a verdict — STEAL, FAIR or OVERPAY — straight from
+              real 24h sold medians. Never overpay again.
             </FeatureCard>
             <FeatureCard icon="🧠" title="Smart Buy AI">
               AI-powered recommendations for profitable trades with real-time price analysis.
