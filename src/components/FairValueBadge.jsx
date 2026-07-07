@@ -14,10 +14,16 @@ const STYLES = {
   fair: { bg: "rgba(255,255,255,0.08)", fg: "rgba(255,255,255,0.75)", label: "FAIR" },
   overpriced: { bg: "rgba(248,113,113,0.12)", fg: "#f87171", label: "OVERPAY" },
   unknown: { bg: "rgba(255,255,255,0.05)", fg: "rgba(255,255,255,0.4)", label: "NO DATA" },
+  pending: { bg: "rgba(250,204,21,0.10)", fg: "#facc15", label: "VERIFYING" },
 };
 
 function verdictFrom(data) {
   if (!data) return "unknown";
+  // Backend flags this when our own median is wildly inconsistent with
+  // the live BIN (data_quality_suspect) - a resolved incident showed that
+  // means a scraper bug attributed a different card's real sales to this
+  // one, not a genuine deal. Show "verifying", not a wrong verdict.
+  if (data.data_quality_suspect) return "pending";
   if (data.verdict) return data.verdict; // teaser shape (free tier)
   const d = data.discount_pct;
   if (d == null) return "unknown";
@@ -41,13 +47,15 @@ export default function FairValueBadge({ cardId, className = "" }) {
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide ${className}`}
       style={{ background: s.bg, color: s.fg }}
       title={
-        locked
+        verdict === "pending"
+          ? "We're still verifying this card's market data"
+          : locked
           ? "Real-sales fair value — go Pro to see the exact numbers"
           : `vs real 24h sold median (${data.sales_24h ?? 0} sales tracked)`
       }
     >
       {s.label}
-      {!locked && pct != null && (
+      {verdict !== "pending" && !locked && pct != null && (
         <span className="tabular-nums">{pct > 0 ? `-${Math.abs(pct)}%` : `+${Math.abs(pct)}%`}</span>
       )}
       {locked && <span aria-hidden>🔒</span>}
