@@ -747,7 +747,16 @@ const PlayerDetail = ({ player, onBack }) => {
         </div>
 
         {/* Real Market Data - what actually sold, not just what's asked */}
-        {marketMetrics?.realPrice?.sampleSize24h > 0 && (
+        {marketMetrics?.dataQualitySuspect && (
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">
+            <h3 className="font-semibold mb-1 text-lg">Real Market Data</h3>
+            <p className="text-xs text-white/60">
+              We're still verifying this card's market data - the numbers we're seeing don't line up
+              with the live price yet. Check back shortly.
+            </p>
+          </div>
+        )}
+        {!marketMetrics?.dataQualitySuspect && marketMetrics?.realPrice?.sampleSize24h > 0 && (
           <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">
             <h3 className="font-semibold mb-1 text-lg">Real Market Data</h3>
             <p className="text-xs text-white/60 mb-3">
