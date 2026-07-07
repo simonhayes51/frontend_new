@@ -40,6 +40,7 @@ const Billing       = lazy(() => import("./pages/Billing"));
 const SmartBuyerAI  = lazy(() => import("./pages/SmartBuyerAI"));
 const BestBuys      = lazy(() => import("./pages/BestBuys"));
 const UndervaluedBoard = lazy(() => import("./pages/UndervaluedBoard"));
+const AdminUsers = lazy(() => import("./pages/AdminUsers"));
 
 // ENHANCED features
 const PortfolioOptimizer = lazy(() => import("./pages/PortfolioOptimizer"));
@@ -110,6 +111,10 @@ function App() {
                     {/* Undervalued board - the page renders its own free
                         teaser vs Pro full-board split, so no PremiumRoute */}
                     <Route path="undervalued" element={<UndervaluedBoard />} />
+
+                    {/* Admin (server enforces require_admin; page hides itself
+                        for non-admins as UX) */}
+                    <Route path="admin/users" element={<AdminUsers />} />
 
                     {/* Premium-only routes */}
                     <Route

@@ -8,6 +8,7 @@ export function EntitlementsProvider({ children }) {
   const [state, setState] = useState({
     loading: true,
     isPremium: false,
+    isAdmin: false,
     features: [],
     limits: { watchlist_max: 3, trending: { timeframes: ["24h"], limit: 5, smart: false } },
     roles: [],
@@ -25,6 +26,7 @@ export function EntitlementsProvider({ children }) {
       const newState = {
         loading: false,
         isPremium: Boolean(data?.is_premium),
+        isAdmin: Boolean(data?.is_admin),
         features: Array.isArray(data?.features) ? data.features : [],
         limits: data?.limits || { watchlist_max: 3, trending: { timeframes: ["24h"], limit: 5, smart: false } },
         roles: Array.isArray(data?.roles) ? data.roles : [],
