@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Search, TrendingUp, TrendingDown, Minus, Loader2, Target } from "lucide-react";
 import PriceTrendChart from "./PriceTrendChart.jsx";
+import FairValueBadge from "./FairValueBadge.jsx";
 import PlayerCardArt from "./PlayerCardArt.jsx";
 import BacktestPanel from "./BacktestPanel.jsx";
 import SalesLineChart from "./SalesLineChart.jsx";
@@ -531,7 +532,9 @@ const PlayerDetail = ({ player, onBack }) => {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {/* Price */}
               <div className="bg-white/5 rounded-lg p-3 min-w-0 border border-white/10">
-                <div className="text-white/80 text-xs md:text-sm mb-1">Price</div>
+                <div className="text-white/80 text-xs md:text-sm mb-1 flex items-center gap-2">
+                  Price <FairValueBadge cardId={cardId} />
+                </div>
                 <div className="font-bold text-yellow-300 leading-tight">
                   {loading ? (
                     <Loader2 className="w-5 h-5 md:w-6 md:h-6 animate-spin inline align-[-2px]" />

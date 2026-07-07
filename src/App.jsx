@@ -39,6 +39,7 @@ const Billing       = lazy(() => import("./pages/Billing"));
 // NEW pages
 const SmartBuyerAI  = lazy(() => import("./pages/SmartBuyerAI"));
 const BestBuys      = lazy(() => import("./pages/BestBuys"));
+const UndervaluedBoard = lazy(() => import("./pages/UndervaluedBoard"));
 
 // ENHANCED features
 const PortfolioOptimizer = lazy(() => import("./pages/PortfolioOptimizer"));
@@ -105,6 +106,10 @@ function App() {
 
                     {/* Basic trending (free tier gets limited access) */}
                     <Route path="trending" element={<Trending />} />
+
+                    {/* Undervalued board - the page renders its own free
+                        teaser vs Pro full-board split, so no PremiumRoute */}
+                    <Route path="undervalued" element={<UndervaluedBoard />} />
 
                     {/* Premium-only routes */}
                     <Route
