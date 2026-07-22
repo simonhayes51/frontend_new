@@ -41,6 +41,7 @@ const SmartBuyerAI  = lazy(() => import("./pages/SmartBuyerAI"));
 const BestBuys      = lazy(() => import("./pages/BestBuys"));
 const UndervaluedBoard = lazy(() => import("./pages/UndervaluedBoard"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers"));
+const Demo = lazy(() => import("./pages/Demo"));
 
 // ENHANCED features
 const PortfolioOptimizer = lazy(() => import("./pages/PortfolioOptimizer"));
@@ -64,6 +65,9 @@ function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/access-denied" element={<AccessDenied />} />
                   <Route path="/landing" element={<Landing />} />
+                  {/* Investor/buyer-facing read-only data pipeline demo -
+                      public on purpose, must not sit behind PrivateRoute */}
+                  <Route path="/demo" element={<Demo />} />
 
                   {/* Protected shell */}
                   <Route
