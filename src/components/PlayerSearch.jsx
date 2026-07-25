@@ -846,26 +846,35 @@ const PlayerDetail = ({ player, onBack }) => {
           </div>
         )}
 
-        {/* Lazy Buyer Score - LBO (how often this card's sales clear
-            above its own BIN vs the tracked pool average) and a
-            cross-pool Confidence ranking, computed from fair_value_mv +
-            sales_history. Expected Profit and Recommended Chem Style
-            reuse data already fetched above rather than recomputing. */}
+        {/* Lazy Buyer Score - LBO (how often this card's sales beat its
+            own BIN price at the time of each sale vs the tracked pool
+            average) and a cross-pool Confidence ranking, computed from
+            fair_value_mv + sales_history + bin_history. Expected Profit
+            and Recommended Chem Style reuse data already fetched above
+            rather than recomputing. Copy is deliberately plain-language
+            (no jargon like "percentile" or "z-score") since this is
+            aimed at casual traders, not analysts. */}
         {lazyBuyerScore?.available && (
           <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">
             <h3 className="font-semibold mb-1 text-lg">Lazy Buyer Score</h3>
             <p className="text-xs text-white/60 mb-3">
-              From {lazyBuyerScore.sampleSize7d} sales in the last 7 days, ranked against every other tracked card.
+              How often people paid MORE than the cheapest price for this card, based on{" "}
+              {lazyBuyerScore.sampleSize7d} real sales in the last 7 days.
             </p>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-                <div className="text-white/80 text-xs mb-1">LBO (sells above BIN)</div>
+                <div className="text-white/80 text-xs mb-1">Sold Above BIN</div>
                 <div className="font-bold text-lime-300">{lazyBuyerScore.lboRate7d}%</div>
-                <div className="text-white/50 text-xs mt-0.5">pool avg {lazyBuyerScore.poolAvgLboRate7d}%</div>
+                <div className="text-white/50 text-xs mt-0.5">
+                  of sales beat the cheapest price (average card: {lazyBuyerScore.poolAvgLboRate7d}%)
+                </div>
               </div>
               <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-                <div className="text-white/80 text-xs mb-1">Confidence Score</div>
+                <div className="text-white/80 text-xs mb-1">Confidence</div>
                 <div className="font-bold text-blue-300">{lazyBuyerScore.confidenceScore}%</div>
+                <div className="text-white/50 text-xs mt-0.5">
+                  ranks better than {lazyBuyerScore.confidenceScore}% of tracked cards
+                </div>
               </div>
               {marketMetrics?.taxAwareMargin && (
                 <div className="bg-white/5 rounded-lg p-3 border border-white/10">
