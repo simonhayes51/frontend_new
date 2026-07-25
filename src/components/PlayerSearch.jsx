@@ -65,6 +65,21 @@ const fetchPlayerDefinition = async (cardId) => {
   return null;
 };
 
+// Games played / avg goals / top chemistry style - scraped from the
+// player's futbin bio page alongside BIN price, so only populated once
+// bin_sales_history_sync.py has covered this card at least once.
+const fetchBioStats = async (cardId) => {
+  try {
+    const response = await fetch(`${API_BASE}/api/players/${cardId}`, {
+      credentials: "include",
+    });
+    if (response.ok) return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch bio stats:", error);
+  }
+  return null;
+};
+
 // Real price/liquidity/volatility/snipe/margin data from bin_history and
 // sales_history - what actually happened in the market, not just BIN.
 const fetchMarketMetrics = async (cardId) => {
@@ -348,6 +363,7 @@ const PlayerDetail = ({ player, onBack }) => {
   const [priceData, setPriceData] = useState(null);
   const [playerData, setPlayerData] = useState(null);
   const [marketMetrics, setMarketMetrics] = useState(null);
+  const [bioStats, setBioStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const [adding, setAdding] = useState(false);
@@ -359,14 +375,16 @@ const PlayerDetail = ({ player, onBack }) => {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [priceInfo, defInfo, marketInfo] = await Promise.all([
+      const [priceInfo, defInfo, marketInfo, bioInfo] = await Promise.all([
         fetchPlayerPrice(cardId),
         fetchPlayerDefinition(cardId),
         fetchMarketMetrics(cardId),
+        fetchBioStats(cardId),
       ]);
       setPriceData(priceInfo);
       setPlayerData(defInfo);
       setMarketMetrics(marketInfo);
+      setBioStats(bioInfo);
       setLoading(false);
     })();
   }, [cardId]);
@@ -806,6 +824,58 @@ const PlayerDetail = ({ player, onBack }) => {
                 </span>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Career Stats - scraped from the futbin bio page alongside BIN
+            price, so only present once a sync has covered this card. */}
+        {bioStats && (bioStats.games_played_console || bioStats.games_played_pc) && (
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">
+            <h3 className="font-semibold mb-3 text-lg">Career Stats</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {bioStats.games_played_console != null && (
+                <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                  <div className="text-white/80 text-xs mb-2">Console</div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-white/60">Games Played</span>
+                    <span className="font-semibold">{bioStats.games_played_console.toLocaleString()}</span>
+                  </div>
+                  {bioStats.avg_goals_console != null && (
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-white/60">Avg Goals / Game</span>
+                      <span className="font-semibold">{bioStats.avg_goals_console.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {bioStats.top_chem_style_console && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/60">Top Chem Style</span>
+                      <span className="font-semibold text-lime-300">{bioStats.top_chem_style_console}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {bioStats.games_played_pc != null && (
+                <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                  <div className="text-white/80 text-xs mb-2">PC</div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-white/60">Games Played</span>
+                    <span className="font-semibold">{bioStats.games_played_pc.toLocaleString()}</span>
+                  </div>
+                  {bioStats.avg_goals_pc != null && (
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-white/60">Avg Goals / Game</span>
+                      <span className="font-semibold">{bioStats.avg_goals_pc.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {bioStats.top_chem_style_pc && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/60">Top Chem Style</span>
+                      <span className="font-semibold text-lime-300">{bioStats.top_chem_style_pc}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
