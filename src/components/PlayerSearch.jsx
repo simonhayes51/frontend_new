@@ -11,6 +11,20 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 const buildProxy = (url) => `${API_BASE}/img?url=${encodeURIComponent(url)}`;
 const PLACEHOLDER = "/img/card-placeholder.png";
 
+const FETCH_TIMEOUT_MS = 10000;
+
+// None of this file's fetch helpers ever had a timeout - a single hung
+// request (most likely candidate: fetchPlayerDefinition, which proxies an
+// external fut.gg endpoint outside our control) could block forever with
+// no way to fail. Every helper's existing try/catch already treats a
+// thrown error as "no data available" and returns null, so an abort just
+// routes through that same path - this only adds a ceiling on the wait.
+const fetchWithTimeout = (url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+};
+
 // ------- text helpers (accent/diacritic-insensitive) -------
 // ADDITION: normalizeForSearch — "Mbappé" -> "mbappe"
 const normalizeForSearch = (s = "") =>
@@ -52,7 +66,7 @@ const addToWatchlist = async ({ player_name, card_id, version, platform, notes }
 
 const fetchPlayerDefinition = async (cardId) => {
   try {
-    const response = await fetch(`${API_BASE}/api/fut-player-definition/${cardId}`, {
+    const response = await fetchWithTimeout(`${API_BASE}/api/fut-player-definition/${cardId}`, {
       credentials: "include",
     });
     if (response.ok) {
@@ -70,7 +84,7 @@ const fetchPlayerDefinition = async (cardId) => {
 // bin_sales_history_sync.py has covered this card at least once.
 const fetchBioStats = async (cardId) => {
   try {
-    const response = await fetch(`${API_BASE}/api/players/${cardId}`, {
+    const response = await fetchWithTimeout(`${API_BASE}/api/players/${cardId}`, {
       credentials: "include",
     });
     if (response.ok) return await response.json();
@@ -86,7 +100,7 @@ const fetchBioStats = async (cardId) => {
 // card has enough recent sales, so callers should check `.available`.
 const fetchLazyBuyerScore = async (cardId) => {
   try {
-    const response = await fetch(`${API_BASE}/api/players/${cardId}/lazy-buyer-score`, {
+    const response = await fetchWithTimeout(`${API_BASE}/api/players/${cardId}/lazy-buyer-score`, {
       credentials: "include",
     });
     if (response.ok) return await response.json();
@@ -100,7 +114,7 @@ const fetchLazyBuyerScore = async (cardId) => {
 // sales_history - what actually happened in the market, not just BIN.
 const fetchMarketMetrics = async (cardId) => {
   try {
-    const response = await fetch(`${API_BASE}/api/players/${cardId}/market-metrics`, {
+    const response = await fetchWithTimeout(`${API_BASE}/api/players/${cardId}/market-metrics`, {
       credentials: "include",
     });
     if (response.ok) return await response.json();
@@ -112,7 +126,7 @@ const fetchMarketMetrics = async (cardId) => {
 
 const fetchPlayerPrice = async (cardId) => {
   try {
-    const response = await fetch(`${API_BASE}/api/fut-player-price/${cardId}`, {
+    const response = await fetchWithTimeout(`${API_BASE}/api/fut-player-price/${cardId}`, {
       credentials: "include",
     });
     if (response.ok) {
@@ -381,7 +395,13 @@ const PlayerDetail = ({ player, onBack }) => {
   const [marketMetrics, setMarketMetrics] = useState(null);
   const [bioStats, setBioStats] = useState(null);
   const [lazyBuyerScore, setLazyBuyerScore] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Price used to share a single `loading` flag with four unrelated
+  // fetches (definition/market-metrics/bio-stats/lazy-buyer-score) via one
+  // Promise.all - so the slowest of the five (often fetchPlayerDefinition,
+  // an external fut.gg-proxied call outside our control) kept the Price
+  // spinner up no matter how fast the price itself actually resolved.
+  // priceLoading now tracks fetchPlayerPrice alone.
+  const [priceLoading, setPriceLoading] = useState(true);
 
   const [adding, setAdding] = useState(false);
   const [platform, setPlatform] = useState("ps");
@@ -390,21 +410,22 @@ const PlayerDetail = ({ player, onBack }) => {
   const cardId = player.card_id || player.id;
 
   useEffect(() => {
+    setPriceLoading(true);
+    fetchPlayerPrice(cardId).then((priceInfo) => {
+      setPriceData(priceInfo);
+      setPriceLoading(false);
+    });
     (async () => {
-      setLoading(true);
-      const [priceInfo, defInfo, marketInfo, bioInfo, lazyBuyerInfo] = await Promise.all([
-        fetchPlayerPrice(cardId),
+      const [defInfo, marketInfo, bioInfo, lazyBuyerInfo] = await Promise.all([
         fetchPlayerDefinition(cardId),
         fetchMarketMetrics(cardId),
         fetchBioStats(cardId),
         fetchLazyBuyerScore(cardId),
       ]);
-      setPriceData(priceInfo);
       setPlayerData(defInfo);
       setMarketMetrics(marketInfo);
       setBioStats(bioInfo);
       setLazyBuyerScore(lazyBuyerInfo);
-      setLoading(false);
     })();
   }, [cardId]);
 
@@ -573,7 +594,7 @@ const PlayerDetail = ({ player, onBack }) => {
                   Price <FairValueBadge cardId={cardId} />
                 </div>
                 <div className="font-bold text-yellow-300 leading-tight">
-                  {loading ? (
+                  {priceLoading ? (
                     <Loader2 className="w-5 h-5 md:w-6 md:h-6 animate-spin inline align-[-2px]" />
                   ) : priceData?.isExtinct ? (
                     "Extinct"
