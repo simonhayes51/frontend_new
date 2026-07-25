@@ -80,6 +80,22 @@ const fetchBioStats = async (cardId) => {
   return null;
 };
 
+// Lazy Buyer Odds (LBO) + Confidence Score - how often this card's sales
+// clear above its own BIN vs the tracked pool average, ranked against
+// every other card with enough sales history. Only meaningful once a
+// card has enough recent sales, so callers should check `.available`.
+const fetchLazyBuyerScore = async (cardId) => {
+  try {
+    const response = await fetch(`${API_BASE}/api/players/${cardId}/lazy-buyer-score`, {
+      credentials: "include",
+    });
+    if (response.ok) return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch lazy buyer score:", error);
+  }
+  return null;
+};
+
 // Real price/liquidity/volatility/snipe/margin data from bin_history and
 // sales_history - what actually happened in the market, not just BIN.
 const fetchMarketMetrics = async (cardId) => {
@@ -364,6 +380,7 @@ const PlayerDetail = ({ player, onBack }) => {
   const [playerData, setPlayerData] = useState(null);
   const [marketMetrics, setMarketMetrics] = useState(null);
   const [bioStats, setBioStats] = useState(null);
+  const [lazyBuyerScore, setLazyBuyerScore] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const [adding, setAdding] = useState(false);
@@ -375,16 +392,18 @@ const PlayerDetail = ({ player, onBack }) => {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [priceInfo, defInfo, marketInfo, bioInfo] = await Promise.all([
+      const [priceInfo, defInfo, marketInfo, bioInfo, lazyBuyerInfo] = await Promise.all([
         fetchPlayerPrice(cardId),
         fetchPlayerDefinition(cardId),
         fetchMarketMetrics(cardId),
         fetchBioStats(cardId),
+        fetchLazyBuyerScore(cardId),
       ]);
       setPriceData(priceInfo);
       setPlayerData(defInfo);
       setMarketMetrics(marketInfo);
       setBioStats(bioInfo);
+      setLazyBuyerScore(lazyBuyerInfo);
       setLoading(false);
     })();
   }, [cardId]);
@@ -824,6 +843,53 @@ const PlayerDetail = ({ player, onBack }) => {
                 </span>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Lazy Buyer Score - LBO (how often this card's sales clear
+            above its own BIN vs the tracked pool average) and a
+            cross-pool Confidence ranking, computed from fair_value_mv +
+            sales_history. Expected Profit and Recommended Chem Style
+            reuse data already fetched above rather than recomputing. */}
+        {lazyBuyerScore?.available && (
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">
+            <h3 className="font-semibold mb-1 text-lg">Lazy Buyer Score</h3>
+            <p className="text-xs text-white/60 mb-3">
+              From {lazyBuyerScore.sampleSize7d} sales in the last 7 days, ranked against every other tracked card.
+            </p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                <div className="text-white/80 text-xs mb-1">LBO (sells above BIN)</div>
+                <div className="font-bold text-lime-300">{lazyBuyerScore.lboRate7d}%</div>
+                <div className="text-white/50 text-xs mt-0.5">pool avg {lazyBuyerScore.poolAvgLboRate7d}%</div>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                <div className="text-white/80 text-xs mb-1">Confidence Score</div>
+                <div className="font-bold text-blue-300">{lazyBuyerScore.confidenceScore}%</div>
+              </div>
+              {marketMetrics?.taxAwareMargin && (
+                <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                  <div className="text-white/80 text-xs mb-1">Expected Profit</div>
+                  <div
+                    className={`font-bold ${
+                      marketMetrics.taxAwareMargin.estMarginCoins >= 0 ? "text-green-300" : "text-red-300"
+                    }`}
+                  >
+                    {marketMetrics.taxAwareMargin.estMarginCoins >= 0 ? "+" : ""}
+                    {marketMetrics.taxAwareMargin.estMarginCoins.toLocaleString()} (
+                    {marketMetrics.taxAwareMargin.estMarginPct}%)
+                  </div>
+                </div>
+              )}
+              {(bioStats?.top_chem_style_console || bioStats?.top_chem_style_pc) && (
+                <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                  <div className="text-white/80 text-xs mb-1">Recommended Chem Style</div>
+                  <div className="font-bold text-lime-300">
+                    {bioStats.top_chem_style_console || bioStats.top_chem_style_pc}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
