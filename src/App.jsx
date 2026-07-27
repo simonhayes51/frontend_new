@@ -43,6 +43,11 @@ const UndervaluedBoard = lazy(() => import("./pages/UndervaluedBoard"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers"));
 const Demo = lazy(() => import("./pages/Demo"));
 
+// v2 - AI market-intelligence redesign, self-contained under src/v2/ (see
+// the v2 plan). Own internal routing via V2App's <Routes>, so it's
+// mounted with a /v2/* wildcard rather than nested child routes here.
+const V2App = lazy(() => import("./v2/App.v2"));
+
 // ENHANCED features
 const PortfolioOptimizer = lazy(() => import("./pages/PortfolioOptimizer"));
 const ProfitCalculator = lazy(() => import("./pages/ProfitCalculator"));
@@ -68,6 +73,12 @@ function App() {
                   {/* Investor/buyer-facing read-only data pipeline demo -
                       public on purpose, must not sit behind PrivateRoute */}
                   <Route path="/demo" element={<Demo />} />
+
+                  {/* v2 - handles its own per-panel gating via
+                      useEntitlements/PremiumGate rather than a full-page
+                      PrivateRoute redirect, so it sits outside the
+                      protected shell below like /demo does. */}
+                  <Route path="/v2/*" element={<V2App />} />
 
                   {/* Protected shell */}
                   <Route

@@ -1,0 +1,24 @@
+/* src/v2/styles/tokens.css
+ *
+ * v2 design tokens, scoped under .v2-root so they can never leak into or
+ * clash with v1's styling. Not a second Tailwind config - consumed via
+ * Tailwind arbitrary-value classes (bg-[var(--v2-card)] etc.), which
+ * avoids touching the single shared build/PostCSS pipeline.
+ */
+.v2-root {
+  --v2-bg: #0a0e1a;
+  --v2-card: #121828;
+  --v2-elevated: #1a2036;
+  --v2-border: #232a44;
+  --v2-text: #e8ecf7;
+  --v2-muted: #8b93ad;
+  --v2-accent: #00d4ff;
+  --v2-positive: #22c55e;
+  --v2-negative: #ef4444;
+  --v2-warning: #f59e0b;
+  --v2-radius: 16px;
+
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  min-height: 100vh;
+}
