@@ -139,7 +139,15 @@ api.interceptors.response.use(
     }
 
     // --- 401: redirect to login ---
-    if (status === 401) {
+    // v1's authed pages all sit behind PrivateRoute, which already keeps
+    // logged-out visitors away before any API call happens - so a 401
+    // there really does mean "the session just expired, bounce to
+    // login." v2's pages are public-first with optional authed widgets
+    // (e.g. a Watchlist section on an otherwise-public dashboard), where
+    // a 401 is an expected, handled response, not a reason to hijack the
+    // whole page. __skipAuthRedirect opts a request out, same pattern as
+    // __noRetry/__maxRetries below.
+    if (status === 401 && !cfg.__skipAuthRedirect) {
       if (typeof window !== "undefined") window.location.href = "/login";
       const enhanced401 = { ...error, userMessage: getUserFriendlyMessage(401) };
       return Promise.reject(enhanced401);
