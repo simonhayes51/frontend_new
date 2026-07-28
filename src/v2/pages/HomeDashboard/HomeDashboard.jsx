@@ -142,7 +142,7 @@ export default function HomeDashboard() {
         {tierLabel !== "ELITE" ? (
           <div className="upgrade-panel">
             <span><Crown size={15} /> {tierLabel === "FREE" ? "Free Plan" : `${tierLabel} Plan`}</span>
-            <p>Unlock the full opportunity feed, avoid list and AI predictions.</p>
+            <p>Unlock all of today&apos;s picks, cards to avoid, and AI predictions.</p>
             <button type="button" onClick={() => navigate("/billing")}>Upgrade Now</button>
           </div>
         ) : null}
@@ -160,7 +160,7 @@ export default function HomeDashboard() {
               <span />
               <div>
                 <strong>{status === "live" ? "Live Data" : status === "loading" ? "Reading Market" : "Preview Data"}</strong>
-                <small>Real-time from fair_value_mv</small>
+                <small>Updated from real sales data</small>
               </div>
             </div>
             <button className="icon-button" type="button" aria-label="Alerts">
@@ -183,8 +183,8 @@ export default function HomeDashboard() {
                 <span><Sparkles size={15} /> AI Morning Brief</span>
                 <p>
                   {selected
-                    ? `Good morning. The current v2 model is ranking ${selected.player.name} as the clearest decision from live fair-value and sales data. ${selected.reasoning}`
-                    : "Good morning. The terminal is waiting for enough live market data to produce a grounded recommendation."}
+                    ? `Good morning! Our AI thinks ${displayName(selected.player)} is today's best pick, based on real prices and sales. ${selected.reasoning}`
+                    : "Good morning! We don't have enough live data yet to make a solid pick."}
                 </p>
               </div>
               <div className="brief-stat">
@@ -198,7 +198,7 @@ export default function HomeDashboard() {
               <div className="section-heading">
                 <div>
                   <span><Sparkles size={16} /> Today&apos;s Best Opportunities</span>
-                  <h1 id="best-opportunities">The recommendation is the product. The card is supporting evidence.</h1>
+                  <h1 id="best-opportunities">Our AI tells you what to do. The card is just proof.</h1>
                 </div>
                 <button type="button">View all opportunities <ArrowRight size={16} /></button>
               </div>
@@ -215,7 +215,7 @@ export default function HomeDashboard() {
 
             <section className="analysis-board" aria-labelledby="player-analysis">
               <div className="analysis-header">
-                <span><LineChart size={17} /> Decision Workspace</span>
+                <span><LineChart size={17} /> Player Breakdown</span>
                 <div className="analysis-actions">
                   <button type="button"><Star size={15} /> Add to watchlist</button>
                   <button type="button" aria-label="Share"><Radio size={15} /></button>
@@ -225,7 +225,7 @@ export default function HomeDashboard() {
               {locked ? (
                 <div className="decision-empty">
                   <strong>Opportunity feed is a Pro feature</strong>
-                  <p>Upgrade to unlock the Decision Workspace, today&apos;s opportunities, cards to avoid and recent AI predictions.</p>
+                  <p>Upgrade to unlock the Player Breakdown, today&apos;s picks, cards to avoid and recent AI predictions.</p>
                   <button type="button" onClick={() => navigate("/billing")}>Upgrade Now</button>
                 </div>
               ) : selected ? (
@@ -233,28 +233,27 @@ export default function HomeDashboard() {
               <div className="asset-grid">
                 <PlayerCard recommendation={selected} featured />
                 <div className="asset-thesis">
-                  <p className="asset-kicker">{selected.player.version ?? "FC market asset"}</p>
-                  <h2 id="player-analysis">{selected.player.name}</h2>
+                  <p className="asset-kicker">{selected.player.version ?? "FC Card"}</p>
+                  <h2 id="player-analysis">{displayName(selected.player)}</h2>
                   <p className="decision-summary">{selected.reasoning}</p>
                   <div className="decision-matrix">
-                    <DecisionMetric label="Recommendation" value={selected.recommendation} tone="buy" />
+                    <DecisionMetric label="Our Call" value={selected.recommendation} tone="buy" />
                     <DecisionMetric label="Confidence" value={`${confidence}%`} ring={confidence} />
-                    <DecisionMetric label="Expected ROI" value={expectedRoi} tone={selected.expectedRoi && selected.expectedRoi < 0 ? "sell" : "buy"} />
-                    <DecisionMetric label="Time Window" value={selected.holdingPeriod} />
+                    <DecisionMetric label="Expected Profit" value={expectedRoi} tone={selected.expectedRoi && selected.expectedRoi < 0 ? "sell" : "buy"} />
+                    <DecisionMetric label="How Long to Hold" value={selected.holdingPeriod} />
                   </div>
                   <div className="decision-proof-row">
-                    <span>{selected.updatedAt ? `Updated ${formatDateTime(selected.updatedAt)}` : "Updated timestamp unavailable"}</span>
-                    <span>{selected.dataQuality ?? "Data quality unknown"}</span>
-                    <span>{historicalMatches ? `${historicalMatches} historical matches` : "Not enough historical events yet"}</span>
-                    <span>{investment}/100 signal strength</span>
+                    <span>{selected.updatedAt ? `Updated ${formatDateTime(selected.updatedAt)}` : "Update time unavailable"}</span>
+                    <span>{DATA_QUALITY_LABEL[selected.dataQuality] ?? "Unknown data"}</span>
+                    <span>{historicalMatches ? `${historicalMatches} similar past situations` : "No similar situations yet"}</span>
+                    <span>{investment}/100 pick strength</span>
                   </div>
                   <div className="market-facts">
-                    <Fact label="Current BIN" value={formatCoins(selected.currentBin)} detail="from market data" />
-                    <Fact label="Fair Value" value={formatCoins(selected.fairValue)} detail="fair_value_mv" />
+                    <Fact label="Current BIN" value={formatCoins(selected.currentBin)} detail="Buy Now price right now" />
+                    <Fact label="Fair Value" value={formatCoins(selected.fairValue)} detail="typical recent price" />
                     <Fact label="Sales 24h" value={formatCount(selected.sales24h)} detail="completed sales" />
                     <Fact label="Sales 7d" value={formatCount(selected.sales7d)} detail="completed sales" />
-                    <Fact label="Data Quality" value={selected.dataQuality ?? "Unknown"} detail="backend guard" good={selected.dataQuality === "GOOD"} />
-                    <Fact label="Model" value={selected.modelVersion ?? "rules-v1"} detail="backend scored" />
+                    <Fact label="Data Quality" value={DATA_QUALITY_LABEL[selected.dataQuality] ?? "Unknown"} detail="how much we trust this" good={selected.dataQuality === "GOOD"} />
                   </div>
                 </div>
               </div>
@@ -264,14 +263,14 @@ export default function HomeDashboard() {
                   title="Why Now?"
                   items={[
                     "Cards are selling much faster than they're being listed.",
-                    "Buyers are absorbing supply quickly instead of waiting for undercuts.",
-                    ...((selected.marketDrivers || []).length ? selected.marketDrivers : ["The backend did not return enough drivers for this card yet."]),
-                    historicalMatches ? "Historical event support is available for this recommendation." : "Historical matching is not available yet.",
+                    "Buyers are snapping these up instead of waiting for a cheaper price.",
+                    ...((selected.marketDrivers || []).length ? selected.marketDrivers : ["We don't have more reasons for this card yet."]),
+                    historicalMatches ? "We've seen this happen before with similar cards." : "We haven't matched this to past situations yet.",
                   ]}
                 />
                 <div className="history-panel accountability-panel">
-                  <h3>Historical Evidence</h3>
-                  <p>{historicalMatches ? `${historicalMatches} matching events returned by the backend.` : "Not enough historical events yet."}</p>
+                  <h3>Past Results</h3>
+                  <p>{historicalMatches ? `We found ${historicalMatches} similar situations in the past.` : "Not enough past data yet."}</p>
                   <div>
                     <span>Average Profit <strong>n/a</strong></span>
                     <span>Win Rate <strong>n/a</strong></span>
@@ -303,14 +302,14 @@ export default function HomeDashboard() {
                     </AreaChart>
                   </ResponsiveContainer>
                   <p className="empty-rail" style={{ marginTop: "-1rem" }}>
-                    Per-card price history is available on the Player Page - not yet plotted inline here.
+                    Full price history is on this card&apos;s Player Page.
                   </p>
                 </div>
 
                 <div className="evidence-stack">
                   <div className="raw-context-panel">
-                    <h3>Raw Context</h3>
-                    <p>Use this only after the decision is clear. It explains the trade, but it should not make you hunt for one.</p>
+                    <h3>Extra Details</h3>
+                    <p>Just background info - you don&apos;t need this to make your decision.</p>
                     {(selected.marketDrivers || []).slice(0, 3).map((driver) => <span key={driver}>{driver}</span>)}
                   </div>
                 </div>
@@ -318,8 +317,8 @@ export default function HomeDashboard() {
               </>
               ) : (
                 <div className="decision-empty">
-                  <strong>No grounded recommendation yet</strong>
-                  <p>The backend did not return enough live market data to open a Decision Workspace. Search and player-level routes are the next integration step.</p>
+                  <strong>No pick yet</strong>
+                  <p>We don&apos;t have enough live data yet to break down a card. Try searching for a player instead.</p>
                 </div>
               )}
             </section>
@@ -330,14 +329,14 @@ export default function HomeDashboard() {
                 <Link className="mover" key={`${item.cardId}-${i}`} to={`/v2/players/${item.cardId}`}>
                   <Avatar player={item.player} />
                   <div>
-                    <strong>{item.player.name}</strong>
+                    <strong>{displayName(item.player)}</strong>
                     <span>{item.player.version ?? "Card"}</span>
                   </div>
                   <em>{item.expectedRoi === null || item.expectedRoi === undefined ? "n/a" : `${item.expectedRoi > 0 ? "+" : ""}${item.expectedRoi}%`}</em>
                   <small>{formatCoins(item.currentBin)}</small>
                 </Link>
               ))}
-              {!liveMovers.length ? <div className="mover-empty">No live mover feed returned yet.</div> : null}
+              {!liveMovers.length ? <div className="mover-empty">No mover data yet.</div> : null}
             </section>
           </section>
 
@@ -346,15 +345,15 @@ export default function HomeDashboard() {
               {dashboard.watchlistAlerts.map((alert) => (
                 <AlertRow key={`${alert.title}-${alert.message}`} tone="market" title={alert.title} asset={alert.severity.toUpperCase()} meta={alert.message} time="timestamp unavailable" />
               ))}
-              {!dashboard.watchlistAlerts.length ? <EmptyRail text="Persistent v2 alerts are not connected yet." /> : null}
+              {!dashboard.watchlistAlerts.length ? <EmptyRail text="No alerts set up yet." /> : null}
             </RailPanel>
 
-            <RailPanel title="Market State">
+            <RailPanel title="Market Mood">
               <div className="state-module">
                 <ConfidenceRing value={Math.round(dashboard.marketRegime.confidence || 0)} compact />
                 <div>
                   <strong>{dashboard.marketRegime.label}</strong>
-                  <p>{dashboard.marketRegime.summary || "Not enough live market data has been scored yet."}</p>
+                  <p>{dashboard.marketRegime.summary || "Not enough data yet to read the market."}</p>
                 </div>
               </div>
               <ResponsiveContainer width="100%" height={74}>
@@ -362,40 +361,40 @@ export default function HomeDashboard() {
                   <Area type="monotone" dataKey="price" stroke="#67e85f" strokeWidth={2} fill="rgba(103,232,95,.12)" />
                 </AreaChart>
               </ResponsiveContainer>
-              <div className="rail-comparison"><span>Liquid cards tracked</span><strong>{dashboard.marketRegime.metrics.liquidCards}</strong></div>
+              <div className="rail-comparison"><span>Cards being tracked</span><strong>{dashboard.marketRegime.metrics.liquidCards}</strong></div>
             </RailPanel>
 
-            <RailPanel title="Risk / Invalidation" danger>
+            <RailPanel title="What Could Go Wrong" danger>
               <ul className="risk-list">
-                <li>Demand fades before peak hours.</li>
-                <li>Supply rises faster than sales clear.</li>
-                <li>Price reaches fair value too early.</li>
-                <li>New content reduces SBC requirements.</li>
+                <li>People stop buying before the busiest hours.</li>
+                <li>More copies get listed than are actually selling.</li>
+                <li>The price catches up before you can sell.</li>
+                <li>New content means fewer people need this card.</li>
               </ul>
             </RailPanel>
 
             <RailPanel title="Content Countdown">
               <div className="countdown-module">
                 <strong>n/a</strong>
-                <p>No live content schedule is connected to v2 yet.</p>
+                <p>We don&apos;t have the content schedule connected yet.</p>
               </div>
             </RailPanel>
 
             <RailPanel title="Recent AI Changes">
               <div className="ai-change-list">
-                <p>Recommendation change snapshots are not persisted yet.</p>
+                <p>We're not tracking pick changes over time yet.</p>
               </div>
             </RailPanel>
 
             <RailPanel title="Yesterday's Calls">
               <div className="accountability-list">
-                <EmptyRail text="Recommendation accountability requires stored outcome snapshots." />
+                <EmptyRail text="We need to track results first before we can show this." />
               </div>
             </RailPanel>
           </aside>
         </div>
 
-        <p className="disclaimer">Past performance is not indicative of future results. Market data delays may apply.</p>
+        <p className="disclaimer">Nothing here is guaranteed - prices change fast and data may be a little delayed.</p>
       </main>
     </div>
   );
@@ -407,8 +406,8 @@ function LockedOpportunityStrip() {
       <article className="op-card empty">
         <div className="op-content">
           <span>PRO</span>
-          <strong>Opportunity feed is locked</strong>
-          <small>Upgrade to unlock today&apos;s BUY, WAIT and AVOID calls with full reasoning and evidence.</small>
+          <strong>Today&apos;s picks are locked</strong>
+          <small>Upgrade to unlock today&apos;s BUY, WAIT and AVOID picks, with the reasons why.</small>
           <div className="signal-foot">
             <Link to="/billing"><b>Upgrade Now</b></Link>
           </div>
@@ -421,6 +420,21 @@ function LockedOpportunityStrip() {
 function pickRecommendation(items, action) {
   return items.find((item) => item.recommendation === action);
 }
+
+// futbin's own card art prints a shorter display name than a player's
+// full legal name (e.g. "Mikel Merino" rather than "Mikel Merino
+// Zazón") - cardName is parsed straight off that card art (see
+// dashboard.py's _to_recommendation / useLiveCardLayers), so prefer it
+// everywhere a name is shown, falling back to the full name only for
+// cards that don't have it yet.
+function displayName(player) {
+  return player?.cardName || player?.name || "";
+}
+
+// GOOD/SUSPECT/LIMITED are internal backend status codes - translate to
+// plain language rather than showing them raw to a young FUT-trading
+// audience with no financial-trading background.
+const DATA_QUALITY_LABEL = { GOOD: "Reliable", SUSPECT: "Unusual pricing", LIMITED: "Limited data" };
 
 // The reference's own hrefs were same-page anchors (`#signals` etc.),
 // which meant nothing in that standalone app but is a real bug once
@@ -450,7 +464,7 @@ function OpportunityCard({ item, rank, accent }) {
       <PlayerCard recommendation={item} />
       <div className="op-content">
         <span>{action}</span>
-        <strong>{item.player.name}</strong>
+        <strong>{displayName(item.player)}</strong>
         <small>{plainReason(item, accent)}</small>
         <div className="op-stats-grid">
           <div>
@@ -458,7 +472,7 @@ function OpportunityCard({ item, rank, accent }) {
             <em>{Math.round(item.confidence)}%</em>
           </div>
           <div>
-            <p>Expected ROI</p>
+            <p>Expected Profit</p>
             <em>{roi}</em>
           </div>
           <div>
@@ -477,7 +491,7 @@ function OpportunityCard({ item, rank, accent }) {
         </div>
       </div>
       <ConfidenceRing value={Math.round(item.confidence)} />
-      <button type="button" aria-label={`Analyze ${item.player.name}`}>
+      <button type="button" aria-label={`View ${displayName(item.player)}`}>
         <ChevronRight size={18} />
       </button>
     </Link>
@@ -489,11 +503,10 @@ function EmptyOpportunity({ action }) {
     <article className="op-card empty">
       <div className="op-content">
         <span>{action}</span>
-        <strong>No grounded signal</strong>
-        <small>The backend did not return enough evidence for this recommendation type.</small>
+        <strong>No pick right now</strong>
+        <small>We don&apos;t have a solid {action.toLowerCase()} pick today.</small>
         <div className="signal-foot">
-          <b>Live only</b>
-          <b>No demo data</b>
+          <b>Live data only</b>
         </div>
       </div>
     </article>
@@ -502,9 +515,9 @@ function EmptyOpportunity({ action }) {
 
 function plainReason(item, accent) {
   if (accent === "buy") return "Cards are selling faster than they're being listed.";
-  if (accent === "wait") return "The name demand is real, but the market has not confirmed the entry.";
-  if (item.recommendation === "AVOID") return "The spread is too wide and buyer depth is too thin.";
-  return "Supply is rising faster than confirmed buyer demand.";
+  if (accent === "wait") return "People want this card, but the price hasn't settled yet.";
+  if (item.recommendation === "AVOID") return "The gap between buy and sell price is too big right now.";
+  return "More people are trying to sell this than are buying it.";
 }
 
 function EmptyRail({ text }) {
@@ -527,27 +540,34 @@ function formatDateTime(value) {
   return parsed.toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" });
 }
 
-// Same bg+cutout composite PlayerCardArt already draws on the Player
-// Search/Compare pages, not a bespoke image treatment - compact mode
-// (rating chip only, no stat grid) matches how every other v2 list/grid
-// context already uses it (CardArtThumb), since the surrounding markup
-// here (asset-thesis panel, op-content) already shows the name/stats
-// separately.
+// Full (non-compact) PlayerCardArt - the same bg+cutout+name+6-stat
+// overlay Player Search/Compare already render - rather than the
+// compact rating-chip-only mode: the whole point raised was that the
+// card itself should carry the name/stats, not just a badge next to a
+// photo. The featured card (~176px) has room for the full 6-stat grid;
+// the mini opportunity cards (~128px, 3 side by side) don't - the stat
+// grid's fixed text sizes turn into an illegible smear at that width, so
+// those keep rating/position/name only (showStats=false).
 function PlayerCard({ recommendation, featured }) {
   const player = recommendation.player;
   return (
     <div className={`player-card-art ${featured ? "featured" : ""}`}>
       <PlayerCardArt
-        compact
         bgImage={player.cardBgImage}
         cutoutImage={player.cardCutoutImage}
         cutoutType={player.cardCutoutType || "special"}
         fallbackImage={player.imageUrl}
         rating={player.rating}
-        altText={player.cardName || player.name}
-        widthClass={featured ? "w-28" : "w-16"}
+        position={player.position || player.version?.split(" - ")[0]}
+        name={displayName(player)}
+        altText={displayName(player)}
+        stats={player.stats}
+        nationImage={player.nationImage}
+        leagueImage={player.leagueImage}
+        clubImage={player.clubImage}
+        showStats={!!featured}
+        widthClass={featured ? "w-44" : "w-32"}
       />
-      <div className="card-name">{player.name}</div>
     </div>
   );
 }
