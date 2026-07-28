@@ -5,6 +5,9 @@ import PipelineHealthSection from "./sections/PipelineHealthSection";
 import MoversSection from "./sections/MoversSection";
 import ActivityFeedSection from "./sections/ActivityFeedSection";
 import WatchlistWidgetSection from "./sections/WatchlistWidgetSection";
+import OpportunitiesSection from "./sections/OpportunitiesSection";
+import HighConfidenceSection from "./sections/HighConfidenceSection";
+import AvoidSection from "./sections/AvoidSection";
 
 export default function HomeDashboard() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
@@ -25,6 +28,12 @@ export default function HomeDashboard() {
           </div>
         </>
       )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <OpportunitiesSection />
+        <HighConfidenceSection />
+        <AvoidSection />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <WatchlistWidgetSection />

@@ -8,16 +8,16 @@ import ImpactSection from "./sections/ImpactSection";
 export default function SbcEventDetail() {
   const { eventId } = useParams();
   const { data: event, isLoading, error } = useSbcEvent(eventId);
-  const { data: impact } = useSbcEventImpact(eventId);
+  const { data: impact, error: impactError } = useSbcEventImpact(eventId);
 
   if (isLoading) {
-    return <div className="p-6 text-sm text-[var(--v2-muted)]">Loading...</div>;
+    return <div role="status" className="p-6 text-sm text-[var(--v2-muted)]">Loading...</div>;
   }
 
   if (error) {
     const status = error?.response?.status;
     return (
-      <div className="p-6 text-sm text-[var(--v2-negative)]">
+      <div role="alert" className="p-6 text-sm text-[var(--v2-negative)]">
         {status === 404 ? "SBC set not found." : "Something went wrong loading this set."}
       </div>
     );
@@ -26,7 +26,7 @@ export default function SbcEventDetail() {
   return (
     <div className="p-6 max-w-5xl mx-auto flex flex-col gap-6">
       <ChallengeBreakdownSection event={event} />
-      <ImpactSection impact={impact} />
+      <ImpactSection impact={impact} status={impactError?.response?.status} />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import PlayerPage from "./pages/PlayerPage/PlayerPage";
 import SbcHub from "./pages/SbcHub/SbcHub";
 import SbcEventDetail from "./pages/SbcEventDetail/SbcEventDetail";
 import AdminSbcImports from "./pages/AdminSbcImports/AdminSbcImports";
+import Admin from "./pages/Admin/Admin";
 
 export default function V2App() {
   return (
@@ -24,6 +25,7 @@ export default function V2App() {
         <Route path="players/:cardId" element={<PlayerPage />} />
         <Route path="sbc" element={<SbcHub />} />
         <Route path="sbc/:eventId" element={<SbcEventDetail />} />
+        <Route path="admin" element={<Admin />} />
         <Route path="admin/sbc-imports" element={<AdminSbcImports />} />
       </Routes>
     </div>

@@ -1,11 +1,13 @@
 // src/v2/pages/SbcEventDetail/sections/ImpactSection.jsx
 //
-// Ungated for now (Phase 2) - the backend route has no require_feature
-// yet. Phase 4 adds that gate and this section's data will start
-// carrying a `locked` signal to wrap in PremiumGate, matching the
-// pattern FairValueSection already uses.
+// Gated behind "sbc_impact_predictions" as of Phase 4. The hook uses
+// react-query, so a 401/402 lands in the query's `error`, not `data` -
+// SbcEventDetail.jsx passes that status through as a prop rather than
+// this section re-deriving it, matching FairValueSection's principle
+// of trusting a server-decided signal over a client-side guess.
 import { Link } from "react-router-dom";
 import SectionCard from "../../../components/SectionCard";
+import PremiumGate from "../../../components/PremiumGate";
 import { formatCoins, formatPct } from "../../../lib/format";
 
 const RELATION_LABEL = {
@@ -15,7 +17,15 @@ const RELATION_LABEL = {
   requirement_target: "Requirement target",
 };
 
-export default function ImpactSection({ impact }) {
+export default function ImpactSection({ impact, status }) {
+  if (status === 401 || status === 402) {
+    return (
+      <SectionCard title="Market Impact">
+        <PremiumGate locked featureName="SBC Impact Predictions" />
+      </SectionCard>
+    );
+  }
+
   const items = impact?.items || [];
 
   if (items.length === 0) {
