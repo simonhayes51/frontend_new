@@ -6,6 +6,8 @@ import MarketMetricsSection from "./sections/MarketMetricsSection";
 import FairValueSection from "./sections/FairValueSection";
 import LazyBuyerSection from "./sections/LazyBuyerSection";
 import DealConfidenceSection from "./sections/DealConfidenceSection";
+import ScoresSection from "./sections/ScoresSection";
+import RecommendationSection from "./sections/RecommendationSection";
 import SalesChartSection from "./sections/SalesChartSection";
 import DeferredSections from "./sections/DeferredSections";
 
@@ -36,6 +38,9 @@ export default function PlayerPage() {
         <LazyBuyerSection lazyBuyerScore={data?.lazy_buyer_score} />
         <DealConfidenceSection dealConfidence={data?.deal_confidence} />
       </div>
+
+      <RecommendationSection recommendation={data?.recommendation} />
+      <ScoresSection cardScores={data?.card_scores} />
 
       <SalesChartSection cardId={cardId} />
 
