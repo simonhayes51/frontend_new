@@ -629,11 +629,23 @@
   line-height: 1.35;
 }
 
+/* A 2-column grid only has ~35-58px per cell in this 3-cards-wide strip
+   (266-330px op-card, minus the 82px art column and 52px ring column) -
+   not enough room for "Confidence"/"Expected ROI" without wrapping into
+   each other. A single-column list of label-left/value-right rows uses
+   the same vertical space without needing that width. */
 .terminal-shell .op-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 12px;
+}
+
+.terminal-shell .op-stats-grid > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .terminal-shell .op-content p {
@@ -695,6 +707,17 @@
   flex-direction: column;
   align-items: center;
   gap: 6px;
+}
+
+/* PlayerCardArt's own root div (the direct child here) has no card
+   template to visually frame it until card_bg_image/card_cutout_image
+   are backfilled for a given card - give it a light border/corner
+   radius so it doesn't read as a loose, unbounded photo in the
+   meantime. */
+.terminal-shell .player-card-art > div {
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
 .terminal-shell .card-name {
@@ -1085,9 +1108,14 @@
   line-height: 1.35;
 }
 
+/* A fixed 5-column grid reserves 1/5 of the row's width per mover
+   regardless of how many actually render - dashboard.py's movers query
+   returns at most 3 distinct slots, so those 3 were squeezed into 3/5
+   of the available width while the other 2/5 sat empty. A flex row
+   gives however many real movers there are an equal share of the full
+   width instead. */
 .terminal-shell .movers-row {
-  display: grid;
-  grid-template-columns: 128px repeat(5, minmax(0, 1fr));
+  display: flex;
   align-items: center;
   min-height: 88px;
   padding: 12px 14px;
@@ -1095,6 +1123,7 @@
 }
 
 .terminal-shell .row-title {
+  flex: 0 0 auto;
   font-size: 14px;
   font-weight: 900;
   text-transform: uppercase;
@@ -1106,6 +1135,7 @@
 }
 
 .terminal-shell .mover {
+  flex: 1 1 0;
   gap: 8px;
   min-width: 0;
 }
@@ -1114,6 +1144,12 @@
   display: flex;
   align-items: center;
   flex: 0 0 auto;
+}
+
+.terminal-shell .avatar > div {
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
 .terminal-shell .mover div {
@@ -1529,9 +1565,12 @@
   .terminal-shell .opportunity-cards,
   .terminal-shell .asset-grid,
   .terminal-shell .decision-matrix,
-  .terminal-shell .movers-row,
   .terminal-shell .intelligence-rail {
     grid-template-columns: 1fr;
+  }
+
+  .terminal-shell .movers-row {
+    flex-wrap: wrap;
   }
 
   .terminal-shell .operator-cluster {

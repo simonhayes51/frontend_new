@@ -139,18 +139,29 @@ export default function PlayerCardArt({
           )}
         </>
       ) : (
-        <img
-          src={fallbackImage}
-          alt={altText}
-          className="absolute inset-0 w-full h-full object-contain"
-          referrerPolicy="no-referrer"
-          onError={(e) => {
-            if (!e.currentTarget.dataset.triedProxy) {
-              e.currentTarget.dataset.triedProxy = "1";
-              e.currentTarget.src = buildProxy(fallbackImage);
-            }
-          }}
-        />
+        <>
+          <img
+            src={fallbackImage}
+            alt={altText}
+            className="absolute inset-0 w-full h-full object-contain"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              if (!e.currentTarget.dataset.triedProxy) {
+                e.currentTarget.dataset.triedProxy = "1";
+                e.currentTarget.src = buildProxy(fallbackImage);
+              }
+            }}
+          />
+          {/* No card template here to sit the plain centered-text badge
+              against, so this gets its own small dark pill instead -
+              still shows the rating even before card_bg_image/
+              card_cutout_image are backfilled for a card. */}
+          {compact && rating != null && (
+            <div className="absolute top-1 left-1 bg-black/70 text-white leading-none px-1 py-0.5 rounded text-[9px] font-extrabold">
+              {rating}
+            </div>
+          )}
+        </>
       )}
       {versionLabel && (
         <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
