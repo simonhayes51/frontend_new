@@ -9,9 +9,9 @@ export default function SbcHub() {
     <div className="p-6 max-w-5xl mx-auto flex flex-col gap-6">
       <h1 className="text-xl font-semibold">SBC Hub</h1>
       {isLoading ? (
-        <p className="text-sm text-[var(--v2-muted)]">Loading...</p>
+        <p role="status" className="text-sm text-[var(--v2-muted)]">Loading...</p>
       ) : error ? (
-        <p className="text-sm text-[var(--v2-negative)]">Couldn't load SBC sets right now.</p>
+        <p role="alert" className="text-sm text-[var(--v2-negative)]">Couldn't load SBC sets right now.</p>
       ) : (
         <SbcListSection events={data?.items} />
       )}

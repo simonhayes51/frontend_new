@@ -36,13 +36,13 @@ export default function Admin() {
   const { isLoading, error } = useAdminPipelineHealth();
 
   if (isLoading) {
-    return <div className="p-6 text-sm text-[var(--v2-muted)]">Loading...</div>;
+    return <div role="status" className="p-6 text-sm text-[var(--v2-muted)]">Loading...</div>;
   }
 
   if (error) {
     const status = error?.response?.status;
     return (
-      <div className="p-6 text-sm text-[var(--v2-negative)]">
+      <div role="alert" className="p-6 text-sm text-[var(--v2-negative)]">
         {status === 403 ? "Admin access required." : "Couldn't load the admin area."}
       </div>
     );
@@ -59,10 +59,14 @@ export default function Admin() {
         </Link>
       </div>
 
-      <div className="flex items-center gap-1 border-b border-[var(--v2-border)] overflow-x-auto">
+      <div role="tablist" aria-label="Admin sections" className="flex items-center gap-1 border-b border-[var(--v2-border)] overflow-x-auto">
         {TABS.map((t) => (
           <button
             key={t.key}
+            role="tab"
+            id={`admin-tab-${t.key}`}
+            aria-selected={tab === t.key}
+            aria-controls={`admin-tabpanel-${t.key}`}
             onClick={() => setTab(t.key)}
             className={`px-3 py-2 text-xs font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
               tab === t.key
@@ -75,7 +79,9 @@ export default function Admin() {
         ))}
       </div>
 
-      <Active />
+      <div role="tabpanel" id={`admin-tabpanel-${tab}`} aria-labelledby={`admin-tab-${tab}`}>
+        <Active />
+      </div>
     </div>
   );
 }

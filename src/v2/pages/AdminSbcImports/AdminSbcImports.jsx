@@ -11,13 +11,13 @@ export default function AdminSbcImports() {
   const { data, isLoading, error } = useAdminSbcImports();
 
   if (isLoading) {
-    return <div className="p-6 text-sm text-[var(--v2-muted)]">Loading...</div>;
+    return <div role="status" className="p-6 text-sm text-[var(--v2-muted)]">Loading...</div>;
   }
 
   if (error) {
     const status = error?.response?.status;
     return (
-      <div className="p-6 text-sm text-[var(--v2-negative)]">
+      <div role="alert" className="p-6 text-sm text-[var(--v2-negative)]">
         {status === 403 ? "Admin access required." : "Couldn't load SBC import status."}
       </div>
     );
@@ -27,7 +27,9 @@ export default function AdminSbcImports() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto flex flex-col gap-6">
-      <h1 className="text-xl font-semibold">SBC Imports</h1>
+      {/* h2, not h1: this page is also reused as a tab inside Admin.jsx,
+          which already renders its own page-level h1. */}
+      <h2 className="text-xl font-semibold">SBC Imports</h2>
 
       <SectionCard title="Collector Status">
         <div className="grid grid-cols-3 gap-4">
