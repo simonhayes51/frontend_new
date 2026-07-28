@@ -686,88 +686,26 @@
   cursor: pointer;
 }
 
-.terminal-shell .player-card {
-  position: relative;
-  display: grid;
-  align-content: space-between;
-  width: 76px;
-  height: 110px;
-  padding: 9px 7px 8px;
-  clip-path: polygon(13% 0%, 87% 0%, 100% 13%, 94% 87%, 50% 100%, 6% 87%, 0% 13%);
-  background:
-    linear-gradient(135deg, rgba(252, 218, 98, 0.78), rgba(28, 21, 10, 0.92) 36%, rgba(6, 8, 12, 0.96) 64%, rgba(252, 218, 98, 0.62)),
-    #0b0f15;
-  box-shadow: inset 0 0 0 2px rgba(255, 228, 128, 0.84);
-}
-
-.terminal-shell .player-card.featured {
-  width: 116px;
-  height: 166px;
-}
-
-.terminal-shell .card-rating strong,
-.terminal-shell .card-rating span,
-.terminal-shell .card-name {
-  display: block;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
-}
-
-.terminal-shell .card-rating strong {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.terminal-shell .player-card.featured .card-rating strong {
-  font-size: 30px;
-}
-
-.terminal-shell .card-rating span {
-  color: #fff7cf;
-  font-size: 9px;
-  font-weight: 900;
-}
-
-.terminal-shell .player-portrait {
-  display: grid;
-  place-items: center;
-  justify-self: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  color: #071009;
-  background: linear-gradient(135deg, #e9eef7, #8190a8);
-  font-size: 15px;
-  font-weight: 950;
-  overflow: hidden;
-}
-
-.terminal-shell .player-portrait img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.terminal-shell .featured .player-portrait {
-  width: 78px;
-  height: 78px;
-  font-size: 24px;
+/* Wraps the real bg+cutout card art (PlayerCardArt, the same component
+   Player Search/Compare use) plus a name label - replaces this file's
+   original hand-drawn hexagon/gold-gradient placeholder card now that
+   real futbin card art is wired through. */
+.terminal-shell .player-card-art {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
 }
 
 .terminal-shell .card-name {
   text-align: center;
   font-size: 11px;
   font-weight: 950;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
 }
 
 .terminal-shell .featured .card-name {
-  font-size: 17px;
-}
-
-.terminal-shell .flag-line {
-  justify-self: center;
-  width: 16px;
-  height: 9px;
-  background: linear-gradient(90deg, #2949a8 0 33%, #fff 33% 66%, #d82635 66%);
+  font-size: 14px;
 }
 
 .terminal-shell .confidence-ring {
@@ -1173,23 +1111,9 @@
 }
 
 .terminal-shell .avatar {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
   flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  color: #0a0f16;
-  background: linear-gradient(135deg, #f5f7fb, #8795aa);
-  font-size: 11px;
-  font-weight: 950;
-  overflow: hidden;
-}
-
-.terminal-shell .avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .terminal-shell .mover div {

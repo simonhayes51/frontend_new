@@ -12,8 +12,8 @@
 // Countdown, Recent AI Changes, Yesterday's Calls, Historical
 // Evidence's n/a stats) matches the reference's own honest-empty
 // treatment for panels with no real backing data source yet.
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Activity,
   ArrowRight,
@@ -47,6 +47,7 @@ import {
 } from "recharts";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useEntitlements } from "../../../context/EntitlementsContext";
+import PlayerCardArt from "../../../components/PlayerCardArt";
 import "../../styles/terminal.css";
 
 const EMPTY_DASHBOARD = {
@@ -65,6 +66,7 @@ const EMPTY_DASHBOARD = {
 export default function HomeDashboard() {
   const { data, isLoading, isError } = useDashboard();
   const { isPremium, isAdmin, features } = useEntitlements();
+  const navigate = useNavigate();
   const dashboard = data ?? EMPTY_DASHBOARD;
   const status = isLoading ? "loading" : isError ? "fallback" : "live";
   const locked = !!dashboard.locked?.opportunityFeed;
@@ -102,20 +104,20 @@ export default function HomeDashboard() {
           <strong>FC27 Intelligence</strong>
         </Link>
         <nav className="nav-list">
-          <NavItem icon={<Home size={18} />} label="Home" href="/v2" active />
-          <NavItem icon={<Activity size={18} />} label="Signals" href="#signals" />
-          <NavItem icon={<Users size={18} />} label="Players" href="#players" />
-          <NavItem icon={<BarChart3 size={18} />} label="Market" href="#market" />
-          <NavItem icon={<Star size={18} />} label="Watchlist" href="#watchlist" />
-          <NavItem icon={<Bell size={18} />} label="Alerts" href="#alerts" badge={dashboard.watchlistAlerts.length ? String(dashboard.watchlistAlerts.length) : undefined} />
-          <NavItem icon={<Briefcase size={18} />} label="Portfolio" href="#portfolio" />
-          <NavItem icon={<Code2 size={18} />} label="API" href="#api" />
+          <NavItem icon={<Home size={18} />} label="Home" to="/v2" active />
+          <NavItem icon={<Activity size={18} />} label="Signals" to="/v2" />
+          <NavItem icon={<Users size={18} />} label="Players" to="/player-search" />
+          <NavItem icon={<BarChart3 size={18} />} label="Market" to="/trending" />
+          <NavItem icon={<Star size={18} />} label="Watchlist" to="/watchlist" />
+          <NavItem icon={<Bell size={18} />} label="Alerts" to="/watchlist" badge={dashboard.watchlistAlerts.length ? String(dashboard.watchlistAlerts.length) : undefined} />
+          <NavItem icon={<Briefcase size={18} />} label="Portfolio" to="/trades" />
+          <NavItem icon={<Code2 size={18} />} label="API" to="/v2" />
         </nav>
         {tierLabel !== "ELITE" ? (
           <div className="upgrade-panel">
             <span><Crown size={15} /> {tierLabel === "FREE" ? "Free Plan" : `${tierLabel} Plan`}</span>
             <p>Unlock the full opportunity feed, avoid list and AI predictions.</p>
-            <Link to="/billing"><button type="button">Upgrade Now</button></Link>
+            <button type="button" onClick={() => navigate("/billing")}>Upgrade Now</button>
           </div>
         ) : null}
       </aside>
@@ -198,7 +200,7 @@ export default function HomeDashboard() {
                 <div className="decision-empty">
                   <strong>Opportunity feed is a Pro feature</strong>
                   <p>Upgrade to unlock the Decision Workspace, today&apos;s opportunities, cards to avoid and recent AI predictions.</p>
-                  <Link to="/billing"><button type="button">Upgrade Now</button></Link>
+                  <button type="button" onClick={() => navigate("/billing")}>Upgrade Now</button>
                 </div>
               ) : selected ? (
               <>
@@ -300,7 +302,7 @@ export default function HomeDashboard() {
               <div className="row-title">Top Movers <small>24h</small></div>
               {(liveMovers.length ? liveMovers.slice(0, 5) : []).map((item, i) => (
                 <Link className="mover" key={`${item.cardId}-${i}`} to={`/v2/players/${item.cardId}`}>
-                  <Avatar name={item.player.name} imageUrl={item.player.cardCutoutImage || item.player.imageUrl} />
+                  <Avatar player={item.player} />
                   <div>
                     <strong>{item.player.name}</strong>
                     <span>{item.player.version ?? "Card"}</span>
@@ -394,13 +396,20 @@ function pickRecommendation(items, action) {
   return items.find((item) => item.recommendation === action);
 }
 
-function NavItem({ icon, label, active, badge, href }) {
+// The reference's own hrefs were same-page anchors (`#signals` etc.),
+// which meant nothing in that standalone app but is a real bug once
+// mounted under this app's HashRouter: `#signals` becomes the entire
+// route (pathname "signals", no leading slash), which matches no
+// route and 404s. Routes to real destinations - falling back to /v2
+// itself for the ones with no dedicated page yet - rather than
+// reproducing that broken pattern.
+function NavItem({ icon, label, active, badge, to }) {
   return (
-    <a className={`nav-item ${active ? "active" : ""}`} href={href || `#${label.toLowerCase()}`}>
+    <Link className={`nav-item ${active ? "active" : ""}`} to={to}>
       {icon}
       <span>{label}</span>
       {badge ? <em>{badge}</em> : null}
-    </a>
+    </Link>
   );
 }
 
@@ -492,39 +501,27 @@ function formatDateTime(value) {
   return parsed.toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" });
 }
 
-function initialsOf(name) {
-  return (name || "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
+// Same bg+cutout composite PlayerCardArt already draws on the Player
+// Search/Compare pages, not a bespoke image treatment - compact mode
+// (rating chip only, no stat grid) matches how every other v2 list/grid
+// context already uses it (CardArtThumb), since the surrounding markup
+// here (asset-thesis panel, op-content) already shows the name/stats
+// separately.
 function PlayerCard({ recommendation, featured }) {
   const player = recommendation.player;
-  const imageUrl = player.cardCutoutImage || player.imageUrl;
-
   return (
-    <div className={`player-card ${featured ? "featured" : ""}`}>
-      <div className="card-rating">
-        <strong>{player.rating ?? "--"}</strong>
-        <span>{player.version?.split(" - ")[0] ?? "CB"}</span>
-      </div>
-      <PortraitImage className="player-portrait" src={imageUrl} alt={player.cardName || player.name} initials={initialsOf(player.name)} />
+    <div className={`player-card-art ${featured ? "featured" : ""}`}>
+      <PlayerCardArt
+        compact
+        bgImage={player.cardBgImage}
+        cutoutImage={player.cardCutoutImage}
+        cutoutType={player.cardCutoutType || "special"}
+        fallbackImage={player.imageUrl}
+        rating={player.rating}
+        altText={player.cardName || player.name}
+        widthClass={featured ? "w-28" : "w-16"}
+      />
       <div className="card-name">{player.name}</div>
-      <div className="flag-line" />
-    </div>
-  );
-}
-
-function PortraitImage({ className, src, alt, initials }) {
-  const [broken, setBroken] = useState(false);
-  if (!src || broken) return <div className={className}>{initials}</div>;
-  return (
-    <div className={className}>
-      <img src={src} alt={alt || ""} onError={() => setBroken(true)} />
     </div>
   );
 }
@@ -601,13 +598,19 @@ function AlertRow({ tone, title, asset, meta, time }) {
   );
 }
 
-function Avatar({ name, imageUrl }) {
-  const [broken, setBroken] = useState(false);
-  const initials = initialsOf(name);
-  if (!imageUrl || broken) return <span className="avatar">{initials}</span>;
+function Avatar({ player }) {
   return (
     <span className="avatar">
-      <img src={imageUrl} alt="" onError={() => setBroken(true)} />
+      <PlayerCardArt
+        compact
+        bgImage={player.cardBgImage}
+        cutoutImage={player.cardCutoutImage}
+        cutoutType={player.cardCutoutType || "special"}
+        fallbackImage={player.imageUrl}
+        rating={player.rating}
+        altText={player.cardName || player.name}
+        widthClass="w-10"
+      />
     </span>
   );
 }
