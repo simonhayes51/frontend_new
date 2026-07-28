@@ -9,7 +9,10 @@ import SectionCard from "./SectionCard";
 import ConfidenceGauge from "./ConfidenceGauge";
 import { useMarketRegime } from "../hooks/useMarketRegime";
 
-const STATE_LABEL = { bullish: "Bullish", bearish: "Bearish", illiquid: "Illiquid", normal: "Normal" };
+// Plain, FUT-trader-facing labels rather than stock-market jargon - this
+// product's audience trades FUT cards, not stocks, and isn't assumed to
+// know terms like "bullish"/"bearish"/"illiquid".
+const STATE_LABEL = { bullish: "Good Time to Buy", bearish: "Prices Dropping", illiquid: "Slow Trading", normal: "Steady Market" };
 const STATE_TONE = {
   bullish: "text-[var(--v2-positive)]",
   bearish: "text-[var(--v2-negative)]",

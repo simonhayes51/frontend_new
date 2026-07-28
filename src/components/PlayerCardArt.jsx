@@ -34,6 +34,12 @@ export default function PlayerCardArt({
   // neither existing call site (PlayerSearch.jsx, PlayerCompare.jsx)
   // passes this, so their current rendering is unchanged.
   compact = false,
+  // Non-compact but still too narrow for the 6-stat grid to stay legible
+  // (e.g. a ~130-160px card in a 3-across row) - name/rating/position
+  // still fit fine at that width, only the stat grid + nation/league/
+  // club icons need to drop. Defaults true so every existing non-compact
+  // call site (full ~192px cards) is unaffected.
+  showStats = true,
 }) {
   // Card images don't all share one fixed aspect ratio, and object-contain
   // inside a hardcoded box letterboxes whichever ones don't match -
@@ -106,34 +112,38 @@ export default function PlayerCardArt({
                 <div className={`text-center text-sm font-bold truncate mb-0.5 ${overlayTextClass}`}>
                   {name}
                 </div>
-                <div className="grid grid-cols-6 gap-0.5 mb-0.5">
-                  {[
-                    ["PAC", stats?.pace],
-                    ["SHO", stats?.shooting],
-                    ["PAS", stats?.passing],
-                    ["DRI", stats?.dribbling],
-                    ["DEF", stats?.defending],
-                    ["PHY", stats?.physicality],
-                  ].map(([label, value]) => (
-                    <div key={label} className="text-center leading-tight">
-                      <div className={`text-[10px] font-extrabold ${overlayTextClass}`}>
-                        {value || "-"}
-                      </div>
-                      <div className={`text-[6px] font-semibold ${overlayTextMutedClass}`}>{label}</div>
+                {showStats && (
+                  <>
+                    <div className="grid grid-cols-6 gap-0.5 mb-0.5">
+                      {[
+                        ["PAC", stats?.pace],
+                        ["SHO", stats?.shooting],
+                        ["PAS", stats?.passing],
+                        ["DRI", stats?.dribbling],
+                        ["DEF", stats?.defending],
+                        ["PHY", stats?.physicality],
+                      ].map(([label, value]) => (
+                        <div key={label} className="text-center leading-tight">
+                          <div className={`text-[10px] font-extrabold ${overlayTextClass}`}>
+                            {value || "-"}
+                          </div>
+                          <div className={`text-[6px] font-semibold ${overlayTextMutedClass}`}>{label}</div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-center gap-1">
-                  {nationImage && (
-                    <img src={nationImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
-                  )}
-                  {leagueImage && (
-                    <img src={leagueImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
-                  )}
-                  {clubImage && (
-                    <img src={clubImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
-                  )}
-                </div>
+                    <div className="flex items-center justify-center gap-1">
+                      {nationImage && (
+                        <img src={nationImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
+                      )}
+                      {leagueImage && (
+                        <img src={leagueImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
+                      )}
+                      {clubImage && (
+                        <img src={clubImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </>
           )}
