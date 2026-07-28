@@ -52,7 +52,7 @@ export default function PlayerPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto flex flex-col gap-6">
+    <div className="p-6 max-w-6xl mx-auto flex flex-col gap-6">
       {summaryContent}
 
       <SalesChartSection cardId={cardId} />

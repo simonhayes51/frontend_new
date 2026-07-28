@@ -38,3 +38,13 @@ export default function RecommendationBadge({ recommendation, size = "sm" }) {
     </span>
   );
 }
+
+// Shared with ConfidenceGauge/border-coloring wherever a recommendation
+// drives more than just the badge - keeps the "buy=green/hold=amber/
+// avoid=red" mapping defined in exactly one place.
+export const TONE_FOR_RECOMMENDATION = { buy: "positive", hold: "warning", avoid: "negative" };
+export const BORDER_FOR_RECOMMENDATION = {
+  buy: "border-[var(--v2-positive)]/40",
+  hold: "border-[var(--v2-warning)]/40",
+  avoid: "border-[var(--v2-negative)]/40",
+};
