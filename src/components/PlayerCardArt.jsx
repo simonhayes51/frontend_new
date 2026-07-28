@@ -165,10 +165,18 @@ export default function PlayerCardArt({
           {/* No card template here to sit the plain centered-text badge
               against, so this gets its own small dark pill instead -
               still shows the rating even before card_bg_image/
-              card_cutout_image are backfilled for a card. */}
-          {compact && rating != null && (
+              card_cutout_image are backfilled for a card. Shown in both
+              compact and non-compact modes - a bare, unlabeled photo with
+              nothing overlaid on it is a real regression, not a smaller
+              version of the full card. */}
+          {rating != null && (
             <div className="absolute top-1 left-1 bg-black/70 text-white leading-none px-1 py-0.5 rounded text-[9px] font-extrabold">
               {rating}
+            </div>
+          )}
+          {!compact && name && (
+            <div className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-center text-xs font-bold truncate px-1 py-1">
+              {name}
             </div>
           )}
         </>
