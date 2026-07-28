@@ -15,21 +15,31 @@ import SbcEventDetail from "./pages/SbcEventDetail/SbcEventDetail";
 import AdminSbcImports from "./pages/AdminSbcImports/AdminSbcImports";
 import Admin from "./pages/Admin/Admin";
 
+// HomeDashboard renders its own full-page terminal-shell (sidebar +
+// topbar, see src/v2/styles/terminal.css) - a literal port of the
+// user-supplied reference design - so it's mounted standalone, not
+// nested inside the Sidebar/BottomNav shell every other v2 page still
+// uses. That keeps this a Home-Dashboard-scoped visual change rather
+// than a site-wide shell swap.
 export default function V2App() {
+  return (
+    <Routes>
+      <Route index element={<HomeDashboard />} />
+      <Route path="health" element={<ShellLayout><HealthCheck /></ShellLayout>} />
+      <Route path="players/:cardId" element={<ShellLayout><PlayerPage /></ShellLayout>} />
+      <Route path="sbc" element={<ShellLayout><SbcHub /></ShellLayout>} />
+      <Route path="sbc/:eventId" element={<ShellLayout><SbcEventDetail /></ShellLayout>} />
+      <Route path="admin" element={<ShellLayout><Admin /></ShellLayout>} />
+      <Route path="admin/sbc-imports" element={<ShellLayout><AdminSbcImports /></ShellLayout>} />
+    </Routes>
+  );
+}
+
+function ShellLayout({ children }) {
   return (
     <div className="v2-root">
       <Nav />
-      <div className="lg:pl-56 pb-16 lg:pb-0">
-        <Routes>
-          <Route index element={<HomeDashboard />} />
-          <Route path="health" element={<HealthCheck />} />
-          <Route path="players/:cardId" element={<PlayerPage />} />
-          <Route path="sbc" element={<SbcHub />} />
-          <Route path="sbc/:eventId" element={<SbcEventDetail />} />
-          <Route path="admin" element={<Admin />} />
-          <Route path="admin/sbc-imports" element={<AdminSbcImports />} />
-        </Routes>
-      </div>
+      <div className="lg:pl-56 pb-16 lg:pb-0">{children}</div>
     </div>
   );
 }
