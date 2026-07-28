@@ -9,6 +9,7 @@ export default function Nav() {
       </Link>
       <div className="flex items-center gap-4 text-xs text-[var(--v2-muted)]">
         <Link to="/v2" className="hover:text-[var(--v2-text)]">Home</Link>
+        <Link to="/v2/sbc" className="hover:text-[var(--v2-text)]">SBCs</Link>
         <Link to="/" className="hover:text-[var(--v2-text)]">Back to v1</Link>
       </div>
     </div>
