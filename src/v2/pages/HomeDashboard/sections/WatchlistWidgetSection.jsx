@@ -1,6 +1,7 @@
 // src/v2/pages/HomeDashboard/sections/WatchlistWidgetSection.jsx
 import { Link } from "react-router-dom";
 import SectionCard from "../../../components/SectionCard";
+import CardArtThumb from "../../../components/CardArtThumb";
 import { useWatchlist } from "../../../hooks/useWatchlist";
 import { formatCoins, formatPct } from "../../../lib/format";
 
@@ -37,11 +38,12 @@ export default function WatchlistWidgetSection() {
       ) : (
         <ul className="flex flex-col divide-y divide-[var(--v2-border)]">
           {items.map((it) => (
-            <li key={it.id} className="flex items-center justify-between py-1.5 text-xs">
-              <Link to={`/v2/players/${it.card_id}`} className="hover:text-[var(--v2-accent)]">
+            <li key={it.id} className="flex items-center gap-3 py-2 text-xs">
+              <CardArtThumb card={it} widthClass="w-9" />
+              <Link to={`/v2/players/${it.card_id}`} className="flex-1 min-w-0 truncate hover:text-[var(--v2-accent)]">
                 {it.name || it.player_name}
               </Link>
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-2 whitespace-nowrap">
                 <span>{formatCoins(it.current_price)}</span>
                 {it.change_pct !== null && it.change_pct !== undefined && (
                   <span

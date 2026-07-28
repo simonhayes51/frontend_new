@@ -3,7 +3,7 @@
 // Real OHLC candles + sale markers, direct v1 endpoints (see the v2
 // plan section 1.4) - independently timeframe-toggled, so kept out of
 // the aggregated /summary payload on purpose.
-import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip } from "recharts";
+import { ResponsiveContainer, ComposedChart, Area, Bar, XAxis, YAxis, Tooltip } from "recharts";
 import SectionCard from "../../../components/SectionCard";
 import { useSalesCandles, useSalesHistory } from "../../../hooks/useSalesCandles";
 import { formatCoins, formatRelativeTime } from "../../../lib/format";
@@ -28,13 +28,26 @@ export default function SalesChartSection({ cardId }) {
       ) : (
         <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={chartData}>
+            <defs>
+              <linearGradient id="salesChartFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--v2-accent)" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="var(--v2-accent)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
             <XAxis dataKey="time" tick={{ fontSize: 10 }} stroke="var(--v2-muted)" />
             <YAxis tick={{ fontSize: 10 }} stroke="var(--v2-muted)" />
             <Tooltip
               contentStyle={{ background: "var(--v2-elevated)", border: "1px solid var(--v2-border)" }}
             />
             <Bar dataKey="volume" fill="var(--v2-border)" yAxisId={0} />
-            <Line type="monotone" dataKey="close" stroke="var(--v2-accent)" dot={false} strokeWidth={2} />
+            <Area
+              type="monotone"
+              dataKey="close"
+              stroke="var(--v2-accent)"
+              strokeWidth={2}
+              fill="url(#salesChartFill)"
+              dot={false}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       )}

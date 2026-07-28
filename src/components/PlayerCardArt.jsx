@@ -26,6 +26,14 @@ export default function PlayerCardArt({
   versionLabel,
   altText,
   widthClass = "w-48",
+  // List-row usage (v2's card art, ~32-56px wide) has no room for the
+  // name/6-stat-grid/mini-badge overlay block below - its fixed text
+  // sizes (text-xl/text-[10px]/text-[6px]) don't scale down further and
+  // would overflow at that size. compact keeps just the layered
+  // bg+cutout art plus a single small rating chip. Purely additive -
+  // neither existing call site (PlayerSearch.jsx, PlayerCompare.jsx)
+  // passes this, so their current rendering is unchanged.
+  compact = false,
 }) {
   // Card images don't all share one fixed aspect ratio, and object-contain
   // inside a hardcoded box letterboxes whichever ones don't match -
@@ -83,44 +91,52 @@ export default function PlayerCardArt({
             }}
           />
 
-          <div className="absolute top-[22%] left-[18%] flex flex-col items-center leading-none">
-            <span className={`text-xl font-extrabold ${overlayTextClass}`}>{rating}</span>
-            <span className={`text-[10px] font-bold mt-0.5 ${overlayTextClass}`}>{position}</span>
-          </div>
+          {compact ? (
+            <div className="absolute top-[10%] left-1/2 -translate-x-1/2 leading-none">
+              <span className={`text-[9px] font-extrabold ${overlayTextClass}`}>{rating}</span>
+            </div>
+          ) : (
+            <>
+              <div className="absolute top-[22%] left-[18%] flex flex-col items-center leading-none">
+                <span className={`text-xl font-extrabold ${overlayTextClass}`}>{rating}</span>
+                <span className={`text-[10px] font-bold mt-0.5 ${overlayTextClass}`}>{position}</span>
+              </div>
 
-          <div className="absolute bottom-[13%] inset-x-0 px-7">
-            <div className={`text-center text-sm font-bold truncate mb-0.5 ${overlayTextClass}`}>
-              {name}
-            </div>
-            <div className="grid grid-cols-6 gap-0.5 mb-0.5">
-              {[
-                ["PAC", stats?.pace],
-                ["SHO", stats?.shooting],
-                ["PAS", stats?.passing],
-                ["DRI", stats?.dribbling],
-                ["DEF", stats?.defending],
-                ["PHY", stats?.physicality],
-              ].map(([label, value]) => (
-                <div key={label} className="text-center leading-tight">
-                  <div className={`text-[10px] font-extrabold ${overlayTextClass}`}>
-                    {value || "-"}
-                  </div>
-                  <div className={`text-[6px] font-semibold ${overlayTextMutedClass}`}>{label}</div>
+              <div className="absolute bottom-[13%] inset-x-0 px-7">
+                <div className={`text-center text-sm font-bold truncate mb-0.5 ${overlayTextClass}`}>
+                  {name}
                 </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-center gap-1">
-              {nationImage && (
-                <img src={nationImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
-              )}
-              {leagueImage && (
-                <img src={leagueImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
-              )}
-              {clubImage && (
-                <img src={clubImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
-              )}
-            </div>
-          </div>
+                <div className="grid grid-cols-6 gap-0.5 mb-0.5">
+                  {[
+                    ["PAC", stats?.pace],
+                    ["SHO", stats?.shooting],
+                    ["PAS", stats?.passing],
+                    ["DRI", stats?.dribbling],
+                    ["DEF", stats?.defending],
+                    ["PHY", stats?.physicality],
+                  ].map(([label, value]) => (
+                    <div key={label} className="text-center leading-tight">
+                      <div className={`text-[10px] font-extrabold ${overlayTextClass}`}>
+                        {value || "-"}
+                      </div>
+                      <div className={`text-[6px] font-semibold ${overlayTextMutedClass}`}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-center gap-1">
+                  {nationImage && (
+                    <img src={nationImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
+                  )}
+                  {leagueImage && (
+                    <img src={leagueImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
+                  )}
+                  {clubImage && (
+                    <img src={clubImage} alt="" className="w-3 h-3 object-contain" referrerPolicy="no-referrer" />
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </>
       ) : (
         <img

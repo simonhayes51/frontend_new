@@ -8,6 +8,7 @@
 import { Link } from "react-router-dom";
 import SectionCard from "../../../components/SectionCard";
 import PremiumGate from "../../../components/PremiumGate";
+import CardArtThumb from "../../../components/CardArtThumb";
 import { formatCoins, formatPct } from "../../../lib/format";
 
 const RELATION_LABEL = {
@@ -42,8 +43,9 @@ export default function ImpactSection({ impact, status }) {
     <SectionCard title="Market Impact">
       <ul className="flex flex-col divide-y divide-[var(--v2-border)]">
         {items.map((it, i) => (
-          <li key={i} className="flex items-center justify-between py-2 text-xs">
-            <div>
+          <li key={i} className="flex items-center gap-3 py-2 text-xs">
+            <CardArtThumb card={it} widthClass="w-9" />
+            <div className="flex-1 min-w-0">
               <Link to={`/v2/players/${it.card_id}`} className="font-medium hover:text-[var(--v2-accent)]">
                 {it.name || it.card_id}
               </Link>

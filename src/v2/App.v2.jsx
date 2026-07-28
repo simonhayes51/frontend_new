@@ -19,15 +19,17 @@ export default function V2App() {
   return (
     <div className="v2-root">
       <Nav />
-      <Routes>
-        <Route index element={<HomeDashboard />} />
-        <Route path="health" element={<HealthCheck />} />
-        <Route path="players/:cardId" element={<PlayerPage />} />
-        <Route path="sbc" element={<SbcHub />} />
-        <Route path="sbc/:eventId" element={<SbcEventDetail />} />
-        <Route path="admin" element={<Admin />} />
-        <Route path="admin/sbc-imports" element={<AdminSbcImports />} />
-      </Routes>
+      <div className="lg:pl-56 pb-16 lg:pb-0">
+        <Routes>
+          <Route index element={<HomeDashboard />} />
+          <Route path="health" element={<HealthCheck />} />
+          <Route path="players/:cardId" element={<PlayerPage />} />
+          <Route path="sbc" element={<SbcHub />} />
+          <Route path="sbc/:eventId" element={<SbcEventDetail />} />
+          <Route path="admin" element={<Admin />} />
+          <Route path="admin/sbc-imports" element={<AdminSbcImports />} />
+        </Routes>
+      </div>
     </div>
   );
 }
