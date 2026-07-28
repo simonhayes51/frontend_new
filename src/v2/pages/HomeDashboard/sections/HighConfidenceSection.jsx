@@ -2,6 +2,9 @@
 import { Link } from "react-router-dom";
 import SectionCard from "../../../components/SectionCard";
 import PremiumGate from "../../../components/PremiumGate";
+import CardArtThumb from "../../../components/CardArtThumb";
+import RecommendationBadge from "../../../components/RecommendationBadge";
+import ConfidenceGauge from "../../../components/ConfidenceGauge";
 import { useHighConfidence } from "../../../hooks/useRecommendationFeeds";
 
 export default function HighConfidenceSection() {
@@ -22,11 +25,15 @@ export default function HighConfidenceSection() {
       ) : (
         <ul className="flex flex-col divide-y divide-[var(--v2-border)]">
           {items.map((it) => (
-            <li key={it.card_id} className="flex items-center justify-between py-1.5 text-xs">
-              <Link to={`/v2/players/${it.card_id}`} className="hover:text-[var(--v2-accent)]">
-                {it.name || it.card_id} <span className="text-[var(--v2-muted)]">({it.rating})</span>
+            <li key={it.card_id} className="flex items-center gap-3 py-2 text-xs">
+              <CardArtThumb card={it} widthClass="w-9" />
+              <Link to={`/v2/players/${it.card_id}`} className="flex-1 min-w-0 hover:text-[var(--v2-accent)]">
+                <span className="block truncate">
+                  {it.name || it.card_id} <span className="text-[var(--v2-muted)]">({it.rating})</span>
+                </span>
               </Link>
-              <span className="text-[var(--v2-positive)]">{Math.round(it.confidence)}%</span>
+              <RecommendationBadge recommendation={it.recommendation} />
+              <ConfidenceGauge value={it.confidence} size={28} />
             </li>
           ))}
         </ul>

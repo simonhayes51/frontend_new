@@ -5,10 +5,9 @@
 import SectionCard from "../../../components/SectionCard";
 import StatTile from "../../../components/StatTile";
 import PremiumGate from "../../../components/PremiumGate";
+import RecommendationBadge from "../../../components/RecommendationBadge";
+import WhyNowChecklist from "../../../components/WhyNowChecklist";
 import { formatPct } from "../../../lib/format";
-
-const VERDICT_TONE = { buy: "positive", avoid: "negative", sell: "negative", hold: "neutral" };
-const VERDICT_LABEL = { buy: "BUY", sell: "SELL", hold: "HOLD", avoid: "AVOID" };
 
 export default function RecommendationSection({ recommendation }) {
   // _safe() on the backend turns a require_feature() 401/402 into
@@ -31,22 +30,11 @@ export default function RecommendationSection({ recommendation }) {
   }
 
   const data = recommendation;
-  const tone = VERDICT_TONE[data.recommendation];
 
   return (
     <SectionCard title="AI Recommendation" subtitle={data.engine_version}>
       <div className="flex items-center gap-3 mb-3">
-        <span
-          className={`text-lg font-bold ${
-            tone === "positive"
-              ? "text-[var(--v2-positive)]"
-              : tone === "negative"
-              ? "text-[var(--v2-negative)]"
-              : "text-[var(--v2-muted)]"
-          }`}
-        >
-          {VERDICT_LABEL[data.recommendation] || data.recommendation}
-        </span>
+        <RecommendationBadge recommendation={data.recommendation} size="lg" />
         <span className="text-xs text-[var(--v2-muted)]">{Math.round(data.confidence)}% confidence</span>
       </div>
 
@@ -59,13 +47,9 @@ export default function RecommendationSection({ recommendation }) {
         <StatTile label="Risk" value={data.risk_rating || "—"} />
       </div>
 
-      {data.reasoning && <p className="text-xs text-[var(--v2-muted)] mb-2">{data.reasoning}</p>}
+      {data.reasoning && <p className="text-xs text-[var(--v2-muted)] mb-3">{data.reasoning}</p>}
 
-      {(data.similar_events || []).length > 0 && (
-        <div className="text-xs text-[var(--v2-muted)]">
-          Related events: {data.similar_events.map((e) => e.title).join(", ")}
-        </div>
-      )}
+      <WhyNowChecklist marketDrivers={data.market_drivers} recommendation={data.recommendation} />
     </SectionCard>
   );
 }

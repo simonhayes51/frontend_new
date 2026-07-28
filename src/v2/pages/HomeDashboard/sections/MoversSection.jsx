@@ -1,18 +1,20 @@
 // src/v2/pages/HomeDashboard/sections/MoversSection.jsx
 import { Link } from "react-router-dom";
 import SectionCard from "../../../components/SectionCard";
+import CardArtThumb from "../../../components/CardArtThumb";
 
 function MoverRow({ card, metricLabel, metricValue }) {
   if (!card) return <p className="text-xs text-[var(--v2-muted)]">No data yet.</p>;
   return (
     <Link
       to={`/v2/players/${card.card_id}`}
-      className="flex items-center justify-between text-xs py-1.5 hover:text-[var(--v2-accent)]"
+      className="flex items-center gap-3 text-xs py-2 hover:text-[var(--v2-accent)]"
     >
-      <span>
+      <CardArtThumb card={card} widthClass="w-9" />
+      <span className="flex-1 min-w-0 truncate">
         {card.name} <span className="text-[var(--v2-muted)]">({card.rating} {card.version})</span>
       </span>
-      <span className="text-[var(--v2-muted)]">
+      <span className="text-[var(--v2-muted)] whitespace-nowrap">
         {metricLabel}: {metricValue}
       </span>
     </Link>

@@ -6,6 +6,7 @@ import MarketMetricsSection from "./sections/MarketMetricsSection";
 import FairValueSection from "./sections/FairValueSection";
 import LazyBuyerSection from "./sections/LazyBuyerSection";
 import DealConfidenceSection from "./sections/DealConfidenceSection";
+import MarketStateGauge from "../../components/MarketStateGauge";
 import ScoresSection from "./sections/ScoresSection";
 import RecommendationSection from "./sections/RecommendationSection";
 import SalesChartSection from "./sections/SalesChartSection";
@@ -34,13 +35,14 @@ export default function PlayerPage() {
   } else {
     summaryContent = (
       <>
-        <HeaderSection meta={data?.meta} />
+        <HeaderSection meta={data?.meta} recommendation={data?.recommendation} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <MarketMetricsSection marketMetrics={data?.market_metrics} />
           <FairValueSection fairValue={data?.fair_value} />
           <LazyBuyerSection lazyBuyerScore={data?.lazy_buyer_score} />
           <DealConfidenceSection dealConfidence={data?.deal_confidence} />
+          <MarketStateGauge />
         </div>
 
         <RecommendationSection recommendation={data?.recommendation} />
