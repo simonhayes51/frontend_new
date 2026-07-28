@@ -46,6 +46,7 @@ import {
   YAxis,
 } from "recharts";
 import { useDashboard } from "../../hooks/useDashboard";
+import { useLiveCardLayers } from "../../hooks/useLiveCardLayers";
 import { useEntitlements } from "../../../context/EntitlementsContext";
 import PlayerCardArt from "../../../components/PlayerCardArt";
 import "../../styles/terminal.css";
@@ -84,10 +85,35 @@ export default function HomeDashboard() {
     return [...unique.values()];
   }, [dashboard]);
 
-  const buy = pickRecommendation(recommendations, "BUY");
+  const buyRaw = pickRecommendation(recommendations, "BUY");
   const wait = pickRecommendation(recommendations, "WAIT");
   const sell = pickRecommendation(recommendations, "SELL") ?? pickRecommendation(recommendations, "AVOID");
-  const selected = buy ?? recommendations[0] ?? null;
+  const fallbackSelected = buyRaw ?? recommendations[0] ?? null;
+
+  // card_bg_image/card_cutout_image are only populated by a backfill
+  // worker that's never actually been scheduled (see the hook's own
+  // comment), so they're null for nearly every card today. Fetching the
+  // same live layers v1's Player Search already uses is only safe for
+  // the ONE featured/selected card here, not every card in a list - so
+  // only `buy`/`selected` (which are the same card whenever a buy signal
+  // exists) get the live-fetched art; `wait`/`sell` keep the existing
+  // fallback-photo treatment.
+  const { data: liveLayers } = useLiveCardLayers(fallbackSelected?.cardId);
+  const enrichWithLiveArt = (item) => {
+    if (!item || !liveLayers?.bgImageUrl || item.cardId !== fallbackSelected?.cardId) return item;
+    return {
+      ...item,
+      player: {
+        ...item.player,
+        cardBgImage: liveLayers.bgImageUrl,
+        cardCutoutImage: liveLayers.cutoutImageUrl,
+        cardCutoutType: liveLayers.cutoutType || item.player.cardCutoutType,
+        cardName: liveLayers.cardName || item.player.cardName,
+      },
+    };
+  };
+  const buy = enrichWithLiveArt(buyRaw);
+  const selected = enrichWithLiveArt(fallbackSelected);
   const confidence = selected ? Math.round(selected.confidence) : 0;
   const investment = selected ? Math.round(selected.scores?.investment ?? selected.scores?.opportunity ?? selected.confidence) : 0;
   const expectedRoi = !selected || selected.expectedRoi === null || selected.expectedRoi === undefined
