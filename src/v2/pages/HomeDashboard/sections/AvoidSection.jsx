@@ -1,16 +1,20 @@
 // src/v2/pages/HomeDashboard/sections/AvoidSection.jsx
 import { Link } from "react-router-dom";
 import SectionCard from "../../../components/SectionCard";
+import PremiumGate from "../../../components/PremiumGate";
 import { useCardsToAvoid } from "../../../hooks/useRecommendationFeeds";
 
 export default function AvoidSection() {
   const { data, isLoading, error } = useCardsToAvoid({ limit: 8 });
   const items = data?.items || [];
+  const status = error?.response?.status;
 
   return (
     <SectionCard title="Cards to Avoid" subtitle="AI-flagged risk signals">
       {isLoading ? (
         <p className="text-xs text-[var(--v2-muted)]">Loading...</p>
+      ) : status === 401 || status === 402 ? (
+        <PremiumGate locked featureName="Opportunity Feed" />
       ) : error ? (
         <p className="text-xs text-[var(--v2-negative)]">Couldn't load right now.</p>
       ) : items.length === 0 ? (

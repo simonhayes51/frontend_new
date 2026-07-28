@@ -1,11 +1,21 @@
 // src/v2/pages/PlayerPage/sections/DealConfidenceSection.jsx
 //
-// Intentionally ungated for Phase 1 (see the v2 plan's decisions
-// section) - app/services/deal_confidence.py's compute_deal_confidence.
+// Gated behind "deal_confidence" as of Phase 4 (see the v2 plan's
+// Phase 1 decisions section, revisited there) -
+// app/services/deal_confidence.py's compute_deal_confidence.
 import SectionCard from "../../../components/SectionCard";
 import StatTile from "../../../components/StatTile";
+import PremiumGate from "../../../components/PremiumGate";
 
 export default function DealConfidenceSection({ dealConfidence }) {
+  if (dealConfidence?.status === 401 || dealConfidence?.status === 402) {
+    return (
+      <SectionCard title="Deal Confidence">
+        <PremiumGate locked featureName="Deal Confidence" />
+      </SectionCard>
+    );
+  }
+
   if (!dealConfidence || dealConfidence.error || dealConfidence.note === "no data") {
     return (
       <SectionCard title="Deal Confidence">

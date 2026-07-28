@@ -1,17 +1,21 @@
 // src/v2/pages/HomeDashboard/sections/OpportunitiesSection.jsx
 import { Link } from "react-router-dom";
 import SectionCard from "../../../components/SectionCard";
+import PremiumGate from "../../../components/PremiumGate";
 import { useOpportunities } from "../../../hooks/useRecommendationFeeds";
 import { formatPct } from "../../../lib/format";
 
 export default function OpportunitiesSection() {
   const { data, isLoading, error } = useOpportunities({ limit: 8 });
   const items = data?.items || [];
+  const status = error?.response?.status;
 
   return (
     <SectionCard title="Today's Opportunities" subtitle="AI-flagged buy signals">
       {isLoading ? (
         <p className="text-xs text-[var(--v2-muted)]">Loading...</p>
+      ) : status === 401 || status === 402 ? (
+        <PremiumGate locked featureName="Opportunity Feed" />
       ) : error ? (
         <p className="text-xs text-[var(--v2-negative)]">Couldn't load opportunities right now.</p>
       ) : items.length === 0 ? (

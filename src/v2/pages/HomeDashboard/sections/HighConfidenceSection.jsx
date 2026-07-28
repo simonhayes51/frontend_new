@@ -1,16 +1,20 @@
 // src/v2/pages/HomeDashboard/sections/HighConfidenceSection.jsx
 import { Link } from "react-router-dom";
 import SectionCard from "../../../components/SectionCard";
+import PremiumGate from "../../../components/PremiumGate";
 import { useHighConfidence } from "../../../hooks/useRecommendationFeeds";
 
 export default function HighConfidenceSection() {
   const { data, isLoading, error } = useHighConfidence({ limit: 8, minConfidence: 70 });
   const items = data?.items || [];
+  const status = error?.response?.status;
 
   return (
     <SectionCard title="High Confidence Investments" subtitle="Confidence ≥ 70%">
       {isLoading ? (
         <p className="text-xs text-[var(--v2-muted)]">Loading...</p>
+      ) : status === 401 || status === 402 ? (
+        <PremiumGate locked featureName="Opportunity Feed" />
       ) : error ? (
         <p className="text-xs text-[var(--v2-negative)]">Couldn't load right now.</p>
       ) : items.length === 0 ? (

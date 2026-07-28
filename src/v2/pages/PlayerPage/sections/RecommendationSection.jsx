@@ -4,12 +4,24 @@
 // same pattern as its sibling sections.
 import SectionCard from "../../../components/SectionCard";
 import StatTile from "../../../components/StatTile";
+import PremiumGate from "../../../components/PremiumGate";
 import { formatPct } from "../../../lib/format";
 
 const VERDICT_TONE = { buy: "positive", avoid: "negative", sell: "negative", hold: "neutral" };
 const VERDICT_LABEL = { buy: "BUY", sell: "SELL", hold: "HOLD", avoid: "AVOID" };
 
 export default function RecommendationSection({ recommendation }) {
+  // _safe() on the backend turns a require_feature() 401/402 into
+  // {error, status} instead of letting it 500 the whole summary - that
+  // shape means "locked," distinct from a genuine "not scored yet."
+  if (recommendation?.status === 401 || recommendation?.status === 402) {
+    return (
+      <SectionCard title="AI Recommendation">
+        <PremiumGate locked featureName="AI Recommendations" />
+      </SectionCard>
+    );
+  }
+
   if (!recommendation || recommendation.error) {
     return (
       <SectionCard title="AI Recommendation">
