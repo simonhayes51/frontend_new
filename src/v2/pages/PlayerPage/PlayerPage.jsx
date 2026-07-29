@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { ArrowLeft, BarChart3, Check, ChevronDown, CircleDollarSign, Clock3, Shield, Target, TrendingUp } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, BarChart3, Check, ChevronDown, CircleDollarSign, Shield, Target, TrendingUp } from "lucide-react";
 import { usePlayerSummary } from "../../hooks/usePlayerSummary";
 import PlayerCardArt from "../../../components/PlayerCardArt";
 import SalesChartSection from "./sections/SalesChartSection";
@@ -11,7 +12,10 @@ import "../../styles/player-analysis.css";
 export default function PlayerPage() {
   const { cardId } = useParams();
   const location = useLocation();
-  const snapshot = location.state?.playerAnalysis || null;
+  const queryClient = useQueryClient();
+  const cachedDashboard = queryClient.getQueryData(["v2", "dashboard"]);
+  const cachedSnapshot = useMemo(() => findCachedCard(cachedDashboard, cardId), [cachedDashboard, cardId]);
+  const snapshot = location.state?.playerAnalysis || cachedSnapshot || null;
   const { data, isLoading, error, refetch } = usePlayerSummary(cardId);
   const [showChart, setShowChart] = useState(false);
   const [showMore, setShowMore] = useState(false);
@@ -44,10 +48,7 @@ export default function PlayerPage() {
 
       <section className="quick-answer">
         <div className="quick-answer-head">
-          <div>
-            <span className="quick-eyebrow">THE ANSWER</span>
-            <h1>{view.title}</h1>
-          </div>
+          <div><span className="quick-eyebrow">THE ANSWER</span><h1>{view.title}</h1></div>
           <strong className={`quick-call ${tone}`}>{friendlyCall(view.recommendation)}</strong>
         </div>
 
@@ -97,6 +98,18 @@ export default function PlayerPage() {
   </div>;
 }
 
+function findCachedCard(dashboard, cardId) {
+  if (!dashboard || !cardId) return null;
+  const groups = [dashboard.todaysOpportunities, dashboard.highConfidenceInvestments, dashboard.cardsToAvoid, dashboard.biggestMovers];
+  for (const item of groups.flatMap((group) => group || [])) {
+    if (String(item?.cardId ?? item?.card_id) === String(cardId)) return normaliseSnapshot(item);
+  }
+  return null;
+}
+function normaliseSnapshot(item) {
+  if (item?.player) return item;
+  return {...item, cardId:item.cardId??item.card_id, entryPrice:item.entryPrice??item.entry_price, currentBin:item.currentBin??item.current_bin, fairValue:item.fairValue??item.fair_value_24h, expectedRoi:item.expectedRoi??toPct(item.likely_net_roi), netRoi:item.netRoi??{likely:toPct(item.likely_net_roi)}, sales24h:item.sales24h??item.sales_24h, confidence:item.confidence??item.score_confidence, risk:item.risk??riskLabel(item.score_risk), player:{name:item.name,cardName:item.card_name,rating:item.rating,position:item.position,version:item.version,imageUrl:item.image_url,generatedCardUrl:item.generated_card_url,cardBgImage:item.card_bg_image,cardCutoutImage:item.card_cutout_image,cardCutoutType:item.card_cutout_type,nationImage:item.nation_image,leagueImage:item.league_image,clubImage:item.club_image,stats:{pace:item.pace,shooting:item.shooting,passing:item.passing,dribbling:item.dribbling,defending:item.defending,physicality:item.physicality}}};
+}
 function buildView(data, snapshot) {
   const meta = data?.meta || snapshot?.player || snapshot?.meta;
   if (!meta) return null;
@@ -105,39 +118,23 @@ function buildView(data, snapshot) {
   const fair = firstNumber(rec.fair_value, rec.fairValue, data?.fair_value?.fair_value_24h, data?.fair_value?.fair_value);
   const roi = firstNumber(rec.expected_roi_pct, rec.likely_net_roi, rec.expectedRoi, rec.netRoi?.likely);
   const profit = entry && Number.isFinite(roi) ? Math.round(entry * roi / 100) : 0;
-  return {
-    meta,
-    rec,
-    title: meta.card_name || meta.cardName || meta.name || "Player",
-    recommendation: String(rec.recommendation || rec.status || "WATCH").toUpperCase(),
-    entry,
-    fair,
-    profit,
-    confidence: Math.round(firstNumber(rec.confidence, rec.score_confidence, 0)),
-    risk: rec.risk || riskLabel(rec.score_risk),
-    sales24h: firstNumber(rec.sales24h, rec.sales_24h, data?.market_metrics?.sales_24h, data?.market_metrics?.sample_size_24h),
-    reason: rec.reasoning || rec.summary || "The current price is being compared with recent completed sales."
-  };
+  return {meta,rec,title:meta.card_name||meta.cardName||meta.name||"Player",recommendation:String(rec.recommendation||rec.status||"WATCH").toUpperCase(),entry,fair,profit,confidence:Math.round(firstNumber(rec.confidence,rec.score_confidence,0)),risk:rec.risk||riskLabel(rec.score_risk),sales24h:firstNumber(rec.sales24h,rec.sales_24h,data?.market_metrics?.sales_24h,data?.market_metrics?.sample_size_24h),reason:rec.reasoning||rec.summary||"The current price is being compared with recent completed sales."};
 }
-
-function PlayerArtwork({ meta = {} }) {
-  const generated = meta.generated_card_url || meta.generatedCardUrl;
-  if (generated) return <img className="quick-generated-card" src={generated} alt={meta.card_name || meta.cardName || meta.name}/>;
-  return <PlayerCardArt bgImage={meta.card_bg_image || meta.cardBgImage} cutoutImage={meta.card_cutout_image || meta.cardCutoutImage} cutoutType={meta.card_cutout_type || meta.cardCutoutType || "special"} fallbackImage={meta.image_url || meta.imageUrl} rating={meta.rating} position={meta.position} name={meta.card_name || meta.cardName || meta.name} altText={meta.name} stats={meta.stats || {pace:meta.pace,shooting:meta.shooting,passing:meta.passing,dribbling:meta.dribbling,defending:meta.defending,physicality:meta.physicality}} nationImage={meta.nation_image || meta.nationImage} leagueImage={meta.league_image || meta.leagueImage} clubImage={meta.club_image || meta.clubImage} showStats widthClass="w-64"/>;
-}
-function NumberCard({icon,label,value,detail,positive}) { return <div className={`quick-number ${positive ? "positive" : ""}`}><i>{icon}</i><span>{label}</span><strong>{value || "—"}</strong><small>{detail}</small></div>; }
-function MiniFact({label,value,sub}) { return <div><span>{label}</span><strong>{value || "—"}</strong><small>{sub}</small></div>; }
+function PlayerArtwork({ meta = {} }) { const generated=meta.generated_card_url||meta.generatedCardUrl;if(generated)return <img className="quick-generated-card" src={generated} alt={meta.card_name||meta.cardName||meta.name}/>;return <PlayerCardArt bgImage={meta.card_bg_image||meta.cardBgImage} cutoutImage={meta.card_cutout_image||meta.cardCutoutImage} cutoutType={meta.card_cutout_type||meta.cardCutoutType||"special"} fallbackImage={meta.image_url||meta.imageUrl} rating={meta.rating} position={meta.position} name={meta.card_name||meta.cardName||meta.name} altText={meta.name} stats={meta.stats||{pace:meta.pace,shooting:meta.shooting,passing:meta.passing,dribbling:meta.dribbling,defending:meta.defending,physicality:meta.physicality}} nationImage={meta.nation_image||meta.nationImage} leagueImage={meta.league_image||meta.leagueImage} clubImage={meta.club_image||meta.clubImage} showStats widthClass="w-64"/>; }
+function NumberCard({icon,label,value,detail,positive}) { return <div className={`quick-number ${positive ? "positive" : ""}`}><i>{icon}</i><span>{label}</span><strong>{value||"—"}</strong><small>{detail}</small></div>; }
+function MiniFact({label,value,sub}) { return <div><span>{label}</span><strong>{value||"—"}</strong><small>{sub}</small></div>; }
 function QuickSkeleton(){return <div className="quick-analysis-page"><div className="quick-topline"><span>Loading card…</span></div><div className="quick-skeleton"><div/><section><span/><span/><span/></section></div></div>}
-function buildReasons(view, discount){const reasons=[];if(discount !== null && discount > 0) reasons.push(`Current entry is ${discount.toFixed(1)}% below recent fair value.`);if(view.sales24h) reasons.push(`${compact(view.sales24h)} completed sales give the price signal real market support.`);if(view.confidence) reasons.push(`${view.confidence}% confidence after the current price, sales and risk checks.`);if(!reasons.length) reasons.push(view.reason);return reasons.slice(0,3)}
-function plainReason(view, discount){if(view.recommendation === "BUY") return discount > 0 ? "The card is priced below its recent value. Buy only at the shown entry or cheaper." : "The numbers support a buy, but stick to the entry price shown.";if(view.recommendation === "SELL" || view.recommendation === "AVOID") return "The possible return is not strong enough for the current risk. Leave it alone.";return "The card may be useful, but the current price is not good enough yet."}
-function headline(call){return call === "BUY" ? "BUY UNDER" : call === "SELL" ? "SELL AROUND" : call === "AVOID" ? "SKIP THIS CARD" : "WAIT FOR"}
-function friendlyCall(call){return call === "WAIT" ? "WATCH" : call}
-function recommendationTone(call){return call === "BUY" ? "buy" : call === "SELL" || call === "AVOID" ? "avoid" : "watch"}
-function riskCopy(risk){return `${risk || "Unknown"} risk`}
-function firstNumber(...values){for(const value of values){const n=Number(value);if(Number.isFinite(n) && n !== 0)return n;}return 0}
+function buildReasons(view,discount){const reasons=[];if(discount!==null&&discount>0)reasons.push(`Current entry is ${discount.toFixed(1)}% below recent fair value.`);if(view.sales24h)reasons.push(`${compact(view.sales24h)} completed sales give the price signal real market support.`);if(view.confidence)reasons.push(`${view.confidence}% confidence after the current price, sales and risk checks.`);if(!reasons.length)reasons.push(view.reason);return reasons.slice(0,3)}
+function plainReason(view,discount){if(view.recommendation==="BUY")return discount>0?"The card is priced below its recent value. Buy only at the shown entry or cheaper.":"The numbers support a buy, but stick to the entry price shown.";if(view.recommendation==="SELL"||view.recommendation==="AVOID")return"The possible return is not strong enough for the current risk. Leave it alone.";return"The card may be useful, but the current price is not good enough yet."}
+function headline(call){return call==="BUY"?"BUY UNDER":call==="SELL"?"SELL AROUND":call==="AVOID"?"SKIP THIS CARD":"WAIT FOR"}
+function friendlyCall(call){return call==="WAIT"?"WATCH":call}
+function recommendationTone(call){return call==="BUY"?"buy":call==="SELL"||call==="AVOID"?"avoid":"watch"}
+function riskCopy(risk){return `${risk||"Unknown"} risk`}
+function firstNumber(...values){for(const value of values){const n=Number(value);if(Number.isFinite(n)&&n!==0)return n;}return 0}
 function coins(v){const n=Number(v);return n>0?new Intl.NumberFormat("en-GB").format(Math.round(n)):"—"}
 function signedCoins(v){const n=Number(v);return Number.isFinite(n)&&n!==0?`${n>0?"+":""}${new Intl.NumberFormat("en-GB").format(Math.round(n))}`:"—"}
 function compact(v){const n=Number(v);return Number.isFinite(n)&&n>0?new Intl.NumberFormat("en-GB",{notation:n>999?"compact":"standard",maximumFractionDigits:1}).format(n):"—"}
+function toPct(v){const n=Number(v);return !Number.isFinite(n)?0:Math.abs(n)<=1?n*100:n}
 function riskLabel(v){const n=Number(v);return !Number.isFinite(n)?"Unknown":n>=70?"High":n>=40?"Medium":"Low"}
-function holdingPeriod(rec){if(rec?.holding_period_days)return `${rec.holding_period_days} days`;const list=rec?.qualified_strategies||[];if(list.includes("quick_flip"))return "Up to 24h";if(list.includes("swing_trade"))return "2–3 days";if(list.includes("long_hold"))return "Up to a week";return rec?.holdingPeriod || "Flexible"}
-function strategyLabel(list=[]){if(!list.length)return "General trade";return String(list[0]).replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase())}
+function holdingPeriod(rec){if(rec?.holding_period_days)return `${rec.holding_period_days} days`;const list=rec?.qualified_strategies||[];if(list.includes("quick_flip"))return"Up to 24h";if(list.includes("swing_trade"))return"2–3 days";if(list.includes("long_hold"))return"Up to a week";return rec?.holdingPeriod||"Flexible"}
+function strategyLabel(list=[]){if(!list.length)return"General trade";return String(list[0]).replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase())}
