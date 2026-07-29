@@ -6,29 +6,26 @@ import { useGeneratedCardImages, useStrategyRecommendations } from "../../hooks/
 import { useEntitlements } from "../../../context/EntitlementsContext";
 import PlayerCardArt from "../../../components/PlayerCardArt";
 import { addWatch } from "../../../api/watchlist";
+import PersonalisedMove from "./PersonalisedMove";
+import ModalPriceChart from "./ModalPriceChart";
 import "../../styles/terminal.css";
 import "../../styles/dashboard-v2.css";
+import "../../styles/personalised-move.css";
 
-const EMPTY = { marketRegime:{label:"Unknown",confidence:0,summary:"",metrics:{}}, todaysOpportunities:[], highConfidenceInvestments:[], cardsToAvoid:[], biggestMovers:[], watchlistAlerts:[], latestMarketEvents:[], latestSbcImpact:[], locked:{opportunityFeed:false} };
-const STRATEGIES = [["best_picks","For you"],["quick_flip","Quick flips"],["low_risk","Low risk"],["swing_trade","2–3 days"],["long_hold","Long hold"],["sbc","SBC plays"]];
+const EMPTY={marketRegime:{label:"Unknown",confidence:0,summary:"",metrics:{}},todaysOpportunities:[],highConfidenceInvestments:[],cardsToAvoid:[],biggestMovers:[],watchlistAlerts:[],latestMarketEvents:[],latestSbcImpact:[],locked:{opportunityFeed:false}};
+const STRATEGIES=[["best_picks","For you"],["quick_flip","Quick flips"],["low_risk","Low risk"],["swing_trade","2–3 days"],["long_hold","Long hold"],["sbc","SBC plays"]];
 
 export default function HomeDashboard(){
-  const dashboardQuery = useDashboard();
-  const dashboard = dashboardQuery.data ?? EMPTY;
-  const navigate = useNavigate();
-  const { isPremium, isAdmin, features } = useEntitlements();
-  const [strategy,setStrategy] = useState("best_picks");
-  const [watchState,setWatchState] = useState("idle");
-  const [selected,setSelected] = useState(null);
-  const strategyQuery = useStrategyRecommendations(strategy,{limit:12});
+  const dashboardQuery=useDashboard();
+  const dashboard=dashboardQuery.data??EMPTY;
+  const navigate=useNavigate();
+  const {isPremium,isAdmin,features}=useEntitlements();
+  const [strategy,setStrategy]=useState("best_picks");
+  const [watchState,setWatchState]=useState("idle");
+  const [selected,setSelected]=useState(null);
+  const strategyQuery=useStrategyRecommendations(strategy,{limit:12});
 
-  const baseItems = useMemo(()=>{
-    const map=new Map();
-    [...dashboard.todaysOpportunities,...dashboard.highConfidenceInvestments,...dashboard.cardsToAvoid,...dashboard.biggestMovers].forEach(raw=>{
-      const item=normalise(raw); if(item?.cardId && !map.has(String(item.cardId))) map.set(String(item.cardId),item);
-    });
-    return [...map.values()];
-  },[dashboard]);
+  const baseItems=useMemo(()=>{const map=new Map();[...dashboard.todaysOpportunities,...dashboard.highConfidenceInvestments,...dashboard.cardsToAvoid,...dashboard.biggestMovers].forEach(raw=>{const item=normalise(raw);if(item?.cardId&&!map.has(String(item.cardId)))map.set(String(item.cardId),item)});return[...map.values()]},[dashboard]);
   const strategyRaw=(strategyQuery.data?.items??[]).map(normalise).filter(Boolean);
   const ids=[...baseItems,...strategyRaw].map(x=>x.cardId);
   const imageQuery=useGeneratedCardImages(ids);
@@ -41,135 +38,37 @@ export default function HomeDashboard(){
   const strategyItems=strategyRaw.map(hydrate).filter(x=>!shown.has(String(x.cardId))).slice(0,8);
   const buyCount=items.filter(x=>x.recommendation==="BUY").length;
   const score=Math.round(Number(dashboard.marketRegime?.confidence||0));
-  const potential=items.filter(x=>x.recommendation==="BUY").reduce((s,x)=>s+Math.max(0,profit(x)),0);
+  const potential=items.filter(x=>x.recommendation==="BUY").reduce((sum,item)=>sum+Math.max(0,profit(item)),0);
   const tier=isAdmin||features.includes("opportunity_feed")?"ELITE":isPremium?"PRO":"FREE";
 
-  async function watchLead(){
-    if(!lead||watchState==="saving")return;
-    setWatchState("saving");
-    try{await addWatch({player_name:nameOf(lead.player),card_id:String(lead.cardId),version:lead.player?.version??null,platform:"ps"});setWatchState("saved");}
-    catch(e){if(e?.response?.status===401)navigate("/login");else setWatchState("error");}
-  }
+  async function watchLead(){if(!lead||watchState==="saving")return;setWatchState("saving");try{await addWatch({player_name:nameOf(lead.player),card_id:String(lead.cardId),version:lead.player?.version??null,platform:"ps"});setWatchState("saved")}catch(error){if(error?.response?.status===401)navigate("/login");else setWatchState("error")}}
 
   return <div className="fut-dashboard-shell">
-    <aside className="fut-side">
-      <Link className="fut-brand" to="/v2"><Command size={20}/><strong>FUT Hub</strong></Link>
-      <nav>
-        <Nav icon={<Home/>} label="Home" to="/v2" active/>
-        <Nav icon={<Zap/>} label="Opportunities" to="/v2#queue" badge={buyCount||undefined}/>
-        <Nav icon={<Users/>} label="Players" to="/player-search"/>
-        <Nav icon={<BarChart3/>} label="Market" to="/trending"/>
-        <Nav icon={<Star/>} label="Watchlist" to="/watchlist"/>
-        <Nav icon={<Briefcase/>} label="Portfolio" to="/trades"/>
-      </nav>
-      <button className="account-chip" onClick={()=>navigate("/profile")}><User size={16}/><b>{tier}</b><span>Account</span></button>
-    </aside>
-
+    <aside className="fut-side"><Link className="fut-brand" to="/v2"><Command size={20}/><strong>FUT Hub</strong></Link><nav><Nav icon={<Home/>} label="Home" to="/v2" active/><Nav icon={<Zap/>} label="Opportunities" to="/v2#queue" badge={buyCount||undefined}/><Nav icon={<Users/>} label="Players" to="/player-search"/><Nav icon={<BarChart3/>} label="Market" to="/trending"/><Nav icon={<Star/>} label="Watchlist" to="/watchlist"/><Nav icon={<Briefcase/>} label="Portfolio" to="/trades"/></nav><button className="account-chip" onClick={()=>navigate("/profile")}><User size={16}/><b>{tier}</b><span>Account</span></button></aside>
     <main className="fut-main">
-      <header className="fut-topbar">
-        <button className="fut-search" onClick={()=>navigate("/player-search")}><Search size={19}/><span>Search player, card or price</span><kbd>/</kbd></button>
-        <div className="feed-live"><i/> LIVE <span>market feed</span></div>
-        <button className="bell-btn" onClick={()=>navigate("/watchlist")}><Bell size={18}/></button>
-      </header>
-
+      <header className="fut-topbar"><button className="fut-search" onClick={()=>navigate("/player-search")}><Search size={19}/><span>Search player, card or price</span><kbd>/</kbd></button><div className="feed-live"><i/> LIVE <span>market feed</span></div><button className="bell-btn" onClick={()=>navigate("/watchlist")}><Bell size={18}/></button></header>
       <Ticker items={items} events={dashboard.latestMarketEvents}/>
-
+      {lead&&<PersonalisedMove item={lead} onOpen={setSelected}/>} 
       <section className="decision-stage">
-        <div className="lead-trade">
-          <div className="lead-label"><Zap size={15}/> BEST MOVE NOW</div>
-          {lead ? <div className="lead-layout">
-            <button className="lead-card player-open-button" onClick={()=>setSelected(lead)} aria-label={`Open ${nameOf(lead.player)} analysis`}><CardImage player={lead.player} featured/></button>
-            <div className="lead-copy">
-              <div className="lead-head"><div><span>{lead.player?.rating} {lead.player?.position} · {lead.player?.version||"Card"}</span><h1>{nameOf(lead.player)}</h1></div><b className={`call ${String(lead.recommendation).toLowerCase()}`}>{lead.recommendation}</b></div>
-              <p>{reason(lead)}</p>
-              <div className="lead-numbers">
-                <Metric label="Buy at" value={coins(lead.entryPrice??lead.currentBin)} sub="coins"/>
-                <Metric label="Target profit" value={signedCoins(profit(lead))} sub="after tax" tone="positive"/>
-                <Metric label="Confidence" value={`${Math.round(lead.confidence||0)}%`} sub={`${lead.risk||"Unknown"} risk`}/>
-              </div>
-              <div className="lead-actions"><button onClick={()=>setSelected(lead)}>Quick analysis <ArrowRight size={17}/></button><button className="secondary" onClick={watchLead}><Star size={16}/>{watchState==="saved"?"Watching":"Watch"}</button></div>
-            </div>
-          </div>:<Empty text="No clean trade has passed the filters yet."/>}
-        </div>
-
-        <aside className="market-panel">
-          <div className="panel-label"><Activity size={15}/> MARKET PULSE</div>
-          <div className="pulse-head"><div><h2>{mood(score)}</h2><p>{dashboard.marketRegime?.summary||"Prices and completed sales are being checked now."}</p></div><strong>{score}<small>/100</small></strong></div>
-          <div className="pulse-track"><span style={{width:`${Math.max(5,score)}%`}}/></div>
-          <div className="pulse-stats"><Metric label="Buy signals" value={buyCount}/><Metric label="Coin potential" value={signedCoins(potential)}/><Metric label="Tracked" value={count(dashboard.marketRegime?.metrics?.liquidCards)}/></div>
-          <div className="pulse-events">{(dashboard.latestMarketEvents||[]).slice(0,3).map((e,i)=><div key={e.id||i}><i/><span>{e.title}</span></div>)}</div>
-        </aside>
+        <div className="lead-trade"><div className="lead-label"><Zap size={15}/> TOP CARD</div>{lead?<div className="lead-layout"><button className="lead-card player-open-button" onClick={()=>setSelected(lead)} aria-label={`Open ${nameOf(lead.player)} analysis`}><CardImage player={lead.player} featured/></button><div className="lead-copy"><div className="lead-head"><div><span>{lead.player?.rating} {lead.player?.position} · {lead.player?.version||"Card"}</span><h1>{nameOf(lead.player)}</h1></div><b className={`call ${String(lead.recommendation).toLowerCase()}`}>{lead.recommendation}</b></div><p>{reason(lead)}</p><div className="lead-numbers"><Metric label="Buy at" value={coins(lead.entryPrice??lead.currentBin)} sub="coins"/><Metric label="Profit each" value={signedCoins(profit(lead))} sub="after tax" tone="positive"/><Metric label="Confidence" value={`${Math.round(lead.confidence||0)}%`} sub={`${lead.risk||"Unknown"} risk`}/></div><div className="lead-actions"><button onClick={()=>setSelected(lead)}>View move <ArrowRight size={17}/></button><button className="secondary" onClick={watchLead}><Star size={16}/>{watchState==="saved"?"Watching":"Watch"}</button></div></div></div>:<Empty text="No clean trade has passed the filters yet."/>}</div>
+        <aside className="market-panel"><div className="panel-label"><Activity size={15}/> MARKET PULSE</div><div className="pulse-head"><div><h2>{mood(score)}</h2><p>{dashboard.marketRegime?.summary||"Prices and completed sales are being checked now."}</p></div><strong>{score}<small>/100</small></strong></div><div className="pulse-track"><span style={{width:`${Math.max(5,score)}%`}}/></div><div className="pulse-stats"><Metric label="Buy signals" value={buyCount}/><Metric label="Coin potential" value={signedCoins(potential)}/><Metric label="Tracked" value={count(dashboard.marketRegime?.metrics?.liquidCards)}/></div><div className="pulse-events">{(dashboard.latestMarketEvents||[]).slice(0,3).map((event,index)=><div key={event.id||index}><i/><span>{event.title}</span></div>)}</div></aside>
       </section>
-
-      <section className="queue-section" id="queue">
-        <div className="section-head"><div><span>LIVE OPPORTUNITIES</span><h2>Next best moves</h2></div><Link to="/player-search">Browse all <ArrowRight size={15}/></Link></div>
-        <div className="queue-grid">{queue.length?queue.map((item,index)=><QueueCard key={item.cardId} item={item} rank={index+2} onOpen={setSelected}/>):<Empty text="No additional opportunities right now."/>}</div>
-      </section>
-
-      <section className="lower-grid">
-        <div className="market-map">
-          <div className="section-head compact"><div><span>MARKET MAP</span><h2>Where coins are moving</h2></div></div>
-          <div className="map-bars">{items.slice(0,7).map(item=><button key={item.cardId} onClick={()=>setSelected(item)}><span>{nameOf(item.player)}</span><i><b style={{width:`${Math.min(100,Math.max(8,Math.abs(Number(item.expectedRoi||0))*4))}%`}}/></i><strong>{roi(item)}</strong></button>)}</div>
-        </div>
-        <div className="activity-feed">
-          <div className="section-head compact"><div><span>YOUR FEED</span><h2>Alerts & content</h2></div><Link to="/watchlist">Open</Link></div>
-          {[...(dashboard.watchlistAlerts||[]).slice(0,3),...(dashboard.latestSbcImpact||[]).slice(0,3)].slice(0,5).map((x,i)=><div className="feed-row" key={x.id||x.eventId||i}><i/><div><strong>{x.title||x.message||"Market update"}</strong><span>{x.message||x.estimatedMarketImpact?`${percent(x.estimatedMarketImpact)} estimated impact`:"New market activity"}</span></div></div>)}
-          {!dashboard.watchlistAlerts?.length&&!dashboard.latestSbcImpact?.length?<Empty text="No alerts yet. Add players to your watchlist."/>:null}
-        </div>
-      </section>
-
-      <section className="strategy-section">
-        <div className="section-head"><div><span>STRATEGY FINDER</span><h2>Find a different angle</h2></div></div>
-        <div className="strategy-tabs">{STRATEGIES.map(([key,label])=><button key={key} className={strategy===key?"active":""} onClick={()=>setStrategy(key)}>{label}</button>)}</div>
-        <div className="strategy-grid">{strategyQuery.isLoading?<Empty text="Scanning this strategy…"/>:strategyItems.length?strategyItems.map(item=><StrategyCard key={item.cardId} item={item} onOpen={setSelected}/>):<Empty text="No different cards qualify for this strategy right now."/>}</div>
-      </section>
+      <section className="queue-section" id="queue"><div className="section-head"><div><span>LIVE OPPORTUNITIES</span><h2>Next best moves</h2></div><Link to="/player-search">Browse all <ArrowRight size={15}/></Link></div><div className="queue-grid">{queue.length?queue.map((item,index)=><QueueCard key={item.cardId} item={item} rank={index+2} onOpen={setSelected}/>):<Empty text="No additional opportunities right now."/>}</div></section>
+      <section className="lower-grid"><div className="market-map"><div className="section-head compact"><div><span>MARKET MAP</span><h2>Where coins are moving</h2></div></div><div className="map-bars">{items.slice(0,7).map(item=><button key={item.cardId} onClick={()=>setSelected(item)}><span>{nameOf(item.player)}</span><i><b style={{width:`${Math.min(100,Math.max(8,Math.abs(Number(item.expectedRoi||0))*4))}%`}}/></i><strong>{roi(item)}</strong></button>)}</div></div><div className="activity-feed"><div className="section-head compact"><div><span>YOUR FEED</span><h2>Alerts & content</h2></div><Link to="/watchlist">Open</Link></div>{[...(dashboard.watchlistAlerts||[]).slice(0,3),...(dashboard.latestSbcImpact||[]).slice(0,3)].slice(0,5).map((x,index)=><div className="feed-row" key={x.id||x.eventId||index}><i/><div><strong>{x.title||x.message||"Market update"}</strong><span>{x.message||x.estimatedMarketImpact?`${percent(x.estimatedMarketImpact)} estimated impact`:"New market activity"}</span></div></div>)}{!dashboard.watchlistAlerts?.length&&!dashboard.latestSbcImpact?.length?<Empty text="No alerts yet. Add players to your watchlist."/>:null}</div></section>
+      <section className="strategy-section"><div className="section-head"><div><span>STRATEGY FINDER</span><h2>Find a different angle</h2></div></div><div className="strategy-tabs">{STRATEGIES.map(([key,label])=><button key={key} className={strategy===key?"active":""} onClick={()=>setStrategy(key)}>{label}</button>)}</div><div className="strategy-grid">{strategyQuery.isLoading?<Empty text="Scanning this strategy…"/>:strategyItems.length?strategyItems.map(item=><StrategyCard key={item.cardId} item={item} onOpen={setSelected}/>):<Empty text="No different cards qualify for this strategy right now."/>}</div></section>
       <p className="fut-disclaimer">Recent sales and live listings are used to estimate opportunities. Profit is never guaranteed and EA charges 5% on sales.</p>
     </main>
-
-    {selected && <AnalysisModal item={selected} onClose={()=>setSelected(null)} navigate={navigate}/>} 
+    {selected&&<AnalysisModal item={selected} onClose={()=>setSelected(null)} navigate={navigate}/>} 
   </div>;
 }
 
-function AnalysisModal({item,onClose,navigate}){
-  useEffect(()=>{
-    const previous=document.body.style.overflow;
-    document.body.style.overflow="hidden";
-    const close=(event)=>event.key==="Escape"&&onClose();
-    window.addEventListener("keydown",close);
-    return()=>{document.body.style.overflow=previous;window.removeEventListener("keydown",close);};
-  },[onClose]);
-  const entry=Number(item.entryPrice??item.currentBin)||0;
-  const gain=profit(item);
-  const target=entry&&gain?Math.ceil((entry+gain)/.95/250)*250:0;
-  const confidence=Math.max(0,Math.min(100,Math.round(Number(item.confidence)||0)));
-  const fair=Number(item.fairValue)||0;
-  const reasons=[
-    fair>entry?`${percent((fair-entry)/entry*100)} below recent value`:reason(item),
-    gain>0?`${signedCoins(gain)} estimated after EA tax`:`Current price does not leave enough margin`,
-    `${item.risk||"Unknown"} risk · ${hold(item.holdingPeriod)}`,
-  ];
-  return <div className="dash-analysis-backdrop" onMouseDown={(e)=>e.target===e.currentTarget&&onClose()}>
-    <section className="dash-analysis-modal" role="dialog" aria-modal="true" aria-label={`${nameOf(item.player)} quick analysis`}>
-      <button className="dash-modal-close" onClick={onClose} aria-label="Close analysis"><X size={20}/></button>
-      <div className="dash-modal-card"><CardImage player={item.player} featured/></div>
-      <div className="dash-modal-copy">
-        <div className="dash-modal-heading"><div><span>{item.player?.rating} {item.player?.position} · {item.player?.version||"Card"}</span><h2>{nameOf(item.player)}</h2></div><b className={`call ${String(item.recommendation||"WATCH").toLowerCase()}`}>{item.recommendation||"WATCH"}</b></div>
-        <p className="dash-modal-verdict">{item.recommendation==="BUY"?`Buy below ${coins(entry)}. Aim to sell around ${coins(target)}.`:reason(item)}</p>
-        <div className="dash-modal-numbers"><Metric label="Buy under" value={coins(entry)} sub="coins"/><Metric label="Potential profit" value={signedCoins(gain)} sub="after tax" tone={gain>=0?"positive":"negative"}/><Metric label="Sell around" value={coins(target)} sub="coins"/></div>
-        <div className="dash-confidence"><div><span>Confidence</span><strong>{confidence}%</strong></div><i><b style={{width:`${confidence}%`}}/></i></div>
-        <ul>{reasons.map((text,index)=><li key={index}><span>✓</span>{text}</li>)}</ul>
-        <div className="dash-modal-actions"><button onClick={()=>navigate(`/trades?card_id=${item.cardId}`)}><Target size={17}/> Log this trade</button><button className="secondary" onClick={onClose}>Keep browsing</button></div>
-      </div>
-    </section>
-  </div>;
-}
-
+function AnalysisModal({item,onClose,navigate}){useEffect(()=>{const previous=document.body.style.overflow;document.body.style.overflow="hidden";const close=(event)=>event.key==="Escape"&&onClose();window.addEventListener("keydown",close);return()=>{document.body.style.overflow=previous;window.removeEventListener("keydown",close)}},[onClose]);const entry=Number(item.entryPrice??item.currentBin)||0;const quantity=Math.max(1,Number(item.suggestedQuantity)||1);const gain=profit(item);const target=entry&&gain?Math.ceil((entry+gain)/.95/250)*250:0;const confidence=Math.max(0,Math.min(100,Math.round(Number(item.confidence)||0)));const fair=Number(item.fairValue)||0;const reasons=[fair>entry?`${percent((fair-entry)/entry*100)} below recent value`:reason(item),gain>0?`${signedCoins(gain*quantity)} estimated total after EA tax`:`Current price does not leave enough margin`,`${item.risk||"Unknown"} risk · ${hold(item.holdingPeriod)}`];return <div className="dash-analysis-backdrop" onMouseDown={(event)=>event.target===event.currentTarget&&onClose()}><section className="dash-analysis-modal" role="dialog" aria-modal="true" aria-label={`${nameOf(item.player)} quick analysis`}><button className="dash-modal-close" onClick={onClose} aria-label="Close analysis"><X size={20}/></button><div className="dash-modal-card"><CardImage player={item.player} featured/></div><div className="dash-modal-copy"><div className="dash-modal-heading"><div><span>{item.player?.rating} {item.player?.position} · {item.player?.version||"Card"}</span><h2>{nameOf(item.player)}</h2></div><b className={`call ${String(item.recommendation||"WATCH").toLowerCase()}`}>{item.recommendation||"WATCH"}</b></div><p className="dash-modal-verdict">Buy {quantity}× below {coins(entry)}. Aim to sell around {coins(target)} each.</p><div className="dash-modal-numbers"><Metric label="Capital needed" value={coins(entry*quantity)} sub={`${quantity} cards`}/><Metric label="Potential profit" value={signedCoins(gain*quantity)} sub="after tax" tone={gain>=0?"positive":"negative"}/><Metric label="Sell around" value={coins(target)} sub="each"/></div><ModalPriceChart cardId={item.cardId} entryPrice={entry} targetPrice={target}/><div className="dash-confidence"><div><span>Confidence</span><strong>{confidence}%</strong></div><i><b style={{width:`${confidence}%`}}/></i></div><ul>{reasons.map((text,index)=><li key={index}><span>✓</span>{text}</li>)}</ul><div className="dash-modal-actions"><button onClick={()=>navigate(`/trades?card_id=${item.cardId}&buy=${entry}&sell=${target}&quantity=${quantity}&player=${encodeURIComponent(nameOf(item.player))}`)}><Target size={17}/> Log this move</button><button className="secondary" onClick={onClose}>Keep browsing</button></div></div></section></div>}
 function Nav({icon,label,to,active,badge}){return <Link to={to} className={active?"active":""}>{icon}<span>{label}</span>{badge?<em>{badge}</em>:null}</Link>}
 function Metric({label,value,sub,tone}){return <div className={`metric ${tone||""}`}><span>{label}</span><strong>{value}</strong>{sub?<small>{sub}</small>:null}</div>}
 function QueueCard({item,rank,onOpen}){return <button className="queue-card" onClick={()=>onOpen(item)}><span className="rank">{String(rank).padStart(2,"0")}</span><CardImage player={item.player} compact/><div className="queue-name"><strong>{nameOf(item.player)}</strong><span>{item.player?.rating} {item.player?.position} · {item.player?.version||"Card"}</span><small>{reason(item)}</small></div><div className="queue-price"><span>{coins(item.entryPrice??item.currentBin)}</span><strong>{signedCoins(profit(item))}</strong><small>{roi(item)} after tax</small></div><ChevronRight size={18}/></button>}
 function StrategyCard({item,onOpen}){return <button className="strategy-card-new" onClick={()=>onOpen(item)}><CardImage player={item.player} compact/><div><strong>{nameOf(item.player)}</strong><span>{item.player?.rating} {item.player?.position}</span><b>{signedCoins(profit(item))}</b><small>{item.risk||"Unknown"} risk · {hold(item.holdingPeriod)}</small></div></button>}
-function Ticker({items,events}){const rows=[...items.slice(0,7).map(x=>({text:`${nameOf(x.player)} ${roi(x)}`,tone:Number(x.expectedRoi)>=0?"up":"down"})),...(events||[]).slice(0,2).map(x=>({text:x.title,tone:"event"}))];return <div className="fut-ticker"><div>{[...rows,...rows].map((x,i)=><span key={`${x.text}-${i}`} className={x.tone}><i/>{x.text}</span>)}</div></div>}
+function Ticker({items,events}){const rows=[...items.slice(0,7).map(x=>({text:`${nameOf(x.player)} ${roi(x)}`,tone:Number(x.expectedRoi)>=0?"up":"down"})),...(events||[]).slice(0,2).map(x=>({text:x.title,tone:"event"}))];return <div className="fut-ticker"><div>{[...rows,...rows].map((x,index)=><span key={`${x.text}-${index}`} className={x.tone}><i/>{x.text}</span>)}</div></div>}
 function Empty({text}){return <div className="empty-state">{text}</div>}
 function CardImage({player={},featured,compact}){if(player.generatedCardUrl)return <img className={`ft-card-img ${featured?"featured":compact?"compact":""}`} src={player.generatedCardUrl} alt={nameOf(player)}/>;return <PlayerCardArt compact={compact} bgImage={player.cardBgImage} cutoutImage={player.cardCutoutImage} cutoutType={player.cardCutoutType||"special"} fallbackImage={player.imageUrl} rating={player.rating} position={player.position} name={nameOf(player)} altText={nameOf(player)} stats={player.stats} nationImage={player.nationImage} leagueImage={player.leagueImage} clubImage={player.clubImage} showStats={Boolean(featured)} widthClass={featured?"w-52":"w-16"}/>}
-function normalise(item){if(!item)return null;if(item.player)return item;return{...item,cardId:item.cardId??item.card_id,recommendation:item.recommendation??item.status,expectedRoi:toPct(item.likely_net_roi),netRoi:{likely:toPct(item.likely_net_roi)},currentBin:item.currentBin??item.current_bin,fairValue:item.fairValue??item.fair_value_24h,entryPrice:item.entryPrice??item.entry_price,breakEvenPrice:item.breakEvenPrice??item.break_even_sale_price,sales24h:item.sales24h??item.sales_24h,holdingPeriod:item.holdingPeriod??"Flexible",risk:item.risk??riskLabel(item.score_risk),confidence:item.confidence??item.score_confidence??0,updatedAt:item.updatedAt??item.computed_at,reasoning:item.reasoning||statusReason(item.status),player:{name:item.name,cardName:item.card_name,rating:item.rating,version:item.version,position:item.position,imageUrl:item.image_url,cardBgImage:item.card_bg_image,cardCutoutImage:item.card_cutout_image,cardCutoutType:item.card_cutout_type,generatedCardUrl:item.generated_card_url,nationImage:item.nation_image,leagueImage:item.league_image,clubImage:item.club_image,stats:{pace:item.pace,shooting:item.shooting,passing:item.passing,dribbling:item.dribbling,defending:item.defending,physicality:item.physicality}}}}
-function nameOf(p={}){return p.cardName||p.name||"Unknown player"} function profit(item){const e=Number(item?.entryPrice??item?.currentBin),r=Number(item?.netRoi?.likely??item?.expectedRoi);return e&&Number.isFinite(r)?Math.round(e*r/100):0} function coins(v){const n=Number(v);return Number.isFinite(n)&&n>0?new Intl.NumberFormat("en-GB").format(Math.round(n)):"—"} function signedCoins(v){const n=Number(v);return n?`${n>0?"+":""}${coins(Math.abs(n))}`:"—"} function count(v){const n=Number(v);return Number.isFinite(n)?new Intl.NumberFormat("en-GB",{notation:n>999?"compact":"standard"}).format(n):"—"} function percent(v){const n=Number(v);return Number.isFinite(n)?`${n>0?"+":""}${n.toFixed(1)}%`:"—"} function roi(item){return percent(item?.netRoi?.likely??item?.expectedRoi)} function toPct(v){const n=Number(v);return !Number.isFinite(n)?0:Math.abs(n)<=1?n*100:n} function riskLabel(v){const n=Number(v);return !Number.isFinite(n)?"Unknown":n>=70?"High":n>=40?"Medium":"Low"} function statusReason(s){return s==="BUY"?"Price and sales data support an entry.":s==="WAIT"?"Useful card, but the current entry is weak.":"Risk currently outweighs the likely return."} function reason(item){return item?.reasoning||statusReason(item?.recommendation)} function hold(v){return String(v||"Flexible").replace("~24h","Up to 1 day").replace("~48h","1–2 days").replace("~7d","Up to a week")} function mood(s){return s>=80?"Strong market":s>=60?"Good conditions":s>=40?"Selective market":"Quiet market"}
+function normalise(item){if(!item)return null;if(item.player)return item;return{...item,cardId:item.cardId??item.card_id,recommendation:item.recommendation??item.status,expectedRoi:toPct(item.likely_net_roi),netRoi:{likely:toPct(item.likely_net_roi)},currentBin:item.currentBin??item.current_bin,fairValue:item.fairValue??item.fair_value_24h,entryPrice:item.entryPrice??item.entry_price,breakEvenPrice:item.breakEvenPrice??item.break_even_sale_price,sales24h:item.sales24h??item.sales_24h,holdingPeriod:item.holdingPeriod??"Flexible",risk:item.risk??riskLabel(item.score_risk),confidence:item.confidence??item.score_confidence??0,updatedAt:item.updatedAt??item.computed_at,reasoning:item.reasoning||statusReason(item.status),player:{name:item.name,displayName:item.display_name,cardName:item.card_name,nickname:item.nickname,rating:item.rating,version:item.version,position:item.position,imageUrl:item.image_url,cardBgImage:item.card_bg_image,cardCutoutImage:item.card_cutout_image,cardCutoutType:item.card_cutout_type,generatedCardUrl:item.generated_card_url,nationImage:item.nation_image,leagueImage:item.league_image,clubImage:item.club_image,stats:{pace:item.pace,shooting:item.shooting,passing:item.passing,dribbling:item.dribbling,defending:item.defending,physicality:item.physicality}}}}
+function nameOf(player={}){return player.displayName||player.cardName||player.nickname||player.name||"Unknown player"}function profit(item){const entry=Number(item?.entryPrice??item?.currentBin),returnPct=Number(item?.netRoi?.likely??item?.expectedRoi);return entry&&Number.isFinite(returnPct)?Math.round(entry*returnPct/100):0}function coins(value){const number=Number(value);return Number.isFinite(number)&&number>0?new Intl.NumberFormat("en-GB").format(Math.round(number)):"—"}function signedCoins(value){const number=Number(value);return number?`${number>0?"+":"−"}${coins(Math.abs(number))}`:"—"}function count(value){const number=Number(value);return Number.isFinite(number)?new Intl.NumberFormat("en-GB",{notation:number>999?"compact":"standard"}).format(number):"—"}function percent(value){const number=Number(value);return Number.isFinite(number)?`${number>0?"+":""}${number.toFixed(1)}%`:"—"}function roi(item){return percent(item?.netRoi?.likely??item?.expectedRoi)}function toPct(value){const number=Number(value);return!Number.isFinite(number)?0:Math.abs(number)<=1?number*100:number}function riskLabel(value){const number=Number(value);return!Number.isFinite(number)?"Unknown":number>=70?"High":number>=40?"Medium":"Low"}function statusReason(status){return status==="BUY"?"Price and sales data support an entry.":status==="WAIT"?"Useful card, but the current entry is weak.":"Risk currently outweighs the likely return."}function reason(item){return item?.reasoning||statusReason(item?.recommendation)}function hold(value){return String(value||"Flexible").replace("~24h","Up to 1 day").replace("~48h","1–2 days").replace("~7d","Up to a week")}function mood(score){return score>=80?"Strong market":score>=60?"Good conditions":score>=40?"Selective market":"Quiet market"}
