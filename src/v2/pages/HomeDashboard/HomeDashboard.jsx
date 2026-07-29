@@ -12,7 +12,7 @@
 // Countdown, Recent AI Changes, Yesterday's Calls, Historical
 // Evidence's n/a stats) matches the reference's own honest-empty
 // treatment for panels with no real backing data source yet.
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -47,9 +47,25 @@ import {
 } from "recharts";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useLiveCardLayers } from "../../hooks/useLiveCardLayers";
+import { useStrategyRecommendations } from "../../hooks/useRecommendationFeeds";
 import { useEntitlements } from "../../../context/EntitlementsContext";
 import PlayerCardArt from "../../../components/PlayerCardArt";
 import "../../styles/terminal.css";
+
+// Recommendation Engine V1.2 evaluates each strategy independently
+// against its own thresholds/holding period (see backend
+// strategy_config.py) - there's no single "best" list that covers all
+// of them, so this drives a real tab bar hitting
+// /api/v2/recommendations/strategy/{key} rather than reusing the
+// single BUY/WAIT/SELL picks above.
+const STRATEGY_TABS = [
+  { key: "quick_flip", label: "Quick Flip" },
+  { key: "swing_trade", label: "Swing Trade" },
+  { key: "low_risk", label: "Low Risk" },
+  { key: "long_hold", label: "Long Hold" },
+  { key: "lazy_buyer", label: "Lazy Buyer" },
+  { key: "sbc", label: "SBC" },
+];
 
 const EMPTY_DASHBOARD = {
   marketRegime: { label: "Unknown", confidence: 0, summary: "", metrics: { liquidCards: 0, avgVolatility: 0, avgValueGap: 0 } },
@@ -72,6 +88,10 @@ export default function HomeDashboard() {
   const status = isLoading ? "loading" : isError ? "fallback" : "live";
   const locked = !!dashboard.locked?.opportunityFeed;
   const tierLabel = isAdmin || features.includes("opportunity_feed") ? "ELITE" : isPremium ? "PRO" : "FREE";
+
+  const [activeStrategy, setActiveStrategy] = useState("quick_flip");
+  const { data: strategyFeed, isLoading: strategyLoading } = useStrategyRecommendations(activeStrategy, { limit: 6 });
+  const strategyItems = locked ? [] : strategyFeed?.items ?? [];
 
   const recommendations = useMemo(() => {
     const merged = [
@@ -213,6 +233,42 @@ export default function HomeDashboard() {
               )}
             </section>
 
+            <section className="opportunity-strip strategy-signals" aria-labelledby="strategy-signals">
+              <div className="section-heading">
+                <div>
+                  <span><LineChart size={16} /> Strategy Signals</span>
+                  <h1 id="strategy-signals">Pick your own play - each strategy has its own bar to clear.</h1>
+                </div>
+              </div>
+              <div className="time-tabs" role="tablist" aria-label="Strategy">
+                {STRATEGY_TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeStrategy === tab.key}
+                    className={activeStrategy === tab.key ? "active" : ""}
+                    onClick={() => setActiveStrategy(tab.key)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {locked ? (
+                <LockedOpportunityStrip />
+              ) : strategyLoading ? (
+                <p className="empty-rail">Reading the market for this strategy...</p>
+              ) : strategyItems.length ? (
+                <div className="strategy-signal-list">
+                  {strategyItems.map((item) => (
+                    <StrategySignalRow key={item.cardId} item={item} />
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-rail">No cards clear this strategy&apos;s bar right now - check back after the next refresh.</p>
+              )}
+            </section>
+
             <section className="analysis-board" aria-labelledby="player-analysis">
               <div className="analysis-header">
                 <span><LineChart size={17} /> Player Breakdown</span>
@@ -239,7 +295,10 @@ export default function HomeDashboard() {
                   <div className="decision-matrix">
                     <DecisionMetric label="Our Call" value={selected.recommendation} tone="buy" />
                     <DecisionMetric label="Confidence" value={`${confidence}%`} ring={confidence} />
-                    <DecisionMetric label="Expected Profit" value={expectedRoi} tone={selected.expectedRoi && selected.expectedRoi < 0 ? "sell" : "buy"} />
+                    {/* "Net ROI" not "Expected Profit" - this is a percentage return
+                        after EA's sale tax (see backend recommendation_engine_v2.py),
+                        never a pre-tax discount dressed up as guaranteed profit. */}
+                    <DecisionMetric label="Net ROI" value={expectedRoi} tone={selected.expectedRoi && selected.expectedRoi < 0 ? "sell" : "buy"} />
                     <DecisionMetric label="How Long to Hold" value={selected.holdingPeriod} />
                   </div>
                   <div className="decision-proof-row">
@@ -472,7 +531,7 @@ function OpportunityCard({ item, rank, accent }) {
             <em>{Math.round(item.confidence)}%</em>
           </div>
           <div>
-            <p>Expected Profit</p>
+            <p>Net ROI</p>
             <em>{roi}</em>
           </div>
           <div>
@@ -645,6 +704,28 @@ function AlertRow({ tone, title, asset, meta, time }) {
       <p>{meta}</p>
       <ChevronRight size={18} />
     </button>
+  );
+}
+
+// One row per card that actually qualified for the selected strategy
+// (backend already filtered/ranked by strategy - this just renders
+// what it returned). netRoi.likely is the same after-tax figure as
+// expectedRoi elsewhere on this page, read from the richer field so a
+// strategy row still has a number even for a card whose top-level
+// expectedRoi came from a different (e.g. INSUFFICIENT_DATA) pass.
+function StrategySignalRow({ item }) {
+  const netRoi = item.netRoi?.likely ?? item.expectedRoi;
+  const roi = netRoi === null || netRoi === undefined ? "n/a" : `${netRoi > 0 ? "+" : ""}${netRoi.toFixed(1)}%`;
+  return (
+    <Link className="mover" to={`/v2/players/${item.cardId}`}>
+      <Avatar player={item.player} />
+      <div>
+        <strong>{displayName(item.player)}</strong>
+        <span>{item.holdingPeriod} hold &middot; {item.risk} risk</span>
+      </div>
+      <em>{roi}</em>
+      <small>{formatCoins(item.currentBin)}</small>
+    </Link>
   );
 }
 
