@@ -20,12 +20,14 @@ import CollectorStatusTab from "./tabs/CollectorStatusTab";
 import MarketEventsTab from "./tabs/MarketEventsTab";
 import SubscriptionsTab from "./tabs/SubscriptionsTab";
 import ApiUsageTab from "./tabs/ApiUsageTab";
+import PlayerCardsTab from "./tabs/PlayerCardsTab";
 import AdminSbcImports from "../AdminSbcImports/AdminSbcImports";
 
 const TABS = [
   { key: "pipeline", label: "Pipeline Health", Component: PipelineHealthTab },
   { key: "collectors", label: "Collector Status", Component: CollectorStatusTab },
   { key: "sbc-imports", label: "SBC Imports", Component: AdminSbcImports },
+  { key: "player-cards", label: "Player Cards", Component: PlayerCardsTab },
   { key: "market-events", label: "Market Events", Component: MarketEventsTab },
   { key: "subscriptions", label: "Subscriptions", Component: SubscriptionsTab },
   { key: "api-usage", label: "API Usage", Component: ApiUsageTab },

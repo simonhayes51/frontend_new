@@ -43,6 +43,13 @@ const UndervaluedBoard = lazy(() => import("./pages/UndervaluedBoard"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers"));
 const Demo = lazy(() => import("./pages/Demo"));
 
+// Server-render-only route: the backend's headless Chromium renderer
+// navigates here (see app/services/player_card_render.py), not a real
+// visitor - sits outside PrivateRoute like /demo, since Chromium carries
+// no session cookie. Gated instead by a signed token query param the
+// backend mints and verifies per request.
+const PlayerCardExport = lazy(() => import("./pages/internal/PlayerCardExport"));
+
 // v2 - AI market-intelligence redesign, self-contained under src/v2/ (see
 // the v2 plan). Own internal routing via V2App's <Routes>, so it's
 // mounted with a /v2/* wildcard rather than nested child routes here.
@@ -63,7 +70,7 @@ function App() {
       <AuthProvider>
         <EntitlementsProvider>
           <Router>
-            <div className="bg-black min-h-screen text-white">
+            <div id="app-shell-bg" className="bg-black min-h-screen text-white">
               <Suspense fallback={<Loading />}>
                 <Routes>
                   {/* Public routes */}
@@ -73,6 +80,10 @@ function App() {
                   {/* Investor/buyer-facing read-only data pipeline demo -
                       public on purpose, must not sit behind PrivateRoute */}
                   <Route path="/demo" element={<Demo />} />
+
+                  {/* Internal render-only route for card PNG generation -
+                      see PlayerCardExport.jsx's header comment. */}
+                  <Route path="/internal/render/player-card/:cardId" element={<PlayerCardExport />} />
 
                   {/* v2 - handles its own per-panel gating via
                       useEntitlements/PremiumGate rather than a full-page

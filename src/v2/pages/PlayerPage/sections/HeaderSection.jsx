@@ -72,6 +72,16 @@ export default function HeaderSection({ meta, recommendation }) {
               <StatTile label="Time window" value={holdingPeriod} />
             </div>
           )}
+
+          {meta.generated_card_url && (
+            <a
+              href={meta.generated_card_url}
+              download={`${(meta.card_name || meta.name || "card").replace(/\s+/g, "_")}.png`}
+              className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 rounded-[var(--v2-radius)] border border-[var(--v2-border)] text-xs text-[var(--v2-text)] hover:bg-white/5 w-fit"
+            >
+              Download card PNG
+            </a>
+          )}
         </div>
       </div>
     </div>

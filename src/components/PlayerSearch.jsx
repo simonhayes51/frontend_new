@@ -754,6 +754,16 @@ const PlayerDetail = ({ player, onBack }) => {
                 <div className="text-xs text-white/70">Preferred Foot</div>
               </div>
             </div>
+
+            {d.generatedCardUrl && (
+              <a
+                href={d.generatedCardUrl}
+                download={`${(d.commonName || d.name || "card").replace(/\s+/g, "_")}.png`}
+                className="inline-flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm hover:bg-white/10"
+              >
+                Download card PNG
+              </a>
+            )}
           </div>
         </div>
 
