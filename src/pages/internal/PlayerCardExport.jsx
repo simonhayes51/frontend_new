@@ -127,8 +127,7 @@ export default function PlayerCardExport() {
               try {
                 await image.decode();
               } catch {
-                // naturalWidth is the source of truth; decode can reject for
-                // already-decoded cross-origin images in some Chromium builds.
+                // naturalWidth remains the source of truth for cross-origin images.
               }
             }
           })
@@ -174,9 +173,11 @@ export default function PlayerCardExport() {
       nationImage={data.nationImage}
       leagueImage={data.leagueImage}
       clubImage={data.clubImage}
+      altPositions={data.altPositions || []}
       skillMoves={data.skillMoves}
       weakFoot={data.weakFoot}
       preferredFoot={data.preferredFoot}
+      futbinRating={data.futbinRating}
     />
   );
 }
