@@ -163,7 +163,7 @@ export default function HomeDashboard() {
           <div className="operator-cluster">
             <div className={`live-status ${status}`}><span /><div><strong>{status === "live" ? "Live data" : status === "loading" ? "Reading market" : "Data unavailable"}</strong><small>{updatedAt ? `Updated ${formatRelativeTime(updatedAt)}` : "Waiting for scoring run"}</small></div></div>
             <button className="icon-button" type="button" aria-label="Open alerts" onClick={() => navigate("/watchlist")}><Bell size={18} />{dashboard.watchlistAlerts.length ? <span>{dashboard.watchlistAlerts.length}</span> : null}</button>
-            <button className="profile-chip dashboard-profile" type="button" onClick={() => navigate("/profile")}><User size={15} /> Simon <em>{tierLabel}</em></button>
+            <button className="profile-chip dashboard-profile" type="button" onClick={() => navigate("/profile")}><User size={15} /> You <em>{tierLabel}</em></button>
           </div>
         </header>
 
