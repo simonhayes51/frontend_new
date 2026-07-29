@@ -11,12 +11,49 @@ function proxyOnError(originalUrl) {
   };
 }
 
-// Measured directly from FUTBIN's live FC26 large-card DOM. The canonical
-// composition is 252px wide, with a 350px background and a 354.8px wrapper.
-// All coordinates below are in that exact coordinate system and scale
-// linearly when a different export width is requested.
+// Measured directly from FUTBIN's live FC26 large-card DOM.
 const BASE_WIDTH = 252;
 const BASE_HEIGHT = 355;
+
+const CARD_THEMES = {
+  gold: {
+    text: "rgb(223, 207, 154)",
+    shadow: "0 1px 2px rgba(0,0,0,.28)",
+  },
+  silver: {
+    text: "rgb(234, 234, 234)",
+    shadow: "0 1px 2px rgba(0,0,0,.45)",
+  },
+  bronze: {
+    text: "rgb(217, 180, 139)",
+    shadow: "0 1px 2px rgba(0,0,0,.4)",
+  },
+  icon: {
+    text: "rgb(77, 51, 31)",
+    shadow: "0 1px 1px rgba(255,255,255,.18)",
+  },
+  promo: {
+    text: "rgb(255, 255, 255)",
+    shadow: "0 1px 3px rgba(0,0,0,.55)",
+  },
+};
+
+function cardTheme(bgImage, versionLabel) {
+  const source = `${versionLabel || ""} ${bgImage || ""}`.toLowerCase();
+
+  // Order matters: Icon cards often contain words such as "base" or "rare",
+  // but must use the dark-brown Icon typography.
+  if (/\bicon\b|icons|icn/.test(source)) return CARD_THEMES.icon;
+  if (/\bsilver\b/.test(source)) return CARD_THEMES.silver;
+  if (/\bbronze\b/.test(source)) return CARD_THEMES.bronze;
+  if (/\btotw\b|team.?of.?the.?week|\bgold\b|rare.?gold|common.?gold/.test(source)) {
+    return CARD_THEMES.gold;
+  }
+
+  // Heroes and every coloured promo design are safest as white. This also
+  // covers newly released promos without requiring a renderer code change.
+  return CARD_THEMES.promo;
+}
 
 export default function PlayerCardExportArt({
   width = BASE_WIDTH,
@@ -25,6 +62,7 @@ export default function PlayerCardExportArt({
   cutoutImage,
   fallbackImage,
   cutoutType,
+  versionLabel,
   rating,
   position,
   name,
@@ -37,10 +75,9 @@ export default function PlayerCardExportArt({
   const scale = width / BASE_WIDTH;
   const px = (value) => Math.round(value * scale * 1000) / 1000;
   const isBase = cutoutType === "base";
-
-  // Measured TOTW colour from the supplied computed styles. Base cards keep
-  // their darker text fallback; special cards use the actual gold tone.
-  const textColour = isBase ? "rgb(77, 51, 31)" : "rgb(223, 207, 154)";
+  const theme = cardTheme(bgImage, versionLabel);
+  const textColour = theme.text;
+  const textShadow = theme.shadow;
 
   const statItems = [
     ["Pac", stats?.pace],
@@ -73,6 +110,7 @@ export default function PlayerCardExportArt({
     <div
       data-player-card-export
       className="relative overflow-visible"
+      data-card-theme={Object.keys(CARD_THEMES).find((key) => CARD_THEMES[key] === theme) || "promo"}
       style={{
         width,
         height,
@@ -80,6 +118,7 @@ export default function PlayerCardExportArt({
         isolation: "isolate",
         color: textColour,
         fontFamily: "Arial, sans-serif",
+        textShadow,
       }}
     >
       <img
@@ -134,6 +173,7 @@ export default function PlayerCardExportArt({
           fontWeight: 700,
           lineHeight: `${px(26.0064)}px`,
           color: textColour,
+          textShadow,
         }}
       >
         {rating ?? "-"}
@@ -152,6 +192,7 @@ export default function PlayerCardExportArt({
           fontWeight: 600,
           lineHeight: `${px(17.6)}px`,
           color: textColour,
+          textShadow,
         }}
       >
         {position || ""}
@@ -167,6 +208,7 @@ export default function PlayerCardExportArt({
           height: px(83.15),
           justifyContent: "space-evenly",
           color: textColour,
+          textShadow,
         }}
       >
         <div
@@ -202,6 +244,7 @@ export default function PlayerCardExportArt({
                 height: px(33.1),
                 fontFamily: "Arial, sans-serif",
                 color: textColour,
+                textShadow,
               }}
             >
               <div
@@ -232,10 +275,7 @@ export default function PlayerCardExportArt({
 
         <div
           className="relative flex items-center justify-between"
-          style={{
-            width: px(74),
-            height: px(22),
-          }}
+          style={{ width: px(74), height: px(22), textShadow: "none" }}
         >
           {nationImage && (
             <img

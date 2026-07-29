@@ -134,6 +134,7 @@ export default function PlayerCardExport() {
     bgImage={data.bgImage}
     cutoutImage={data.cutoutImage}
     cutoutType={data.cutoutType || "special"}
+    versionLabel={data.versionLabel}
     fallbackImage={data.fallbackImage}
     rating={data.rating}
     position={data.position}
