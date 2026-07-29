@@ -97,8 +97,25 @@ export default function PlayerCardExportArt({
           data-card-player
           src={cutoutImage}
           alt={altText || name || "Player"}
-          className="absolute left-0 top-0 block"
-          style={{ zIndex: 2, width: px(252), height: px(349.675) }}
+          className="absolute block"
+          style={
+            isBase
+              ? {
+                  zIndex: 2,
+                  left: px(55.4375),
+                  top: px(61.725),
+                  width: px(162),
+                  height: px(162),
+                  objectFit: "fill",
+                }
+              : {
+                  zIndex: 2,
+                  left: 0,
+                  top: 0,
+                  width: px(252),
+                  height: px(349.675),
+                }
+          }
           referrerPolicy="no-referrer"
           onError={proxyOnError(cutoutImage)}
         />
