@@ -1,5 +1,6 @@
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useSalesCandles } from "../../hooks/useSalesCandles";
+import "../../styles/dashboard-price-chart.css";
 
 export default function ModalPriceChart({ cardId, entryPrice, targetPrice }) {
   const { data, isLoading, isError } = useSalesCandles(cardId, { days: 7, bucketHours: 4 });
