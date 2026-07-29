@@ -1,13 +1,11 @@
 // src/pages/internal/PlayerCardExport.jsx
-// Internal token-gated render page used only by the backend Playwright
-// screenshot service. It renders a single deterministic transparent card.
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import api from "../../axios";
 import PlayerCardExportArt from "../../components/PlayerCardExportArt";
 
-const EXPORT_WIDTH = 432;
-const EXPORT_HEIGHT = 576;
+const EXPORT_WIDTH = 252;
+const EXPORT_HEIGHT = 355;
 const IMAGE_SETTLE_TIMEOUT_MS = 8000;
 
 export default function PlayerCardExport() {
@@ -19,7 +17,7 @@ export default function PlayerCardExport() {
 
   useEffect(() => {
     const shell = document.getElementById("app-shell-bg");
-    const prev = {
+    const previous = {
       htmlBackground: document.documentElement.style.background,
       htmlOverflow: document.documentElement.style.overflow,
       bodyBackground: document.body.style.background,
@@ -36,22 +34,12 @@ export default function PlayerCardExport() {
     if (shell) shell.style.background = "transparent";
 
     const style = document.createElement("style");
-    style.dataset.playerCardExportStyles = "true";
     style.textContent = `
-      *, *::before, *::after {
-        animation: none !important;
-        transition: none !important;
-        caret-color: transparent !important;
-      }
+      *, *::before, *::after { animation:none!important; transition:none!important; box-sizing:border-box!important; }
       html, body, #root, #app-shell-bg {
-        width: ${EXPORT_WIDTH}px !important;
-        height: ${EXPORT_HEIGHT}px !important;
-        min-width: 0 !important;
-        min-height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-        background: transparent !important;
+        width:${EXPORT_WIDTH}px!important; height:${EXPORT_HEIGHT}px!important;
+        min-width:0!important; min-height:0!important; margin:0!important; padding:0!important;
+        overflow:hidden!important; background:transparent!important;
       }
     `;
     document.head.appendChild(style);
@@ -62,49 +50,43 @@ export default function PlayerCardExport() {
     document.head.appendChild(meta);
 
     return () => {
-      document.documentElement.style.background = prev.htmlBackground;
-      document.documentElement.style.overflow = prev.htmlOverflow;
-      document.body.style.background = prev.bodyBackground;
-      document.body.style.margin = prev.bodyMargin;
-      document.body.style.overflow = prev.bodyOverflow;
-      if (shell) shell.style.background = prev.shellBackground;
-      document.head.removeChild(style);
-      document.head.removeChild(meta);
+      document.documentElement.style.background = previous.htmlBackground;
+      document.documentElement.style.overflow = previous.htmlOverflow;
+      document.body.style.background = previous.bodyBackground;
+      document.body.style.margin = previous.bodyMargin;
+      document.body.style.overflow = previous.bodyOverflow;
+      if (shell) shell.style.background = previous.shellBackground;
+      style.remove();
+      meta.remove();
       delete document.documentElement.dataset.cardReady;
     };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-
     if (!cardId || !token) {
       setFetchError("missing card id or token");
       return undefined;
     }
 
-    api
-      .get(`/api/internal/render/player-card/${cardId}`, {
-        params: { token },
-        __skipAuthRedirect: true,
-        __noRetry: true,
-      })
-      .then((response) => {
-        if (!cancelled) setData(response.data?.data || null);
-      })
-      .catch((error) => {
-        if (!cancelled) setFetchError(error?.userMessage || "failed to load card data");
-      });
+    api.get(`/api/internal/render/player-card/${cardId}`, {
+      params: { token },
+      __skipAuthRedirect: true,
+      __noRetry: true,
+    }).then((response) => {
+      if (!cancelled) setData(response.data?.data || null);
+    }).catch((error) => {
+      if (!cancelled) setFetchError(error?.userMessage || "failed to load card data");
+    });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [cardId, token]);
 
   useEffect(() => {
     if (!data) return undefined;
     let cancelled = false;
 
-    async function waitAndMarkReady() {
+    async function markReady() {
       await Promise.race([
         document.fonts?.ready ?? Promise.resolve(),
         new Promise((resolve) => setTimeout(resolve, IMAGE_SETTLE_TIMEOUT_MS)),
@@ -113,34 +95,25 @@ export default function PlayerCardExport() {
 
       const container = document.querySelector("[data-player-card-export]");
       const images = container ? Array.from(container.querySelectorAll("img")) : [];
-
       await Promise.race([
-        Promise.all(
-          images.map(async (image) => {
-            if (!image.complete) {
-              await new Promise((resolve) => {
-                image.addEventListener("load", resolve, { once: true });
-                image.addEventListener("error", resolve, { once: true });
-              });
-            }
-            if (image.complete && image.naturalWidth > 0 && typeof image.decode === "function") {
-              try {
-                await image.decode();
-              } catch {
-                // naturalWidth remains the source of truth for cross-origin images.
-              }
-            }
-          })
-        ),
+        Promise.all(images.map(async (image) => {
+          if (!image.complete) {
+            await new Promise((resolve) => {
+              image.addEventListener("load", resolve, { once: true });
+              image.addEventListener("error", resolve, { once: true });
+            });
+          }
+          if (image.naturalWidth > 0 && typeof image.decode === "function") {
+            try { await image.decode(); } catch { /* already decoded */ }
+          }
+        })),
         new Promise((resolve) => setTimeout(resolve, IMAGE_SETTLE_TIMEOUT_MS)),
       ]);
       if (cancelled) return;
 
-      if (data.bgImage && container) {
-        const background = container.querySelector("img");
-        if (!background || background.naturalWidth === 0) {
-          container.setAttribute("data-card-export-error", "bg-image-failed");
-        }
+      const background = container?.querySelector("[data-card-background]");
+      if (data.bgImage && (!background || background.naturalWidth === 0)) {
+        container?.setAttribute("data-card-export-error", "bg-image-failed");
       }
 
       await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -148,36 +121,27 @@ export default function PlayerCardExport() {
       if (!cancelled) document.documentElement.dataset.cardReady = "true";
     }
 
-    waitAndMarkReady();
-    return () => {
-      cancelled = true;
-    };
+    markReady();
+    return () => { cancelled = true; };
   }, [data]);
 
   if (fetchError) return <div data-card-fetch-error={fetchError} />;
   if (!data) return null;
 
-  return (
-    <PlayerCardExportArt
-      width={EXPORT_WIDTH}
-      height={EXPORT_HEIGHT}
-      bgImage={data.bgImage}
-      cutoutImage={data.cutoutImage}
-      cutoutType={data.cutoutType || "special"}
-      fallbackImage={data.fallbackImage}
-      rating={data.rating}
-      position={data.position}
-      name={data.displayName || data.name}
-      altText={data.name}
-      stats={data.stats}
-      nationImage={data.nationImage}
-      leagueImage={data.leagueImage}
-      clubImage={data.clubImage}
-      altPositions={data.altPositions || []}
-      skillMoves={data.skillMoves}
-      weakFoot={data.weakFoot}
-      preferredFoot={data.preferredFoot}
-      futbinRating={data.futbinRating}
-    />
-  );
+  return <PlayerCardExportArt
+    width={EXPORT_WIDTH}
+    height={EXPORT_HEIGHT}
+    bgImage={data.bgImage}
+    cutoutImage={data.cutoutImage}
+    cutoutType={data.cutoutType || "special"}
+    fallbackImage={data.fallbackImage}
+    rating={data.rating}
+    position={data.position}
+    name={data.displayName || data.name}
+    altText={data.name}
+    stats={data.stats}
+    nationImage={data.nationImage}
+    leagueImage={data.leagueImage}
+    clubImage={data.clubImage}
+  />;
 }
