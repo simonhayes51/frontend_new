@@ -506,7 +506,7 @@
 .terminal-shell .op-card {
   position: relative;
   display: grid;
-  grid-template-columns: 140px minmax(0, 1fr) 52px;
+  grid-template-columns: 84px minmax(0, 1fr) 60px;
   gap: 11px;
   align-items: center;
   min-height: 214px;
@@ -629,11 +629,17 @@
   line-height: 1.35;
 }
 
-/* A 2-column grid only has ~35-58px per cell in this 3-cards-wide strip
-   (266-330px op-card, minus the 82px art column and 52px ring column) -
-   not enough room for "Confidence"/"Expected ROI" without wrapping into
-   each other. A single-column list of label-left/value-right rows uses
-   the same vertical space without needing that width. */
+/* op-content gets whatever's left after the art (84px) and ring (60px)
+   columns plus gaps/padding - roughly 100-140px in this 3-cards-wide
+   strip (266-330px op-card). That's still tight, which is why stats are
+   a single-column label-left/value-right list rather than a 2-column
+   grid (a 2-column grid only has ~35-58px per cell here, not enough for
+   "Confidence"/"Expected Profit" without wrapping into each other).
+   The art column previously drifted to 140px (matching PlayerCard's
+   "w-32" prop) without this math being redone, which squeezed
+   op-content down to ~68px and wrapped every word onto its own line -
+   both the CSS column and the "w-32" prop (see HomeDashboard.jsx's
+   PlayerCard) were brought back down together. */
 .terminal-shell .op-stats-grid {
   display: flex;
   flex-direction: column;

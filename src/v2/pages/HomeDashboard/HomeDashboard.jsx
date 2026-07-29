@@ -545,9 +545,13 @@ function formatDateTime(value) {
 // compact rating-chip-only mode: the whole point raised was that the
 // card itself should carry the name/stats, not just a badge next to a
 // photo. The featured card (~176px) has room for the full 6-stat grid;
-// the mini opportunity cards (~128px, 3 side by side) don't - the stat
-// grid's fixed text sizes turn into an illegible smear at that width, so
-// those keep rating/position/name only (showStats=false).
+// the mini opportunity cards don't, so those keep rating/position/name
+// only (showStats=false). Their width ("w-20", ~80px) has to match
+// .op-card's 84px art-column CSS track (terminal.css) - it was
+// previously "w-32" (~128px) against a 140px track, which left only
+// ~68px for the text column next to it and wrapped every word onto its
+// own line in a 3-cards-wide strip; keep these two in sync if either
+// changes.
 function PlayerCard({ recommendation, featured }) {
   const player = recommendation.player;
   return (
@@ -566,7 +570,7 @@ function PlayerCard({ recommendation, featured }) {
         leagueImage={player.leagueImage}
         clubImage={player.clubImage}
         showStats={!!featured}
-        widthClass={featured ? "w-44" : "w-32"}
+        widthClass={featured ? "w-44" : "w-20"}
       />
     </div>
   );
