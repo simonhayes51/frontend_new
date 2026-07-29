@@ -2,36 +2,14 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Activity,
-  ArrowRight,
-  BarChart3,
-  Bell,
-  Briefcase,
-  CheckCircle2,
-  ChevronRight,
-  Clock3,
-  Command,
-  Crown,
-  ExternalLink,
-  Flame,
-  Home,
-  LineChart,
-  RefreshCw,
-  Search,
-  Share2,
-  ShieldAlert,
-  Sparkles,
-  Star,
-  TrendingDown,
-  TrendingUp,
-  User,
-  Users,
-  WalletCards,
-  Zap,
+  Activity, ArrowRight, BarChart3, Bell, Briefcase, CheckCircle2,
+  ChevronRight, Clock3, Command, Crown, ExternalLink, Home, LineChart,
+  RefreshCw, Search, Share2, ShieldAlert, Sparkles, Star, TrendingDown,
+  TrendingUp, User, Users, Zap,
 } from "lucide-react";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useLiveCardLayers } from "../../hooks/useLiveCardLayers";
-import { useStrategyRecommendations } from "../../hooks/useRecommendationFeeds";
+import { useGeneratedCardImages, useStrategyRecommendations } from "../../hooks/useRecommendationFeeds";
 import { useEntitlements } from "../../../context/EntitlementsContext";
 import PlayerCardArt from "../../../components/PlayerCardArt";
 import { addWatch } from "../../../api/watchlist";
@@ -39,18 +17,13 @@ import "../../styles/terminal.css";
 import "../../styles/dashboard-v2.css";
 
 const STRATEGY_TABS = [
-  { key: "quick_flip", label: "Quick Flip" },
-  { key: "swing_trade", label: "Swing Trade" },
-  { key: "low_risk", label: "Low Risk" },
-  { key: "long_hold", label: "Long Hold" },
-  { key: "lazy_buyer", label: "Lazy Buyer" },
-  { key: "sbc", label: "SBC" },
-];
-
-const SIGNAL_TABS = [
-  { key: "buy", label: "Best Buys", icon: TrendingUp },
-  { key: "wait", label: "Watch & Wait", icon: Clock3 },
-  { key: "avoid", label: "Avoid / Sell", icon: TrendingDown },
+  { key: "best_picks", label: "Best Picks", help: "All cards the engine currently likes" },
+  { key: "quick_flip", label: "Quick Flips", help: "Usually bought and sold within a day" },
+  { key: "swing_trade", label: "2–3 Day Holds", help: "Short holds with room to rise" },
+  { key: "low_risk", label: "Safer Buys", help: "Lower-risk cards with stronger data" },
+  { key: "long_hold", label: "Longer Holds", help: "Cards worth holding for several days" },
+  { key: "lazy_buyer", label: "Lazy Buyer", help: "Easy-to-buy cards with enough sales volume" },
+  { key: "sbc", label: "SBC Plays", help: "Cards that may benefit from SBC demand" },
 ];
 
 const EMPTY_DASHBOARD = {
@@ -60,7 +33,7 @@ const EMPTY_DASHBOARD = {
   locked: { opportunityFeed: false },
 };
 
-const DATA_QUALITY_LABEL = { GOOD: "Reliable", SUSPECT: "Unusual pricing", LIMITED: "Limited data" };
+const DATA_QUALITY_LABEL = { GOOD: "Strong data", SUSPECT: "Price looks unusual", LIMITED: "Not much data" };
 
 export default function HomeDashboard() {
   const dashboardQuery = useDashboard();
@@ -70,207 +43,217 @@ export default function HomeDashboard() {
   const locked = Boolean(dashboard.locked?.opportunityFeed);
   const tierLabel = isAdmin || features.includes("opportunity_feed") ? "ELITE" : isPremium ? "PRO" : "FREE";
 
-  const [activeSignalTab, setActiveSignalTab] = useState("buy");
-  const [activeStrategy, setActiveStrategy] = useState("quick_flip");
+  const [activeStrategy, setActiveStrategy] = useState("best_picks");
   const [selectedCardId, setSelectedCardId] = useState(null);
   const [watchState, setWatchState] = useState("idle");
   const [notice, setNotice] = useState("");
 
-  const strategyQuery = useStrategyRecommendations(activeStrategy, { limit: 8 });
-  const strategyItems = locked ? [] : strategyQuery.data?.items ?? [];
+  const strategyQuery = useStrategyRecommendations(activeStrategy, { limit: 12 });
 
-  const recommendations = useMemo(() => {
+  const dashboardItems = useMemo(() => {
     const unique = new Map();
     [
       ...dashboard.todaysOpportunities,
       ...dashboard.highConfidenceInvestments,
       ...dashboard.cardsToAvoid,
       ...dashboard.recentAiPredictions,
-    ].forEach((item) => item?.cardId && unique.set(String(item.cardId), item));
+      ...dashboard.biggestMovers,
+    ].forEach((item) => {
+      const normal = normaliseRecommendation(item);
+      if (normal?.cardId) unique.set(String(normal.cardId), normal);
+    });
     return [...unique.values()];
   }, [dashboard]);
 
-  const buyItems = useMemo(() => {
-    const buys = recommendations.filter((item) => item.recommendation === "BUY");
-    return (buys.length ? buys : dashboard.todaysOpportunities).slice(0, 6);
-  }, [recommendations, dashboard.todaysOpportunities]);
-  const waitItems = useMemo(() => recommendations.filter((item) => item.recommendation === "WAIT").slice(0, 6), [recommendations]);
-  const avoidItems = useMemo(() => recommendations.filter((item) => item.recommendation === "AVOID" || item.recommendation === "SELL").slice(0, 6), [recommendations]);
-  const signalGroups = { buy: buyItems, wait: waitItems, avoid: avoidItems };
-  const visibleSignals = signalGroups[activeSignalTab] ?? [];
+  const strategyItemsRaw = (strategyQuery.data?.items ?? []).map(normaliseRecommendation).filter(Boolean);
+  const allIds = [...dashboardItems, ...strategyItemsRaw].map((item) => item.cardId);
+  const imageQuery = useGeneratedCardImages(allIds);
+  const generatedImages = imageQuery.data?.images ?? {};
+  const addSavedCard = (item) => item ? {
+    ...item,
+    player: { ...item.player, generatedCardUrl: generatedImages[String(item.cardId)] || item.player?.generatedCardUrl },
+  } : null;
 
+  const recommendations = dashboardItems.map(addSavedCard);
+  const strategyItems = strategyItemsRaw.map(addSavedCard);
+  const buyItems = recommendations.filter((item) => item.recommendation === "BUY").slice(0, 6);
+  const waitItems = recommendations.filter((item) => item.recommendation === "WAIT").slice(0, 6);
+  const avoidItems = recommendations.filter((item) => ["AVOID", "SELL"].includes(item.recommendation)).slice(0, 6);
+  const allCalls = [...buyItems, ...waitItems, ...avoidItems];
   const defaultSelected = buyItems[0] ?? waitItems[0] ?? avoidItems[0] ?? recommendations[0] ?? null;
-  const selectedRaw = recommendations.find((item) => String(item.cardId) === String(selectedCardId)) ?? defaultSelected;
-  const { data: liveLayers } = useLiveCardLayers(selectedRaw?.cardId);
+  const selectedRaw = allCalls.find((item) => String(item.cardId) === String(selectedCardId)) ?? defaultSelected;
+
+  const { data: liveLayers } = useLiveCardLayers(selectedRaw?.player?.generatedCardUrl ? null : selectedRaw?.cardId);
   const selected = enrichWithLiveArt(selectedRaw, liveLayers);
-  const liveMovers = dashboard.biggestMovers.length ? dashboard.biggestMovers : recommendations.slice(0, 5);
+  const activeTab = STRATEGY_TABS.find((tab) => tab.key === activeStrategy);
   const status = dashboardQuery.isLoading ? "loading" : dashboardQuery.isError ? "error" : "live";
   const updatedAt = newestTimestamp(recommendations);
 
-  function selectSignal(item) {
-    setSelectedCardId(String(item.cardId));
-    setWatchState("idle");
-    setNotice("");
-  }
-
   async function handleAddWatchlist() {
     if (!selected || watchState === "saving") return;
-    setWatchState("saving");
-    setNotice("");
+    setWatchState("saving"); setNotice("");
     try {
-      await addWatch({
-        player_name: displayName(selected.player), card_id: String(selected.cardId),
-        version: selected.player?.version ?? null, platform: "ps",
-      });
-      setWatchState("saved");
-      setNotice("Added to your watchlist.");
+      await addWatch({ player_name: displayName(selected.player), card_id: String(selected.cardId), version: selected.player?.version ?? null, platform: "ps" });
+      setWatchState("saved"); setNotice("Added to your watchlist.");
     } catch (error) {
       if (error?.response?.status === 401) return navigate("/login");
-      setWatchState("error");
-      setNotice(error?.response?.data?.detail || "Could not add this card to your watchlist.");
+      setWatchState("error"); setNotice(error?.response?.data?.detail || "Could not add this card.");
     }
   }
 
   async function handleShare() {
     if (!selected) return;
     const url = `${window.location.origin}${window.location.pathname}#/v2/players/${selected.cardId}`;
-    const text = `${displayName(selected.player)} — ${selected.recommendation || "market signal"} on FUT Hub`;
     try {
-      if (navigator.share) await navigator.share({ title: text, text, url });
+      if (navigator.share) await navigator.share({ title: `${displayName(selected.player)} on FUT Hub`, url });
       else { await navigator.clipboard.writeText(url); setNotice("Player link copied."); }
-    } catch { /* native share cancelled */ }
+    } catch { /* cancelled */ }
   }
 
   return (
-    <div className="terminal-shell dashboard-v2 dashboard-command-centre">
+    <div className="terminal-shell dashboard-v2">
       <aside className="sidebar" aria-label="Navigation">
-        <Link className="brand-lockup" to="/v2" aria-label="FUT Hub home"><span className="brand-mark"><Command size={19} /></span><strong>FUT Hub</strong></Link>
+        <Link className="brand-lockup" to="/v2"><span className="brand-mark"><Command size={19} /></span><strong>FUT Hub</strong></Link>
         <nav className="nav-list">
           <NavItem icon={<Home size={18} />} label="Dashboard" to="/v2" active />
-          <NavItem icon={<Activity size={18} />} label="Signals" to="/v2#signals" />
+          <NavItem icon={<Activity size={18} />} label="Trading Tips" to="/v2#strategy-signals" />
           <NavItem icon={<Users size={18} />} label="Players" to="/player-search" />
           <NavItem icon={<BarChart3 size={18} />} label="Market" to="/trending" />
           <NavItem icon={<Star size={18} />} label="Watchlist" to="/watchlist" />
           <NavItem icon={<Bell size={18} />} label="Alerts" to="/watchlist" badge={dashboard.watchlistAlerts.length || undefined} />
-          <NavItem icon={<Briefcase size={18} />} label="Portfolio" to="/trades" />
+          <NavItem icon={<Briefcase size={18} />} label="My Trades" to="/trades" />
         </nav>
-        {tierLabel !== "ELITE" ? <div className="upgrade-panel"><span><Crown size={15} /> {tierLabel} plan</span><p>Unlock every strategy feed, avoid list and full AI breakdown.</p><button type="button" onClick={() => navigate("/billing")}>Upgrade now</button></div> : null}
+        {tierLabel !== "ELITE" ? <div className="upgrade-panel"><span><Crown size={15} /> {tierLabel} plan</span><p>Unlock every tip, strategy and full player breakdown.</p><button type="button" onClick={() => navigate("/billing")}>See plans</button></div> : null}
       </aside>
 
       <main className="workspace">
         <header className="topbar dashboard-topbar">
-          <button className="command-center dashboard-search" type="button" onClick={() => navigate("/player-search")}><Search size={18} /><span><strong>Search the market</strong> Find any player, version or card</span><kbd>/</kbd></button>
+          <button className="command-center dashboard-search" type="button" onClick={() => navigate("/player-search")}><Search size={18} /><span><strong>Find a player</strong> Search cards, prices and trading info</span><kbd>/</kbd></button>
           <div className="operator-cluster">
-            <div className={`live-status ${status}`}><span /><div><strong>{status === "live" ? "Live data" : status === "loading" ? "Reading market" : "Data unavailable"}</strong><small>{updatedAt ? `Updated ${formatRelativeTime(updatedAt)}` : "Waiting for scoring run"}</small></div></div>
-            <button className="icon-button" type="button" aria-label="Open alerts" onClick={() => navigate("/watchlist")}><Bell size={18} />{dashboard.watchlistAlerts.length ? <span>{dashboard.watchlistAlerts.length}</span> : null}</button>
+            <div className={`live-status ${status}`}><span /><div><strong>{status === "live" ? "Prices live" : status === "loading" ? "Loading prices" : "Data unavailable"}</strong><small>{updatedAt ? `Latest tip ${formatRelativeTime(updatedAt)}` : "Waiting for the next update"}</small></div></div>
+            <button className="icon-button" type="button" onClick={() => navigate("/watchlist")}><Bell size={18} />{dashboard.watchlistAlerts.length ? <span>{dashboard.watchlistAlerts.length}</span> : null}</button>
             <button className="profile-chip dashboard-profile" type="button" onClick={() => navigate("/profile")}><User size={15} /> You <em>{tierLabel}</em></button>
           </div>
         </header>
 
-        {dashboardQuery.isError ? <div className="dashboard-error" role="alert"><ShieldAlert size={18} /><div><strong>The dashboard could not load.</strong><p>Your account is fine. Retry the market request.</p></div><button type="button" onClick={() => dashboardQuery.refetch()}><RefreshCw size={15} /> Retry</button></div> : null}
+        {dashboardQuery.isError ? <div className="dashboard-error"><ShieldAlert size={18} /><div><strong>Dashboard could not load.</strong><p>Try the market request again.</p></div><button type="button" onClick={() => dashboardQuery.refetch()}><RefreshCw size={15} /> Retry</button></div> : null}
 
         <div className="terminal-grid dashboard-grid">
           <section className="main-column">
-            <section className="signal-command-panel" id="signals">
-              <div className="signal-command-header">
-                <div><span><Flame size={16} /> Live opportunity board</span><h1>More than one pick. A ranked shortlist for every decision.</h1><p>Switch between the strongest buys, cards worth watching and cards the engine says to avoid.</p></div>
-                <button type="button" onClick={() => navigate("/trending")}>Explore market <ArrowRight size={16} /></button>
-              </div>
-              <div className="signal-tabs" role="tablist" aria-label="Signal type">
-                {SIGNAL_TABS.map(({ key, label, icon: Icon }) => <button key={key} type="button" role="tab" aria-selected={activeSignalTab === key} className={activeSignalTab === key ? `active ${key}` : key} onClick={() => setActiveSignalTab(key)}><Icon size={15} />{label}<em>{signalGroups[key].length}</em></button>)}
-              </div>
-              {locked ? <LockedOpportunityStrip /> : dashboardQuery.isLoading ? <SignalSkeleton /> : visibleSignals.length ? (
-                <div className="signal-card-grid">
-                  {visibleSignals.map((item, index) => <SignalCard key={item.cardId} item={item} rank={index + 1} selected={String(selected?.cardId) === String(item.cardId)} onSelect={selectSignal} />)}
+            <section className="opportunity-strip tips-board">
+              <SectionHeading eyebrow="Today’s tips" title="The best buys, cards to watch and cards to avoid." actionLabel="See all players" onAction={() => navigate("/player-search")} />
+              {locked ? <LockedOpportunityStrip /> : (
+                <div className="tip-lanes">
+                  <TipLane title="Best buys" subtitle="Cards that currently pass our buying checks" tone="buy" items={buyItems} selectedId={selected?.cardId} onSelect={setSelectedCardId} />
+                  <TipLane title="Watch for now" subtitle="Interesting cards, but the price is not right yet" tone="wait" items={waitItems} selectedId={selected?.cardId} onSelect={setSelectedCardId} />
+                  <TipLane title="Avoid / sell" subtitle="Too risky, overpriced or better to move on" tone="sell" items={avoidItems} selectedId={selected?.cardId} onSelect={setSelectedCardId} />
                 </div>
-              ) : <div className="signal-empty"><CheckCircle2 size={22} /><strong>No cards clear this lane right now.</strong><p>That is a valid result. The engine will not invent a weak call to fill the dashboard.</p></div>}
+              )}
             </section>
 
-            <section className="analysis-board dashboard-analysis" aria-labelledby="player-analysis">
-              <div className="analysis-header"><span><LineChart size={17} /> Player analysis</span>{selected ? <div className="analysis-actions"><button type="button" onClick={handleAddWatchlist} disabled={watchState === "saving"}><Star size={15} /> {watchState === "saving" ? "Adding..." : watchState === "saved" ? "Watching" : "Add to watchlist"}</button><button type="button" aria-label="Share card" onClick={handleShare}><Share2 size={15} /></button></div> : null}</div>
+            <section className="analysis-board dashboard-analysis">
+              <div className="analysis-header"><span><LineChart size={17} /> Player breakdown</span>{selected ? <div className="analysis-actions"><button type="button" onClick={handleAddWatchlist} disabled={watchState === "saving"}><Star size={15} /> {watchState === "saved" ? "Watching" : "Add to watchlist"}</button><button type="button" onClick={handleShare}><Share2 size={15} /></button></div> : null}</div>
               {notice ? <p className={`dashboard-notice ${watchState === "error" ? "error" : ""}`}>{notice}</p> : null}
-              {locked ? <UpgradeState navigate={navigate} /> : selected ? <SelectedAnalysis item={selected} /> : <EmptyDecision />}
+              {locked ? <UpgradeState navigate={navigate} /> : selected ? <PlayerBreakdown item={selected} navigate={navigate} /> : <EmptyDecision />}
             </section>
 
-            <section className="strategy-workbench" aria-labelledby="strategy-title">
-              <SectionHeading eyebrow="Strategy scanner" title="Choose how you trade. We only show cards that fit." />
-              <div className="time-tabs strategy-tabs" role="tablist" aria-label="Strategy">{STRATEGY_TABS.map((tab) => <button key={tab.key} type="button" role="tab" aria-selected={activeStrategy === tab.key} className={activeStrategy === tab.key ? "active" : ""} onClick={() => setActiveStrategy(tab.key)}>{tab.label}</button>)}</div>
-              {locked ? <LockedOpportunityStrip /> : strategyQuery.isLoading ? <LoadingRows /> : strategyQuery.isError ? <div className="inline-error"><span>Strategy feed failed to load.</span><button type="button" onClick={() => strategyQuery.refetch()}>Retry</button></div> : strategyItems.length ? <div className="strategy-grid">{strategyItems.map((item) => <StrategyCard key={item.cardId} item={item} onSelect={selectSignal} />)}</div> : <p className="empty-rail">No cards currently clear this strategy&apos;s threshold.</p>}
+            <section className="opportunity-strip strategy-signals" id="strategy-signals">
+              <SectionHeading eyebrow="Ways to trade" title="Pick the style that suits how you play Ultimate Team." />
+              <div className="strategy-picker" role="tablist">
+                {STRATEGY_TABS.map((tab) => <button key={tab.key} type="button" className={activeStrategy === tab.key ? "active" : ""} onClick={() => setActiveStrategy(tab.key)}><strong>{tab.label}</strong><small>{tab.help}</small></button>)}
+              </div>
+              <p className="strategy-explainer">{activeTab?.help}</p>
+              {locked ? <LockedOpportunityStrip /> : strategyQuery.isLoading ? <LoadingRows /> : strategyQuery.isError ? <div className="inline-error"><span>Could not load these picks.</span><button type="button" onClick={() => strategyQuery.refetch()}>Retry</button></div> : strategyItems.length ? <div className="strategy-card-grid">{strategyItems.map((item, index) => <StrategyCard key={item.cardId} item={item} rank={index + 1} />)}</div> : <div className="strategy-empty"><strong>No picks in this category right now.</strong><p>That does not mean the feature is broken. It means no card currently passes every check for this style.</p><button type="button" onClick={() => setActiveStrategy("best_picks")}>Show all best picks</button></div>}
             </section>
 
-            <section className="movers-row dashboard-movers" aria-label="Market activity"><div className="row-title">Top movers <small>live</small></div>{liveMovers.slice(0, 5).map((item, index) => <MoverRow key={`${item.cardId}-${index}`} item={item} />)}{!liveMovers.length ? <div className="mover-empty">No market activity is available yet.</div> : null}</section>
+            <section className="movers-row dashboard-movers"><div className="row-title">Popular market cards <small>live</small></div>{recommendations.slice(0, 5).map((item, i) => <MoverRow key={`${item.cardId}-${i}`} item={item} />)}</section>
           </section>
 
-          <aside className="intelligence-rail" aria-label="Live intelligence">
-            <MarketPulse regime={dashboard.marketRegime} />
-            <RailPanel title="Live alerts" action="View all" onAction={() => navigate("/watchlist")}>{dashboard.watchlistAlerts.slice(0, 4).map((alert) => <AlertRow key={`${alert.title}-${alert.message}`} alert={alert} />)}{!dashboard.watchlistAlerts.length ? <EmptyRail text="No triggered alerts. Add cards and thresholds from Watchlist." /> : null}</RailPanel>
-            <RailPanel title="Upcoming content">{dashboard.latestMarketEvents.length ? dashboard.latestMarketEvents.slice(0, 4).map((event) => <EventRow key={event.id} event={event} />) : <EmptyRail text="No upcoming content events have been detected." />}</RailPanel>
-            <RailPanel title="Latest SBC impact">{dashboard.latestSbcImpact.length ? dashboard.latestSbcImpact.slice(0, 3).map((impact) => <ImpactRow key={impact.eventId} impact={impact} />) : <EmptyRail text="No measured SBC market impact yet." />}</RailPanel>
-            <RailPanel title="Risk / invalidation" danger><ul className="risk-list">{buildRisks(selected, dashboard.marketRegime).map((risk) => <li key={risk}>{risk}</li>)}</ul></RailPanel>
+          <aside className="intelligence-rail">
+            <RailPanel title="Market right now"><div className="market-score"><strong>{Math.round(dashboard.marketRegime.confidence || 0)}</strong><div><b>{dashboard.marketRegime.label}</b><p>{dashboard.marketRegime.summary || "Not enough market data yet."}</p></div></div></RailPanel>
+            <RailPanel title="Your alerts" action="View all" onAction={() => navigate("/watchlist")}>{dashboard.watchlistAlerts.slice(0, 4).map((alert) => <AlertRow key={`${alert.title}-${alert.message}`} alert={alert} />)}{!dashboard.watchlistAlerts.length ? <EmptyRail text="No alerts have triggered yet." /> : null}</RailPanel>
+            <RailPanel title="Upcoming content">{dashboard.latestMarketEvents.length ? dashboard.latestMarketEvents.slice(0, 4).map((event) => <EventRow key={event.id} event={event} />) : <EmptyRail text="No upcoming content detected yet." />}</RailPanel>
+            <RailPanel title="Latest SBC effect">{dashboard.latestSbcImpact.length ? dashboard.latestSbcImpact.slice(0, 3).map((impact) => <ImpactRow key={impact.eventId} impact={impact} />) : <EmptyRail text="No measured SBC price effect yet." />}</RailPanel>
           </aside>
         </div>
-        <p className="disclaimer">Signals are evidence-based, not guaranteed. Check the live price before buying and remember EA&apos;s 5% sale tax.</p>
+        <p className="disclaimer">Tips are based on recent prices and sales, not guaranteed profit. Always check the live market and remember EA takes 5% when you sell.</p>
       </main>
     </div>
   );
 }
 
-function SelectedAnalysis({ item }) {
-  return <div className="dashboard-analysis-body">
-    <div className="dashboard-card-stage"><PlayerCard recommendation={item} featured /></div>
-    <div className="asset-thesis">
-      <p className="asset-kicker">{item.player?.version ?? "FC card"}</p><h2 id="player-analysis">{displayName(item.player)}</h2><p className="analysis-summary">{item.reasoning || plainReason(item, toneForRecommendation(item.recommendation))}</p>
-      <div className="decision-matrix dashboard-decision-grid"><DecisionMetric label="Recommendation" value={item.recommendation || "NO CALL"} tone={toneForRecommendation(item.recommendation)} /><DecisionMetric label="Confidence" value={`${Math.round(item.confidence || 0)}%`} /><DecisionMetric label="Likely net ROI" value={formatRoi(item.netRoi?.likely ?? item.expectedRoi)} tone={(item.netRoi?.likely ?? item.expectedRoi) < 0 ? "sell" : "buy"} /><DecisionMetric label="Time window" value={item.holdingPeriod || "Unavailable"} /></div>
-      <div className="market-facts dashboard-facts"><Fact label="Entry" value={formatCoins(item.entryPrice ?? item.currentBin)} detail="signal entry" /><Fact label="Current BIN" value={formatCoins(item.currentBin)} detail="live market" /><Fact label="Fair value" value={formatCoins(item.fairValue)} detail="24h median" /><Fact label="Break-even" value={formatCoins(item.breakEvenPrice)} detail="after EA tax" /><Fact label="Sales 24h" value={formatCount(item.sales24h)} detail="completed sales" /><Fact label="Liquidity" value={item.sales24h ? `${Math.max(0.1, item.sales24h / 24).toFixed(1)}/h` : "Unavailable"} detail="sales per hour" /></div>
-      <div className="analysis-evidence-grid"><EvidencePanel title="Why now?" items={buildEvidence(item)} /><EvidencePanel title="What would invalidate it?" items={buildItemRisks(item)} danger /></div>
-      <div className="analysis-footer-actions"><Link to={`/v2/players/${item.cardId}`}>Open full player page <ExternalLink size={15} /></Link><Link to="/trades"><WalletCards size={15} /> Log this trade</Link><span>{item.updatedAt ? `Scored ${formatRelativeTime(item.updatedAt)}` : "Scoring time unavailable"}</span></div>
-    </div>
-  </div>;
+function TipLane({ title, subtitle, tone, items, selectedId, onSelect }) {
+  return <section className={`tip-lane ${tone}`}><header><div><h2>{title}</h2><p>{subtitle}</p></div><span>{items.length}</span></header><div className="tip-card-scroll">{items.length ? items.map((item, index) => <TipCard key={item.cardId} item={item} rank={index + 1} selected={String(selectedId) === String(item.cardId)} onSelect={onSelect} />) : <div className="lane-empty">No cards here right now.</div>}</div></section>;
 }
 
-function SignalCard({ item, rank, selected, onSelect }) {
-  const tone = toneForRecommendation(item.recommendation);
-  return <article className={`signal-card ${tone} ${selected ? "selected" : ""}`}>
-    <button type="button" className="signal-card-select" onClick={() => onSelect(item)} aria-label={`Analyse ${displayName(item.player)}`} />
-    <div className="signal-rank">#{rank}</div><div className="signal-art"><PlayerCard recommendation={item} /></div>
-    <div className="signal-copy"><span>{item.recommendation || "SIGNAL"}</span><strong>{displayName(item.player)}</strong><small>{item.player?.rating} {item.player?.position} · {item.player?.version || "Card"}</small><p>{item.reasoning || plainReason(item, tone)}</p><div className="signal-metrics"><MiniStat label="Net ROI" value={formatRoi(item.netRoi?.likely ?? item.expectedRoi)} /><MiniStat label="Confidence" value={`${Math.round(item.confidence || 0)}%`} /><MiniStat label="BIN" value={formatCoins(item.currentBin)} /></div></div>
-    <div className="signal-confidence" style={{ "--confidence": `${Math.max(0, Math.min(100, item.confidence || 0)) * 3.6}deg` }}><strong>{Math.round(item.confidence || 0)}%</strong><span>confidence</span></div>
-  </article>;
+function TipCard({ item, rank, selected, onSelect }) {
+  return <button type="button" className={`tip-card ${selected ? "selected" : ""}`} onClick={() => onSelect(String(item.cardId))}><span className="tip-rank">#{rank}</span><CardImage player={item.player} compact /><div><strong>{displayName(item.player)}</strong><small>{item.player?.rating} {item.player?.position} · {item.player?.version || "Card"}</small><p>{formatCoins(item.currentBin)} coins</p><em>{formatRoi(item.netRoi?.likely ?? item.expectedRoi)} after tax</em></div><ChevronRight size={16} /></button>;
 }
 
-function StrategyCard({ item, onSelect }) { return <button className="strategy-card" type="button" onClick={() => onSelect(item)}><Avatar player={item.player} /><div><strong>{displayName(item.player)}</strong><span>{item.holdingPeriod || "Flexible"} · {item.risk || "Unknown"} risk</span></div><em>{formatRoi(item.netRoi?.likely ?? item.expectedRoi)}</em><small>{formatCoins(item.currentBin)}</small><ChevronRight size={16} /></button>; }
-function MarketPulse({ regime }) { const confidence = Math.round(regime?.confidence || 0); return <section className="rail-panel market-pulse"><header><h2>Market state</h2><span className="live-dot">LIVE</span></header><div className="pulse-main"><div className="pulse-ring" style={{ "--confidence": `${confidence * 3.6}deg` }}><strong>{confidence}</strong><span>/100</span></div><div><strong>{regime?.label || "Unknown"}</strong><p>{regime?.summary || "Not enough market-state data yet."}</p></div></div><div className="pulse-stats"><Metric label="Cards tracked" value={formatCount(regime?.metrics?.liquidCards)} /><Metric label="Value gap" value={formatPercent(regime?.metrics?.avgValueGap)} /></div></section>; }
-function SectionHeading({ eyebrow, title }) { return <div className="section-heading"><div><span><Sparkles size={16} /> {eyebrow}</span><h1>{title}</h1></div></div>; }
+function PlayerBreakdown({ item, navigate }) {
+  return <div className="dashboard-analysis-body"><div className="dashboard-card-stage"><CardImage player={item.player} featured /></div><div className="asset-thesis"><p className="asset-kicker">{item.player?.version || "FC card"}</p><h2>{displayName(item.player)}</h2><p className="player-verdict">{friendlyReason(item)}</p><div className="decision-matrix dashboard-decision-grid"><DecisionMetric label="What to do" value={friendlyCall(item.recommendation)} tone={toneForRecommendation(item.recommendation)} /><DecisionMetric label="How sure?" value={`${Math.round(item.confidence || 0)}%`} /><DecisionMetric label="Profit chance" value={formatRoi(item.netRoi?.likely ?? item.expectedRoi)} /><DecisionMetric label="How long?" value={friendlyHold(item.holdingPeriod)} /></div><div className="market-facts dashboard-facts"><Fact label="Buy around" value={formatCoins(item.entryPrice ?? item.currentBin)} detail="suggested entry" /><Fact label="Price now" value={formatCoins(item.currentBin)} detail="current BIN" /><Fact label="Usual value" value={formatCoins(item.fairValue)} detail="recent fair price" /><Fact label="Need to sell for" value={formatCoins(item.breakEvenPrice)} detail="to cover EA tax" /><Fact label="Sales today" value={formatCount(item.sales24h)} detail="completed sales" /><Fact label="Data check" value={DATA_QUALITY_LABEL[item.dataQuality] || "Unknown"} detail="how much data we have" /></div><EvidencePanel title="Why we picked it" items={buildEvidence(item)} /><div className="analysis-footer-actions"><Link to={`/v2/players/${item.cardId}`}>Full player page <ExternalLink size={15} /></Link><button type="button" onClick={() => navigate("/trades")}>Log this trade</button><span>{item.updatedAt ? `Updated ${formatRelativeTime(item.updatedAt)}` : "Update time unavailable"}</span></div></div></div>;
+}
+
+function StrategyCard({ item, rank }) { return <Link className="strategy-card" to={`/v2/players/${item.cardId}`}><span className="strategy-rank">#{rank}</span><CardImage player={item.player} compact /><div><strong>{displayName(item.player)}</strong><small>{friendlyHold(item.holdingPeriod)} · {item.risk || "Unknown"} risk</small><p>{friendlyReason(item)}</p><footer><b>{formatCoins(item.currentBin)}</b><em>{formatRoi(item.netRoi?.likely ?? item.expectedRoi)}</em></footer></div></Link>; }
+function CardImage({ player = {}, featured, compact }) { if (player.generatedCardUrl) return <img className={`saved-card-image ${featured ? "featured" : compact ? "compact" : ""}`} src={player.generatedCardUrl} alt={displayName(player)} />; return <PlayerCardArt compact={compact} bgImage={player.cardBgImage} cutoutImage={player.cardCutoutImage} cutoutType={player.cardCutoutType || "special"} fallbackImage={player.imageUrl} rating={player.rating} position={player.position} name={displayName(player)} altText={displayName(player)} stats={player.stats} nationImage={player.nationImage} leagueImage={player.leagueImage} clubImage={player.clubImage} showStats={Boolean(featured)} widthClass={featured ? "w-52" : compact ? "w-14" : "w-20"} />; }
+function MoverRow({ item }) { return <Link className="mover" to={`/v2/players/${item.cardId}`}><CardImage player={item.player} compact /><div><strong>{displayName(item.player)}</strong><span>{item.player?.version || "Card"}</span></div><em>{friendlyCall(item.recommendation)}</em><small>{formatCoins(item.currentBin)}</small></Link>; }
+function SectionHeading({ eyebrow, title, actionLabel, onAction }) { return <div className="section-heading"><div><span><Sparkles size={16} /> {eyebrow}</span><h1>{title}</h1></div>{actionLabel ? <button type="button" onClick={onAction}>{actionLabel} <ArrowRight size={16} /></button> : null}</div>; }
 function NavItem({ icon, label, active, badge, to }) { return <Link className={`nav-item ${active ? "active" : ""}`} to={to}>{icon}<span>{label}</span>{badge ? <em>{badge}</em> : null}</Link>; }
-function LockedOpportunityStrip() { return <div className="locked-dashboard-card"><Crown size={22} /><div><strong>Opportunity feed locked</strong><p>Upgrade to see live ranked shortlists and supporting evidence.</p></div><Link to="/billing">Unlock feed</Link></div>; }
-function UpgradeState({ navigate }) { return <div className="decision-empty"><Crown size={24} /><strong>Player breakdown is a Pro feature</strong><p>Unlock strategy-qualified picks and their supporting market evidence.</p><button type="button" onClick={() => navigate("/billing")}>View plans</button></div>; }
-function EmptyDecision() { return <div className="decision-empty"><Activity size={24} /><strong>No qualified card yet</strong><p>The engine will show a breakdown when a card genuinely clears the rules.</p><Link to="/player-search">Search a player instead</Link></div>; }
-function SignalSkeleton() { return <div className="signal-card-grid">{[1,2,3,4].map((n) => <span className="signal-skeleton" key={n} />)}</div>; }
-function LoadingRows() { return <div className="loading-rows">{[1, 2, 3].map((n) => <span key={n} />)}</div>; }
+function LockedOpportunityStrip() { return <div className="locked-dashboard-card"><Crown size={22} /><div><strong>Trading tips are locked</strong><p>Upgrade to see all current picks and reasons.</p></div><Link to="/billing">Unlock tips</Link></div>; }
+function UpgradeState({ navigate }) { return <div className="decision-empty"><Crown size={24} /><strong>Full breakdown is a Pro feature</strong><p>Unlock the price targets and reasons behind each tip.</p><button type="button" onClick={() => navigate("/billing")}>See plans</button></div>; }
+function EmptyDecision() { return <div className="decision-empty"><Activity size={24} /><strong>No tip selected</strong><p>Choose a card above to see the full breakdown.</p></div>; }
+function LoadingRows() { return <div className="loading-rows">{[1,2,3].map((n) => <span key={n} />)}</div>; }
 function EmptyRail({ text }) { return <p className="empty-rail">{text}</p>; }
-function MiniStat({ label, value }) { return <div><p>{label}</p><em>{value}</em></div>; }
-function Metric({ label, value }) { return <div><span>{label}</span><strong>{value}</strong></div>; }
-function PlayerCard({ recommendation, featured }) { const player = recommendation.player || {}; return <div className={`player-card-art ${featured ? "featured" : ""}`}><PlayerCardArt bgImage={player.cardBgImage} cutoutImage={player.cardCutoutImage} cutoutType={player.cardCutoutType || "special"} fallbackImage={player.imageUrl} rating={player.rating} position={player.position} name={displayName(player)} altText={displayName(player)} stats={player.stats} nationImage={player.nationImage} leagueImage={player.leagueImage} clubImage={player.clubImage} showStats={Boolean(featured)} widthClass={featured ? "w-52" : "w-24"} /></div>; }
 function DecisionMetric({ label, value, tone }) { return <div className={`decision-metric ${tone || ""}`}><span>{label}</span><strong>{value}</strong></div>; }
 function Fact({ label, value, detail }) { return <div className="fact-cell"><span>{label}</span><strong>{value}</strong><em>{detail}</em></div>; }
-function EvidencePanel({ title, items, danger }) { return <div className={`evidence-panel dashboard-evidence ${danger ? "danger" : ""}`}><h3>{title}</h3>{items.map((item) => <p key={item}>{danger ? <ShieldAlert size={14} /> : <CheckCircle2 size={14} />} {item}</p>)}</div>; }
-function RailPanel({ title, action, onAction, danger, children }) { return <section className={`rail-panel ${danger ? "danger" : ""}`}><header><h2>{title}</h2>{action ? <button type="button" onClick={onAction}>{action}</button> : null}</header>{children}</section>; }
-function MoverRow({ item }) { return <Link className="mover" to={`/v2/players/${item.cardId}`}><Avatar player={item.player} /><div><strong>{displayName(item.player)}</strong><span>{item.player?.version ?? "Card"}</span></div><em>{item.recommendation || "ACTIVE"}</em><small>{formatCoins(item.currentBin)}</small></Link>; }
-function Avatar({ player = {} }) { return <span className="avatar"><PlayerCardArt compact bgImage={player.cardBgImage} cutoutImage={player.cardCutoutImage} cutoutType={player.cardCutoutType || "special"} fallbackImage={player.imageUrl} rating={player.rating} altText={displayName(player)} widthClass="w-10" /></span>; }
+function EvidencePanel({ title, items }) { return <div className="evidence-panel dashboard-evidence"><h3>{title}</h3>{items.map((item) => <p key={item}><CheckCircle2 size={14} /> {item}</p>)}</div>; }
+function RailPanel({ title, action, onAction, children }) { return <section className="rail-panel"><header><h2>{title}</h2>{action ? <button type="button" onClick={onAction}>{action}</button> : null}</header>{children}</section>; }
 function AlertRow({ alert }) { return <button className="alert-row market" type="button"><span className="alert-label"><Zap size={14} />{alert.title}</span><strong>{alert.severity?.toUpperCase() || "INFO"}</strong><p>{alert.message}</p><ChevronRight size={18} /></button>; }
-function EventRow({ event }) { const when = event.startsAt ? formatRelativeTime(event.startsAt) : "Time unknown"; return <div className="event-row"><span><Clock3 size={14} /> {event.kind || "event"}</span><strong>{event.title}</strong><small>{when}</small></div>; }
-function ImpactRow({ impact }) { const positive = Number(impact.estimatedMarketImpact) >= 0; return <div className="impact-row"><span>{positive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}{impact.title}</span><strong className={positive ? "positive" : "negative"}>{formatPercent(impact.estimatedMarketImpact)}</strong><small>{impact.confidence}% confidence · {impact.fingerprints?.length || 0} groups</small></div>; }
+function EventRow({ event }) { return <div className="event-row"><span><Clock3 size={14} /> {event.kind || "event"}</span><strong>{event.title}</strong><small>{event.startsAt ? formatRelativeTime(event.startsAt) : "Time unknown"}</small></div>; }
+function ImpactRow({ impact }) { const positive = Number(impact.estimatedMarketImpact) >= 0; return <div className="impact-row"><span>{positive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}{impact.title}</span><strong className={positive ? "positive" : "negative"}>{formatPercent(impact.estimatedMarketImpact)}</strong><small>{impact.confidence}% confidence</small></div>; }
 
-function buildEvidence(item) { const evidence = []; if (item.reasoning) evidence.push(item.reasoning); (item.marketDrivers || []).slice(0, 3).forEach((driver) => evidence.push(driver)); if (item.sales24h) evidence.push(`${formatCount(item.sales24h)} completed sales in the last 24 hours.`); if (item.fairValue && item.currentBin && item.currentBin < item.fairValue) evidence.push(`Current BIN is ${formatPercent(((item.fairValue - item.currentBin) / item.fairValue) * 100)} below fair value.`); return evidence.length ? [...new Set(evidence)].slice(0, 5) : ["No additional supporting evidence is available yet."]; }
-function buildItemRisks(item) { const risks = []; if (item.risk && item.risk !== "Low") risks.push(`${item.risk} modelled risk — keep the trade size sensible.`); if (item.dataQuality !== "GOOD") risks.push("Pricing data is limited or unusual; verify live listings before buying."); if (item.breakEvenPrice) risks.push(`A sale below ${formatCoins(item.breakEvenPrice)} loses coins after EA tax.`); risks.push("A new SBC, promo or supply spike can change demand quickly."); return risks.slice(0, 4); }
-function buildRisks(item, regime) { const risks = buildItemRisks(item || {}); if (Number(regime?.metrics?.avgValueGap) < 0) risks.unshift("The wider market is trading above its recent typical value."); return [...new Set(risks)].slice(0, 4); }
+function normaliseRecommendation(item) {
+  if (!item) return null;
+  if (item.player) return item;
+  return {
+    ...item,
+    cardId: item.cardId ?? item.card_id,
+    recommendation: item.recommendation ?? item.status,
+    expectedRoi: toPercent(item.likely_net_roi),
+    netRoi: { likely: toPercent(item.likely_net_roi), conservative: toPercent(item.conservative_net_roi), bullish: toPercent(item.bullish_net_roi) },
+    currentBin: item.currentBin ?? item.current_bin,
+    fairValue: item.fairValue ?? item.fair_value_24h,
+    entryPrice: item.entryPrice ?? item.entry_price,
+    breakEvenPrice: item.breakEvenPrice ?? item.break_even_sale_price,
+    sales24h: item.sales24h ?? item.sales_24h,
+    holdingPeriod: item.holdingPeriod ?? friendlyStrategyHold(item.qualified_strategies),
+    risk: item.risk ?? riskLabel(item.score_risk),
+    updatedAt: item.updatedAt ?? item.computed_at,
+    reasoning: item.reasoning || reasonFromStatus(item.status, item.qualified_strategies),
+    dataQuality: item.dataQuality ?? (item.data_quality_suspect ? "SUSPECT" : item.sales_24h ? "GOOD" : "LIMITED"),
+    player: {
+      name: item.name, cardName: item.card_name, rating: item.rating, version: item.version, position: item.position,
+      imageUrl: item.image_url, cardBgImage: item.card_bg_image, cardCutoutImage: item.card_cutout_image,
+      cardCutoutType: item.card_cutout_type, generatedCardUrl: item.generated_card_url,
+      nationImage: item.nation_image, leagueImage: item.league_image, clubImage: item.club_image,
+      stats: { pace: item.pace, shooting: item.shooting, passing: item.passing, dribbling: item.dribbling, defending: item.defending, physicality: item.physicality },
+    },
+  };
+}
 function enrichWithLiveArt(item, layers) { if (!item || !layers?.bgImageUrl) return item; return { ...item, player: { ...item.player, cardBgImage: layers.bgImageUrl, cardCutoutImage: layers.cutoutImageUrl, cardCutoutType: layers.cutoutType || item.player?.cardCutoutType, cardName: layers.cardName || item.player?.cardName } }; }
+function buildEvidence(item) { const list = []; if (item.reasoning) list.push(item.reasoning); (item.marketDrivers || []).slice(0,3).forEach((x) => list.push(x)); if (item.sales24h) list.push(`${formatCount(item.sales24h)} sales in the last 24 hours.`); return list.length ? [...new Set(list)] : ["The card passed the current price and sales checks."]; }
+function friendlyReason(item) { if (item.reasoning) return item.reasoning.replace("Qualifies for:", "Works for:").replaceAll("_", " "); if (item.recommendation === "BUY") return "The price and sales data currently make this a decent buy."; if (item.recommendation === "WAIT") return "Worth watching, but do not rush into it at this price."; return "The risk is too high compared with the possible return."; }
+function friendlyCall(value) { return value === "BUY" ? "BUY" : value === "WAIT" ? "WAIT" : value === "SELL" ? "SELL" : value === "AVOID" ? "AVOID" : "ACTIVE"; }
+function friendlyHold(value) { return String(value || "Flexible").replace("~24h", "Up to 1 day").replace("~48h", "1–2 days").replace("~7d", "Up to a week"); }
+function friendlyStrategyHold(values=[]) { if (values.includes("quick_flip")) return "Up to 1 day"; if (values.includes("swing_trade")) return "1–2 days"; if (values.includes("long_hold")) return "Up to a week"; return "Flexible"; }
+function reasonFromStatus(status, strategies=[]) { if (status === "BUY") return strategies.length ? `Works for: ${strategies.map((x) => x.replaceAll("_", " ")).join(", ")}.` : "This card passes the current buying checks."; if (status === "WAIT") return "The card is interesting, but the entry price is not good enough yet."; if (status === "AVOID") return "The likely return does not cover the risk and EA tax."; return ""; }
+function riskLabel(v) { if (v == null) return "Unknown"; return Number(v) < .33 ? "Low" : Number(v) < .66 ? "Medium" : "High"; }
+function toneForRecommendation(value) { return value === "BUY" ? "buy" : ["SELL","AVOID"].includes(value) ? "sell" : ""; }
 function displayName(player) { return player?.cardName || player?.name || "Unknown card"; }
-function plainReason(item, tone) { if (tone === "buy") return "This card currently clears at least one buying strategy."; if (tone === "sell") return item?.recommendation === "AVOID" ? "The likely return does not justify the entry price." : "The engine favours reducing exposure."; return "Demand exists, but the current entry does not clear the threshold."; }
-function toneForRecommendation(value) { return value === "BUY" ? "buy" : value === "SELL" || value === "AVOID" ? "sell" : "wait"; }
-function formatCoins(value) { if (value === null || value === undefined) return "Unavailable"; return new Intl.NumberFormat("en-GB").format(Math.round(value)); }
-function formatCount(value) { if (value === null || value === undefined) return "0"; return new Intl.NumberFormat("en-GB").format(value); }
-function formatPercent(value) { if (value === null || value === undefined || Number.isNaN(Number(value))) return "n/a"; const n = Number(value); return `${n > 0 ? "+" : ""}${n.toFixed(1)}%`; }
+function toPercent(value) { return value == null ? null : Number(value) * 100; }
+function formatCoins(value) { if (value == null) return "Unavailable"; return new Intl.NumberFormat("en-GB").format(Math.round(value)); }
+function formatCount(value) { if (value == null) return "0"; return new Intl.NumberFormat("en-GB").format(value); }
+function formatPercent(value) { if (value == null || Number.isNaN(Number(value))) return "n/a"; const n=Number(value); return `${n>0?"+":""}${n.toFixed(1)}%`; }
 function formatRoi(value) { return formatPercent(value); }
-function newestTimestamp(items) { return items.map((item) => item?.updatedAt).filter(Boolean).sort().at(-1) || null; }
-function formatRelativeTime(value) { const date = new Date(value); if (Number.isNaN(date.getTime())) return "recently"; const minutes = Math.round((date.getTime() - Date.now()) / 60000); const formatter = new Intl.RelativeTimeFormat("en-GB", { numeric: "auto" }); if (Math.abs(minutes) < 60) return formatter.format(minutes, "minute"); const hours = Math.round(minutes / 60); if (Math.abs(hours) < 48) return formatter.format(hours, "hour"); return formatter.format(Math.round(hours / 24), "day"); }
+function newestTimestamp(items) { return items.map((x) => x?.updatedAt).filter(Boolean).sort().at(-1) || null; }
+function formatRelativeTime(value) { const date=new Date(value); if(Number.isNaN(date.getTime())) return "recently"; const mins=Math.round((date-Date.now())/60000); const f=new Intl.RelativeTimeFormat("en-GB",{numeric:"auto"}); if(Math.abs(mins)<60)return f.format(mins,"minute"); const hours=Math.round(mins/60); if(Math.abs(hours)<48)return f.format(hours,"hour"); return f.format(Math.round(hours/24),"day"); }
