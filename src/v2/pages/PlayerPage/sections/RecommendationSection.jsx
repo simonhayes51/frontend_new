@@ -8,6 +8,7 @@
 import SectionCard from "../../../components/SectionCard";
 import PremiumGate from "../../../components/PremiumGate";
 import WhyNowChecklist from "../../../components/WhyNowChecklist";
+import { reasoningFromV1_2 } from "../../../lib/format";
 
 export default function RecommendationSection({ recommendation }) {
   // _safe() on the backend turns a require_feature() 401/402 into
@@ -30,10 +31,16 @@ export default function RecommendationSection({ recommendation }) {
   }
 
   const data = recommendation;
+  // reasoning/market_drivers are rule_v1-only columns V1.2 never
+  // populates (see recommendation_engine_v2.py) - fall back to
+  // deriving real text from the V1.2 status/qualified_strategies/
+  // failed_gate_reasons/held_decision_reasons fields the row does
+  // carry, rather than silently rendering an empty panel.
+  const reasoningText = data.reasoning || reasoningFromV1_2(data);
 
   return (
     <SectionCard title="Why now?" subtitle={data.engine_version}>
-      {data.reasoning && <p className="text-xs text-[var(--v2-muted)] mb-3">{data.reasoning}</p>}
+      {reasoningText && <p className="text-xs text-[var(--v2-muted)] mb-3">{reasoningText}</p>}
       <WhyNowChecklist marketDrivers={data.market_drivers} recommendation={data.recommendation} />
     </SectionCard>
   );

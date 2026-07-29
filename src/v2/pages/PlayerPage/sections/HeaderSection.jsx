@@ -11,13 +11,19 @@ import PlayerCardArt from "../../../../components/PlayerCardArt";
 import RecommendationBadge, { TONE_FOR_RECOMMENDATION } from "../../../components/RecommendationBadge";
 import ConfidenceGauge from "../../../components/ConfidenceGauge";
 import StatTile from "../../../components/StatTile";
-import { formatPct } from "../../../lib/format";
+import { formatPct, holdingPeriodFromStrategies } from "../../../lib/format";
 
 export default function HeaderSection({ meta, recommendation }) {
   if (!meta) return null;
 
   const rec = recommendation && !recommendation.error ? recommendation : null;
   const tone = rec ? TONE_FOR_RECOMMENDATION[rec.recommendation] : null;
+  // holding_period_days is a rule_v1-only column V1.2 never populates
+  // (see recommendation_engine_v2.py) - derive the real per-strategy
+  // window instead of always showing "—" for every V1.2-scored card.
+  const holdingPeriod = rec?.holding_period_days
+    ? `${rec.holding_period_days}d`
+    : holdingPeriodFromStrategies(rec?.qualified_strategies) ?? "—";
 
   return (
     <div className="rounded-[var(--v2-radius)] border border-[var(--v2-border)] bg-[var(--v2-card)] p-6">
@@ -63,7 +69,7 @@ export default function HeaderSection({ meta, recommendation }) {
                 value={rec.expected_roi_pct !== null && rec.expected_roi_pct !== undefined ? formatPct(rec.expected_roi_pct, { withSign: true }) : "—"}
                 valueTone={tone === "positive" ? "positive" : tone === "negative" ? "negative" : "neutral"}
               />
-              <StatTile label="Time window" value={rec.holding_period_days ? `${rec.holding_period_days}d` : "—"} />
+              <StatTile label="Time window" value={holdingPeriod} />
             </div>
           )}
         </div>

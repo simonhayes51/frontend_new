@@ -40,3 +40,26 @@ export function useCardsToAvoid({ limit = 10 } = {}) {
     staleTime: 60_000,
   });
 }
+
+// Recommendation Engine V1.2 (backend app/routers/v2/recommendations.py)
+// evaluates every strategy independently against its own thresholds -
+// there is no single global "opportunities" score a card either meets
+// or doesn't, so the Home Dashboard needs one feed per strategy rather
+// than one merged board. `strategy` must be one of the backend's
+// STRATEGY_ORDER keys (quick_flip/swing_trade/low_risk/long_hold/
+// lazy_buyer/sbc); an unknown value 404s server-side rather than
+// silently returning an unfiltered feed.
+export function useStrategyRecommendations(strategy, { limit = 8 } = {}) {
+  return useQuery({
+    queryKey: ["v2", "recommendations", "strategy", strategy, limit],
+    queryFn: async () =>
+      (
+        await api.get(`/api/v2/recommendations/strategy/${strategy}`, {
+          params: { limit },
+          __skipAuthRedirect: true,
+        })
+      ).data,
+    enabled: !!strategy,
+    staleTime: 60_000,
+  });
+}

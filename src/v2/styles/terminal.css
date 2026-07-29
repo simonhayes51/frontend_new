@@ -1176,6 +1176,37 @@
   font-weight: 900;
 }
 
+/* Strategy Signals reuses .mover's row markup/styling (avatar + name +
+   roi + price already look right), but stacks rows vertically instead
+   of .movers-row's fixed-count horizontal strip - .mover's own
+   `flex: 1 1 0` assumes a flex row parent and would otherwise stretch
+   each row to an equal fraction of the list's height. */
+.terminal-shell .strategy-signals .time-tabs {
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+/* Strategy names ("Swing Trade", "Lazy Buyer") run longer than the
+   Player Breakdown price-chart tabs (1H/24H/7D/...) this class was
+   built for, so they need real horizontal padding instead of relying
+   on min-width to keep neighbouring labels from crowding together. */
+.terminal-shell .strategy-signals .time-tabs button {
+  min-width: 0;
+  padding: 0 12px;
+}
+
+.terminal-shell .strategy-signal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.terminal-shell .strategy-signal-list .mover {
+  flex: 0 0 auto;
+  width: 100%;
+  padding: 8px 4px;
+}
+
 .terminal-shell .intelligence-rail {
   display: grid;
   align-content: start;
