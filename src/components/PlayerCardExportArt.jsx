@@ -3,10 +3,17 @@ import React from "react";
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const buildProxy = (url) => `${API_BASE}/img?url=${encodeURIComponent(url)}`;
 
+// FUTBIN/Imgix URLs include a signature (`s=`) calculated from the complete
+// query string. Changing `w` or any other parameter invalidates that
+// signature and the CDN returns an error. Preserve signed URLs exactly as
+// supplied. Only add a width to ordinary unsigned URLs.
 function withWidth(url, width) {
   if (!url) return url;
   try {
     const parsed = new URL(url);
+    if (parsed.searchParams.has("s") || parsed.searchParams.has("ixlib")) {
+      return url;
+    }
     parsed.searchParams.set("fm", "png");
     parsed.searchParams.set("w", String(width));
     return parsed.toString();
