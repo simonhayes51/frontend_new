@@ -9,6 +9,14 @@ const STATUS_TONE = {
   error: "text-[var(--v2-negative)]",
 };
 
+const CARD_GROUP_LABELS = {
+  all: "all cards",
+  special: "special cards",
+  gold: "gold cards",
+  silver: "silver cards",
+  bronze: "bronze cards",
+};
+
 function SingleCardControl() {
   const [cardId, setCardId] = useState("");
   const [status, setStatus] = useState(null);
@@ -101,6 +109,7 @@ function formatDuration(seconds) {
 
 function BackfillControl() {
   const [mode, setMode] = useState("missing");
+  const [cardGroup, setCardGroup] = useState("special");
   const [limit, setLimit] = useState(50000);
   const [concurrency, setConcurrency] = useState(3);
   const [force, setForce] = useState(false);
@@ -136,6 +145,7 @@ function BackfillControl() {
     try {
       const res = await api.post("/api/admin/player-cards/backfill", {
         mode,
+        card_group: cardGroup,
         limit: Number(limit),
         concurrency: Number(concurrency),
         force,
@@ -152,17 +162,26 @@ function BackfillControl() {
   const running = job?.running;
   const progress = job?.total ? Math.min(100, ((job.processed || 0) / job.total) * 100) : 0;
   const eta = formatDuration(job?.eta_seconds);
+  const selectedLabel = CARD_GROUP_LABELS[cardGroup] || "cards";
+  const runningLabel = CARD_GROUP_LABELS[job?.card_group] || selectedLabel;
 
   return (
     <SectionCard
       title="Bulk Backfill"
-      subtitle="One click now drains the full missing or stale backlog. Three reusable Chromium workers cache the app, fonts and images across the run."
+      subtitle="Generate the important card groups first. Special is selected by default; silver and bronze can wait until needed."
       className="mt-4"
     >
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <select value={mode} onChange={(e) => setMode(e.target.value)} disabled={running} className="px-2 py-1.5 rounded-md bg-black/30 border border-[var(--v2-border)] text-xs disabled:opacity-50">
-          <option value="missing">Generate all missing / errored</option>
-          <option value="stale">Regenerate all genuinely stale</option>
+          <option value="missing">Generate missing / errored</option>
+          <option value="stale">Regenerate genuinely stale</option>
+        </select>
+        <select value={cardGroup} onChange={(e) => setCardGroup(e.target.value)} disabled={running} className="px-2 py-1.5 rounded-md bg-black/30 border border-[var(--v2-border)] text-xs disabled:opacity-50">
+          <option value="special">Special cards first</option>
+          <option value="gold">Gold base cards</option>
+          <option value="silver">Silver base cards</option>
+          <option value="bronze">Bronze base cards</option>
+          <option value="all">All cards</option>
         </select>
         <label className="flex items-center gap-1 text-xs text-[var(--v2-muted)]">
           Safety cap
@@ -177,9 +196,13 @@ function BackfillControl() {
           Force regenerate
         </label>
         <button type="button" onClick={start} disabled={running || starting} className="px-3 py-1.5 rounded-md bg-[var(--v2-accent)] text-black font-medium text-xs disabled:opacity-50">
-          {running ? "Running..." : starting ? "Starting..." : mode === "missing" ? "Generate everything missing" : "Refresh every stale card"}
+          {running ? "Running..." : starting ? "Starting..." : mode === "missing" ? `Generate missing ${selectedLabel}` : `Refresh stale ${selectedLabel}`}
         </button>
       </div>
+
+      <p className="text-[11px] text-[var(--v2-muted)] mb-3">
+        Special cards are identified from their special cutout type. Gold, silver and bronze only include base cards and use rating bands of 75+, 65–74 and below 65.
+      </p>
 
       {error && <p role="alert" className="text-xs text-[var(--v2-negative)] mb-2">{error}</p>}
 
@@ -189,19 +212,19 @@ function BackfillControl() {
             <div className="h-full bg-[var(--v2-accent)] transition-[width] duration-500" style={{ width: `${progress}%` }} />
           </div>
           <p>
-            {job.processed ?? 0} / {job.total ?? 0} processed · <span className="text-[var(--v2-positive)]">{job.succeeded ?? 0} ok</span> · <span className="text-[var(--v2-negative)]">{job.failed ?? 0} failed</span>
+            {job.processed ?? 0} / {job.total ?? 0} {runningLabel} processed · <span className="text-[var(--v2-positive)]">{job.succeeded ?? 0} ok</span> · <span className="text-[var(--v2-negative)]">{job.failed ?? 0} failed</span>
           </p>
           {job.running ? (
             <p>
-              {job.phase === "selecting" || job.phase === "checking_stale" ? "Building the work list..." : `Running ${job.concurrency || concurrency} workers in the background.`}
+              {job.phase === "selecting" || job.phase === "checking_stale" ? `Building the ${runningLabel} work list...` : `Running ${job.concurrency || concurrency} workers on ${runningLabel}.`}
               {job.rate_per_minute ? ` ${job.rate_per_minute} cards/min.` : ""}
               {eta ? ` Roughly ${eta} remaining.` : ""}
               {" You can close this tab; the server keeps going."}
             </p>
           ) : job.total ? (
-            <p>Finished{job.finished_at ? ` at ${new Date(job.finished_at * 1000).toLocaleTimeString()}` : ""}. Run it again later and already-current cards will be skipped.</p>
+            <p>Finished{job.finished_at ? ` at ${new Date(job.finished_at * 1000).toLocaleTimeString()}` : ""}. Choose the next card group when ready.</p>
           ) : (
-            <p>Nothing eligible - every card in this mode is already current.</p>
+            <p>Nothing eligible in this card group — everything selected is already current.</p>
           )}
           {job.last_error && <p className="text-[var(--v2-negative)]">Job error: {job.last_error}</p>}
         </div>
