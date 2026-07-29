@@ -1,115 +1,143 @@
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, BarChart3, Clock3, ShieldAlert, Sparkles, Target, TrendingUp } from "lucide-react";
+import { Link, useLocation, useParams } from "react-router-dom";
+import { ArrowLeft, BarChart3, Check, ChevronDown, CircleDollarSign, Clock3, Shield, Target, TrendingUp } from "lucide-react";
 import { usePlayerSummary } from "../../hooks/usePlayerSummary";
 import PlayerCardArt from "../../../components/PlayerCardArt";
-import MarketMetricsSection from "./sections/MarketMetricsSection";
-import FairValueSection from "./sections/FairValueSection";
-import LazyBuyerSection from "./sections/LazyBuyerSection";
-import DealConfidenceSection from "./sections/DealConfidenceSection";
-import ScoresSection from "./sections/ScoresSection";
-import RecommendationSection from "./sections/RecommendationSection";
 import SalesChartSection from "./sections/SalesChartSection";
+import ScoresSection from "./sections/ScoresSection";
 import DeferredSections from "./sections/DeferredSections";
 import "../../styles/player-analysis.css";
 
 export default function PlayerPage() {
   const { cardId } = useParams();
+  const location = useLocation();
+  const snapshot = location.state?.playerAnalysis || null;
   const { data, isLoading, error, refetch } = usePlayerSummary(cardId);
-  const [tab, setTab] = useState("overview");
+  const [showChart, setShowChart] = useState(false);
+  const [showMore, setShowMore] = useState(false);
 
-  const meta = data?.meta;
-  const rec = data?.recommendation && !data.recommendation.error ? data.recommendation : null;
-  const price = firstNumber(rec?.entry_price, rec?.current_bin, data?.market_metrics?.current_bin, data?.fair_value?.current_bin);
-  const fair = firstNumber(rec?.fair_value, data?.fair_value?.fair_value_24h, data?.fair_value?.fair_value);
-  const expectedRoi = firstNumber(rec?.expected_roi_pct, rec?.likely_net_roi);
-  const profit = price && Number.isFinite(expectedRoi) ? Math.round(price * expectedRoi / 100) : null;
-  const recommendation = String(rec?.recommendation || "WATCH").toUpperCase();
-  const confidence = Math.round(firstNumber(rec?.confidence, rec?.score_confidence, 0));
-  const risk = rec?.risk || riskLabel(rec?.score_risk);
-  const title = meta?.card_name || meta?.name || "Player analysis";
-  const reason = rec?.reasoning || rec?.summary || "Live sales, price and value data are being checked for this card.";
+  const view = useMemo(() => buildView(data, snapshot), [data, snapshot]);
 
-  const tabs = useMemo(() => [
-    ["overview", "Overview"],
-    ["price", "Price history"],
-    ["data", "Full data"],
-  ], []);
-
-  if (error) {
-    return <div className="analysis-page"><div className="analysis-error"><ShieldAlert size={24}/><h1>Could not load this card</h1><p>{error?.response?.status === 404 ? "This player could not be found." : "The analysis request failed."}</p><button onClick={() => refetch()}>Try again</button></div></div>;
+  if (error && !snapshot) {
+    return <div className="quick-analysis-page"><div className="quick-error"><Shield size={26}/><h1>Could not load this card</h1><p>{error?.response?.status === 404 ? "This player could not be found." : "The analysis request failed."}</p><button onClick={() => refetch()}>Try again</button></div></div>;
   }
 
-  return <div className="analysis-page">
-    <div className="analysis-topline">
-      <Link to="/v2"><ArrowLeft size={16}/> Back to dashboard</Link>
-      <span>Player analysis</span>
+  if (!view && isLoading) return <QuickSkeleton/>;
+  if (!view) return null;
+
+  const tone = recommendationTone(view.recommendation);
+  const targetSale = view.entry && view.profit ? Math.ceil((view.entry + view.profit) / 0.95 / 250) * 250 : null;
+  const discount = view.fair && view.entry ? ((view.fair - view.entry) / view.entry) * 100 : null;
+  const confidenceWidth = Math.min(100, Math.max(0, view.confidence));
+
+  return <div className={`quick-analysis-page tone-${tone}`}>
+    <div className="quick-topline">
+      <Link to="/v2"><ArrowLeft size={16}/> Dashboard</Link>
+      <span>{data ? "Live analysis" : "Loading live data…"}</span>
     </div>
 
-    {isLoading ? <PlayerSkeleton/> : <>
-      <section className="analysis-hero">
-        <div className="analysis-card-stage">
-          <PlayerArtwork meta={meta}/>
-        </div>
-        <div className="analysis-main">
-          <div className="analysis-title-row">
-            <div>
-              <span>{meta?.rating} {meta?.position} · {meta?.version || "Card"}</span>
-              <h1>{title}</h1>
-            </div>
-            <b className={`analysis-call ${recommendation.toLowerCase()}`}>{recommendation}</b>
-          </div>
-          <p className="analysis-verdict">{reason}</p>
-          <div className="analysis-kpis">
-            <Kpi label="Entry" value={coins(price)} suffix="coins"/>
-            <Kpi label="Expected profit" value={profit === null ? "—" : signedCoins(profit)} suffix="after tax" tone={profit >= 0 ? "positive" : "negative"}/>
-            <Kpi label="Confidence" value={`${confidence}%`} suffix={`${risk} risk`}/>
-            <Kpi label="Fair value" value={coins(fair)} suffix="recent value"/>
-          </div>
-          <div className="analysis-actions">
-            <button onClick={() => setTab("price")}><BarChart3 size={17}/> View price chart</button>
-            <Link to={`/trades?card_id=${cardId}`}><Target size={17}/> Log trade</Link>
-          </div>
-        </div>
+    <main className="quick-decision">
+      <section className="quick-card-zone">
+        <PlayerArtwork meta={view.meta}/>
+        <div className="quick-card-meta">{view.meta.rating} {view.meta.position} · {view.meta.version || "Card"}</div>
       </section>
 
-      <nav className="analysis-tabs" aria-label="Player analysis sections">
-        {tabs.map(([key,label]) => <button key={key} onClick={() => setTab(key)} className={tab === key ? "active" : ""}>{label}</button>)}
-      </nav>
-
-      {tab === "overview" && <section className="analysis-overview">
-        <div className="analysis-summary-grid">
-          <Insight icon={<TrendingUp size={17}/>} label="Price position" value={fair && price ? `${percent((fair-price)/price*100)} below fair value` : "Waiting for enough price data"}/>
-          <Insight icon={<Clock3 size={17}/>} label="Trade window" value={holdingPeriod(rec)}/>
-          <Insight icon={<Sparkles size={17}/>} label="Best fit" value={strategyLabel(rec?.qualified_strategies)}/>
+      <section className="quick-answer">
+        <div className="quick-answer-head">
+          <div>
+            <span className="quick-eyebrow">THE ANSWER</span>
+            <h1>{view.title}</h1>
+          </div>
+          <strong className={`quick-call ${tone}`}>{friendlyCall(view.recommendation)}</strong>
         </div>
-        <div className="analysis-detail-grid">
-          <MarketMetricsSection marketMetrics={data?.market_metrics}/>
-          <FairValueSection fairValue={data?.fair_value}/>
-          <DealConfidenceSection dealConfidence={data?.deal_confidence}/>
-          <LazyBuyerSection lazyBuyerScore={data?.lazy_buyer_score}/>
+
+        <div className="quick-verdict">
+          <span>{headline(view.recommendation)}</span>
+          <strong>{view.entry ? `${coins(view.entry)} coins` : "Wait for a price"}</strong>
+          <p>{plainReason(view, discount)}</p>
         </div>
-        <RecommendationSection recommendation={data?.recommendation}/>
-      </section>}
 
-      {tab === "price" && <section className="analysis-chart-wrap"><SalesChartSection cardId={cardId}/></section>}
+        <div className="quick-numbers">
+          <NumberCard icon={<CircleDollarSign/>} label="Buy at or below" value={coins(view.entry)} detail="Your entry"/>
+          <NumberCard icon={<TrendingUp/>} label="Potential profit" value={signedCoins(view.profit)} detail="After EA tax" positive={view.profit > 0}/>
+          <NumberCard icon={<Target/>} label="Aim to sell" value={coins(targetSale)} detail="Estimated target"/>
+        </div>
 
-      {tab === "data" && <section className="analysis-data-wrap"><ScoresSection cardScores={data?.card_scores}/><DeferredSections/></section>}
-    </>}
+        <div className="quick-confidence">
+          <div><span>Confidence</span><strong>{view.confidence}%</strong></div>
+          <i><b style={{width:`${confidenceWidth}%`}}/></i>
+          <small>{riskCopy(view.risk)} · {holdingPeriod(view.rec)}</small>
+        </div>
+
+        <div className="quick-why">
+          <h2>Why this move?</h2>
+          {buildReasons(view, discount).map((reason) => <div key={reason}><i><Check size={14}/></i><span>{reason}</span></div>)}
+        </div>
+
+        <div className="quick-actions">
+          <Link className="primary" to={`/trades?card_id=${cardId}`}><Target size={17}/> Log this trade</Link>
+          <button onClick={() => setShowChart((v) => !v)}><BarChart3 size={17}/>{showChart ? "Hide price chart" : "Check price chart"}</button>
+        </div>
+      </section>
+    </main>
+
+    <section className="quick-strip">
+      <MiniFact label="Fair value" value={coins(view.fair)} sub={discount !== null ? `${Math.abs(discount).toFixed(1)}% ${discount >= 0 ? "below" : "above"}` : "Recent value"}/>
+      <MiniFact label="Sales today" value={compact(view.sales24h)} sub="Completed sales"/>
+      <MiniFact label="Best method" value={strategyLabel(view.rec?.qualified_strategies)} sub="Suggested play"/>
+      <MiniFact label="Time needed" value={holdingPeriod(view.rec)} sub="Expected hold"/>
+    </section>
+
+    {showChart && <section className="quick-chart"><SalesChartSection cardId={cardId}/></section>}
+
+    <button className="quick-more-toggle" onClick={() => setShowMore((v) => !v)}>
+      {showMore ? "Hide advanced numbers" : "Show advanced numbers"}<ChevronDown size={16}/>
+    </button>
+    {showMore && <section className="quick-advanced"><ScoresSection cardScores={data?.card_scores}/><DeferredSections/></section>}
   </div>;
 }
 
-function PlayerArtwork({ meta = {} }) {
-  if (meta.generated_card_url) return <img className="analysis-generated-card" src={meta.generated_card_url} alt={meta.card_name || meta.name}/>;
-  return <PlayerCardArt bgImage={meta.card_bg_image} cutoutImage={meta.card_cutout_image} cutoutType={meta.card_cutout_type || "special"} fallbackImage={meta.image_url} rating={meta.rating} position={meta.position} name={meta.card_name || meta.name} altText={meta.name} stats={{pace:meta.pace,shooting:meta.shooting,passing:meta.passing,dribbling:meta.dribbling,defending:meta.defending,physicality:meta.physicality}} nationImage={meta.nation_image} leagueImage={meta.league_image} clubImage={meta.club_image} showStats widthClass="w-64"/>;
+function buildView(data, snapshot) {
+  const meta = data?.meta || snapshot?.player || snapshot?.meta;
+  if (!meta) return null;
+  const rec = data?.recommendation && !data.recommendation.error ? data.recommendation : snapshot || {};
+  const entry = firstNumber(rec.entry_price, rec.entryPrice, rec.current_bin, rec.currentBin, data?.market_metrics?.current_bin, data?.fair_value?.current_bin);
+  const fair = firstNumber(rec.fair_value, rec.fairValue, data?.fair_value?.fair_value_24h, data?.fair_value?.fair_value);
+  const roi = firstNumber(rec.expected_roi_pct, rec.likely_net_roi, rec.expectedRoi, rec.netRoi?.likely);
+  const profit = entry && Number.isFinite(roi) ? Math.round(entry * roi / 100) : 0;
+  return {
+    meta,
+    rec,
+    title: meta.card_name || meta.cardName || meta.name || "Player",
+    recommendation: String(rec.recommendation || rec.status || "WATCH").toUpperCase(),
+    entry,
+    fair,
+    profit,
+    confidence: Math.round(firstNumber(rec.confidence, rec.score_confidence, 0)),
+    risk: rec.risk || riskLabel(rec.score_risk),
+    sales24h: firstNumber(rec.sales24h, rec.sales_24h, data?.market_metrics?.sales_24h, data?.market_metrics?.sample_size_24h),
+    reason: rec.reasoning || rec.summary || "The current price is being compared with recent completed sales."
+  };
 }
-function Kpi({label,value,suffix,tone=""}) { return <div className={`analysis-kpi ${tone}`}><span>{label}</span><strong>{value}</strong><small>{suffix}</small></div>; }
-function Insight({icon,label,value}) { return <div className="analysis-insight"><i>{icon}</i><div><span>{label}</span><strong>{value}</strong></div></div>; }
-function PlayerSkeleton(){return <div className="analysis-skeleton"><div/><section><span/><span/><span/><span/></section></div>}
-function firstNumber(...values){for(const value of values){const n=Number(value);if(Number.isFinite(n))return n;}return 0;}
-function coins(v){const n=Number(v);return n>0?new Intl.NumberFormat("en-GB").format(Math.round(n)):"—";}
-function signedCoins(v){const n=Number(v);return Number.isFinite(n)?`${n>0?"+":""}${new Intl.NumberFormat("en-GB").format(Math.round(n))}`:"—";}
-function percent(v){const n=Number(v);return Number.isFinite(n)?`${Math.abs(n).toFixed(1)}%`:"—";}
-function riskLabel(v){const n=Number(v);return !Number.isFinite(n)?"Unknown":n>=70?"High":n>=40?"Medium":"Low";}
-function holdingPeriod(rec){if(rec?.holding_period_days)return `${rec.holding_period_days} days`;const list=rec?.qualified_strategies||[];if(list.includes("quick_flip"))return "Up to 24 hours";if(list.includes("swing_trade"))return "2–3 days";if(list.includes("long_hold"))return "Up to a week";return "Flexible";}
-function strategyLabel(list=[]){if(!list.length)return "General market play";return String(list[0]).replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());}
+
+function PlayerArtwork({ meta = {} }) {
+  const generated = meta.generated_card_url || meta.generatedCardUrl;
+  if (generated) return <img className="quick-generated-card" src={generated} alt={meta.card_name || meta.cardName || meta.name}/>;
+  return <PlayerCardArt bgImage={meta.card_bg_image || meta.cardBgImage} cutoutImage={meta.card_cutout_image || meta.cardCutoutImage} cutoutType={meta.card_cutout_type || meta.cardCutoutType || "special"} fallbackImage={meta.image_url || meta.imageUrl} rating={meta.rating} position={meta.position} name={meta.card_name || meta.cardName || meta.name} altText={meta.name} stats={meta.stats || {pace:meta.pace,shooting:meta.shooting,passing:meta.passing,dribbling:meta.dribbling,defending:meta.defending,physicality:meta.physicality}} nationImage={meta.nation_image || meta.nationImage} leagueImage={meta.league_image || meta.leagueImage} clubImage={meta.club_image || meta.clubImage} showStats widthClass="w-64"/>;
+}
+function NumberCard({icon,label,value,detail,positive}) { return <div className={`quick-number ${positive ? "positive" : ""}`}><i>{icon}</i><span>{label}</span><strong>{value || "—"}</strong><small>{detail}</small></div>; }
+function MiniFact({label,value,sub}) { return <div><span>{label}</span><strong>{value || "—"}</strong><small>{sub}</small></div>; }
+function QuickSkeleton(){return <div className="quick-analysis-page"><div className="quick-topline"><span>Loading card…</span></div><div className="quick-skeleton"><div/><section><span/><span/><span/></section></div></div>}
+function buildReasons(view, discount){const reasons=[];if(discount !== null && discount > 0) reasons.push(`Current entry is ${discount.toFixed(1)}% below recent fair value.`);if(view.sales24h) reasons.push(`${compact(view.sales24h)} completed sales give the price signal real market support.`);if(view.confidence) reasons.push(`${view.confidence}% confidence after the current price, sales and risk checks.`);if(!reasons.length) reasons.push(view.reason);return reasons.slice(0,3)}
+function plainReason(view, discount){if(view.recommendation === "BUY") return discount > 0 ? "The card is priced below its recent value. Buy only at the shown entry or cheaper." : "The numbers support a buy, but stick to the entry price shown.";if(view.recommendation === "SELL" || view.recommendation === "AVOID") return "The possible return is not strong enough for the current risk. Leave it alone.";return "The card may be useful, but the current price is not good enough yet."}
+function headline(call){return call === "BUY" ? "BUY UNDER" : call === "SELL" ? "SELL AROUND" : call === "AVOID" ? "SKIP THIS CARD" : "WAIT FOR"}
+function friendlyCall(call){return call === "WAIT" ? "WATCH" : call}
+function recommendationTone(call){return call === "BUY" ? "buy" : call === "SELL" || call === "AVOID" ? "avoid" : "watch"}
+function riskCopy(risk){return `${risk || "Unknown"} risk`}
+function firstNumber(...values){for(const value of values){const n=Number(value);if(Number.isFinite(n) && n !== 0)return n;}return 0}
+function coins(v){const n=Number(v);return n>0?new Intl.NumberFormat("en-GB").format(Math.round(n)):"—"}
+function signedCoins(v){const n=Number(v);return Number.isFinite(n)&&n!==0?`${n>0?"+":""}${new Intl.NumberFormat("en-GB").format(Math.round(n))}`:"—"}
+function compact(v){const n=Number(v);return Number.isFinite(n)&&n>0?new Intl.NumberFormat("en-GB",{notation:n>999?"compact":"standard",maximumFractionDigits:1}).format(n):"—"}
+function riskLabel(v){const n=Number(v);return !Number.isFinite(n)?"Unknown":n>=70?"High":n>=40?"Medium":"Low"}
+function holdingPeriod(rec){if(rec?.holding_period_days)return `${rec.holding_period_days} days`;const list=rec?.qualified_strategies||[];if(list.includes("quick_flip"))return "Up to 24h";if(list.includes("swing_trade"))return "2–3 days";if(list.includes("long_hold"))return "Up to a week";return rec?.holdingPeriod || "Flexible"}
+function strategyLabel(list=[]){if(!list.length)return "General trade";return String(list[0]).replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase())}
