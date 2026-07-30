@@ -115,18 +115,29 @@ export default function PlayerCardExport() {
 
       const container = document.querySelector("[data-player-card-export]");
 
+      // No bgImage means PlayerCardExportArt fell back to its `!bgImage`
+      // branch, which renders nothing but the raw headshot stretched to the
+      // full card frame - no background, no cutout, no rating/name/stats.
+      // That is never a valid generated card (it's the exact "just a face
+      // photo" bug), so treat missing card-art data as degraded outright,
+      // regardless of whether the fallback photo itself loads fine, rather
+      // than waiting on image-load tracking below.
+      if (!data.bgImage) {
+        document.documentElement.dataset.cardDegraded = "true";
+        document.documentElement.dataset.cardDegradedLayers = "missing-card-art";
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        if (!cancelled) document.documentElement.dataset.cardReady = "true";
+        return;
+      }
+
       // The "must load for a valid card" layers: the card-frame background
-      // and the cutout/player artwork when a bg image is in play, or just
-      // the plain fallback headshot when there's no bg image at all (see
-      // PlayerCardExportArt's `!bgImage` branch). Everything else (nation/
-      // league/club crests) is decorative - losing one shouldn't fail the
-      // whole render.
-      const requiredLayers = data.bgImage
-        ? [
-            ["bg", container?.querySelector("[data-card-background]")],
-            ...(data.cutoutImage ? [["cutout", container?.querySelector("[data-card-player]")]] : []),
-          ]
-        : [["fallback", container?.querySelector("img")]];
+      // and the cutout/player artwork. Everything else (nation/league/club
+      // crests) is decorative - losing one shouldn't fail the whole render.
+      const requiredLayers = [
+        ["bg", container?.querySelector("[data-card-background]")],
+        ...(data.cutoutImage ? [["cutout", container?.querySelector("[data-card-player]")]] : []),
+      ];
 
       const allImages = container ? Array.from(container.querySelectorAll("img")) : [];
       const requiredEls = new Set(requiredLayers.map(([, el]) => el).filter(Boolean));
