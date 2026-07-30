@@ -139,6 +139,60 @@
 .trade-signal.profit > span,
 .trade-signal.profit > strong { color: #9cff3b !important; }
 .queue-reason { display: none; }
+.player-meta-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+.player-meta-pills > span {
+  display: inline-flex !important;
+  align-items: center;
+  width: auto !important;
+  min-height: 22px;
+  margin: 0 !important;
+  padding: 3px 7px;
+  border: 1px solid #2d4658;
+  border-radius: 999px;
+  background: #101f2b;
+  color: #a9bdcc !important;
+  font-size: 9px !important;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: .035em;
+  white-space: nowrap;
+}
+.player-meta-pills > span:first-child {
+  border-color: rgba(156,255,59,.32);
+  background: rgba(156,255,59,.08);
+  color: #baff7b !important;
+}
+.queue-card {
+  grid-template-columns: 35px 72px minmax(0,1fr) 34px 120px 43px 18px !important;
+}
+.queue-art {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+.queue-watch {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid #30495b;
+  border-radius: 9px;
+  background: #101f2b;
+  color: #9db1c2;
+  cursor: pointer;
+}
+.queue-watch:hover,
+.queue-watch.saved {
+  border-color: #9cff3b;
+  background: rgba(156,255,59,.11);
+  color: #9cff3b;
+}
 .strategy-profit {
   display: flex;
   align-items: center;
@@ -174,6 +228,22 @@
 }
 .dash-analysis-modal li .coin-value {
   flex: 0 0 auto;
+}
+.dash-analysis-modal li > .reason-copy {
+  display: block;
+  flex: 1 1 auto;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+  color: #b8c8d5;
+  font-weight: 400;
+}
+.dash-modal-actions {
+  grid-template-columns: minmax(130px,1fr) minmax(145px,1fr) auto !important;
+}
+.dash-modal-actions .watch-action {
+  color: #dce8f0;
 }
 .dash-chart-tooltip {
   display: flex !important;
@@ -245,15 +315,24 @@
     font-size: 10px;
     letter-spacing: .04em;
   }
-  .queue-card > .ft-card-img,
-  .queue-card > div:not(.queue-name):not(.queue-signals):not(.confidence-ring) {
+  .queue-card > .queue-art {
     grid-area: art;
   }
-  .queue-card > .ft-card-img.compact {
+  .queue-art {
+    position: relative;
+    z-index: 1;
+    width: 82px;
+    height: 102px;
+    background: transparent;
+  }
+  .queue-art .ft-card-img.compact {
     width: 82px !important;
     height: 102px !important;
     object-fit: contain;
     filter: drop-shadow(0 10px 12px rgba(0,0,0,.42));
+  }
+  .queue-art > div {
+    max-width: 82px;
   }
   .queue-name {
     grid-area: player;
@@ -264,11 +343,13 @@
     font-size: 19px;
     line-height: 1.12;
   }
-  .queue-name > span {
-    display: block;
-    margin-top: 7px;
-    color: #86a0b5;
-    font-size: 11px;
+  .queue-name .player-meta-pills {
+    padding-right: 22px;
+  }
+  .queue-name .player-meta-pills > span {
+    min-height: 21px;
+    padding-inline: 6px;
+    font-size: 8px !important;
   }
   .queue-name > small { display: none; }
   .queue-reason {
@@ -355,9 +436,18 @@
   .queue-card > .confidence-ring {
     display: none;
   }
+  .queue-card > .queue-watch {
+    position: absolute;
+    top: 15px;
+    right: 14px;
+    z-index: 3;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
   .queue-card > .queue-arrow {
     position: absolute;
-    top: 50px;
+    top: 62px;
     right: 13px;
     color: #7690a5;
   }
@@ -405,6 +495,10 @@
     padding: 10px 48px 10px 108px !important;
   }
   .dash-modal-heading h2 { font-size: 30px !important; }
+  .dash-modal-heading .player-meta-pills {
+    max-width: 210px;
+    margin-bottom: 9px;
+  }
   .dash-modal-heading .call {
     position: absolute;
     top: 74px;
@@ -465,9 +559,38 @@
     margin-top: 16px;
     padding: 16px !important;
   }
+  .dash-analysis-modal ul {
+    gap: 0 !important;
+    margin-top: 18px !important;
+    border-top: 1px solid #203645;
+  }
+  .dash-analysis-modal li {
+    align-items: center;
+    gap: 11px;
+    min-height: 51px;
+    padding: 10px 0;
+    border-bottom: 1px solid #203645;
+    font-size: 13px;
+    line-height: 1.45;
+  }
   .dash-modal-actions {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
+    gap: 9px !important;
+    margin-top: 14px !important;
+  }
+  .dash-modal-actions .watch-action {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    border-color: #3f5b6d;
+  }
+  .dash-modal-actions > button:first-child {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .dash-modal-actions .close-action {
+    grid-column: 2;
+    grid-row: 2;
   }
   .lead-numbers {
     gap: 8px;
