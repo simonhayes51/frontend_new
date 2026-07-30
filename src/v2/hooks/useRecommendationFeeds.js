@@ -60,5 +60,15 @@ export function useGeneratedCardImages(cardIds = []) {
     ).data,
     enabled: ids.length > 0,
     staleTime: 5 * 60_000,
+    // Cards still being generated (null/"generating") are re-checked every
+    // few seconds so the dashboard picks up the finished PNG without a
+    // reload. Cards that ended in "error" are left alone here -- the next
+    // full refetch of this query (e.g. on remount) re-triggers generation
+    // server-side anyway, no need to hammer the endpoint indefinitely.
+    refetchInterval: (query) => {
+      const statuses = query.state.data?.statuses || {};
+      const pending = Object.values(statuses).some((s) => s == null || s === "generating");
+      return pending ? 4000 : false;
+    },
   });
 }
