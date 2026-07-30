@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import "./styles/tokens.css";
+import "./styles/mobile-polish.css";
 import Nav from "./components/Nav";
 import HealthCheck from "./pages/HealthCheck";
 import HomeDashboard from "./pages/HomeDashboard/HomeDashboard";
