@@ -132,6 +132,7 @@ export default function PlayerCardExport() {
     width={EXPORT_WIDTH}
     height={EXPORT_HEIGHT}
     bgImage={data.bgImage}
+    cardColor={data.cardColor}
     cutoutImage={data.cutoutImage}
     cutoutType={data.cutoutType || "special"}
     versionLabel={data.versionLabel}
