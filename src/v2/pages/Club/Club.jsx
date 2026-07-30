@@ -59,7 +59,7 @@ export default function Club() {
       </section>
 
       <section className="club-summary-grid">
-        <div className="club-panel chart-panel"><PanelTitle eyebrow="30 DAY FORM" title="Profit progress" /><ProfitChart items={timeline} /></div>
+        <div className="club-panel chart-panel"><PanelTitle eyebrow="30 DAY FORM" title="30-day profit" /><ProfitChart items={timeline} /></div>
         <div className="club-panel"><PanelTitle eyebrow="AT A GLANCE" title="Trading account" /><div className="account-stats"><Stat label="Open positions" value={performance.open_positions || 0} /><Stat label="Coins invested" value={<CoinValue value={invested} />} /><Stat label="Total profit" value={<CoinValue value={performance.total_profit} signed />} /><Stat label="EA tax paid" value={<CoinValue value={performance.total_ea_tax} />} /><Stat label="Average hold" value={hold(performance.average_hold_hours)} /><Stat label="Closed trades" value={performance.closed_trades || 0} /></div></div>
       </section>
 
@@ -109,6 +109,6 @@ function Kpi({ icon, label, value }) { return <article className="club-kpi"><spa
 function Stat({ label, value }) { return <div className="club-stat"><span>{label}</span><strong>{value}</strong></div>; }
 function PanelTitle({ eyebrow, title }) { return <div className="panel-title"><span>{eyebrow}</span><h2>{title}</h2></div>; }
 function Empty({ icon, title, text }) { return <div className="club-empty"><span>{icon}</span><h2>{title}</h2><p>{text}</p><a href="#/v2">Browse recommendations</a></div>; }
-function hold(hours) { const n = Number(hours || 0); return n < 24 ? `${n.toFixed(1)}h` : `${(n / 24).toFixed(1)}d`; }
+function hold(hours) { const n = Number(hours || 0); if (n > 0 && n < 1) return "<1h"; return n < 24 ? `${Math.round(n)}h` : `${(n / 24).toFixed(1)}d`; }
 function label(value) { return String(value || "Unlabelled").replaceAll("_", " ").replace(/\b\w/g, (x) => x.toUpperCase()); }
 function buildAchievements(p) { const closed = Number(p.closed_trades || 0), wins = Number(p.wins || 0), profit = Number(p.total_profit || 0), winRate = Number(p.win_rate || 0); return [{ icon: "🌱", title: "First Trade", text: "Complete your first profitable sale.", unlocked: wins >= 1 }, { icon: "📚", title: "Getting Serious", text: "Complete 10 trades.", unlocked: closed >= 10 }, { icon: "💰", title: "Coin Maker", text: "Earn 100,000 coins profit.", unlocked: profit >= 100000 }, { icon: "🏆", title: "Millionaire", text: "Earn 1,000,000 coins profit.", unlocked: profit >= 1000000 }, { icon: "🎯", title: "Sharp Shooter", text: "Maintain an 80% win rate across 20 trades.", unlocked: closed >= 20 && winRate >= 80 }, { icon: "🧠", title: "Market Master", text: "Complete 50 trades.", unlocked: closed >= 50 }]; }

@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowRight, BarChart3, Bell, Briefcase, ChevronRight, Command, Home, Search, Star, Target, User, Users, X, Zap } from "lucide-react";
+import { Activity, ArrowRight, Bell, ChevronRight, Search, Star, Target, X, Zap } from "lucide-react";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useGeneratedCardImages, useStrategyRecommendations } from "../../hooks/useRecommendationFeeds";
-import { useEntitlements } from "../../../context/EntitlementsContext";
 import PlayerCardArt from "../../../components/PlayerCardArt";
 import { addWatch } from "../../../api/watchlist";
 import ModalPriceChart from "./ModalPriceChart";
@@ -21,7 +20,6 @@ export default function HomeDashboard(){
   const dashboard=dashboardQuery.data??EMPTY;
   const navigate=useNavigate();
   const {pathname}=useLocation();
-  const {isPremium,isAdmin,features}=useEntitlements();
   const [strategy,setStrategy]=useState("best_picks");
   const [watchStates,setWatchStates]=useState({});
   const [selected,setSelected]=useState(null);
@@ -41,15 +39,13 @@ export default function HomeDashboard(){
   const buyCount=items.filter(x=>x.recommendation==="BUY").length;
   const score=Math.round(Number(dashboard.marketRegime?.confidence||0));
   const potential=items.filter(x=>x.recommendation==="BUY").reduce((sum,item)=>sum+Math.max(0,profit(item)),0);
-  const tier=isAdmin||features.includes("opportunity_feed")?"ELITE":isPremium?"PRO":"FREE";
 
   useEffect(()=>{if(pathname!=="/v2/opportunities")return;const timer=setTimeout(()=>document.getElementById("queue")?.scrollIntoView({behavior:"smooth",block:"start"}),50);return()=>clearTimeout(timer)},[pathname]);
 
   async function watchItem(item){const id=String(item?.cardId||"");if(!item||watchStates[id]==="saving"||watchStates[id]==="saved")return;setWatchStates(current=>({...current,[id]:"saving"}));try{await addWatch({player_name:nameOf(item.player),card_id:id,version:item.player?.version??null,platform:"ps"});setWatchStates(current=>({...current,[id]:"saved"}))}catch(error){if(error?.response?.status===401)navigate("/login");else if(error?.response?.status===409)setWatchStates(current=>({...current,[id]:"saved"}));else setWatchStates(current=>({...current,[id]:"error"}))}}
 
   return <div className="fut-dashboard-shell">
-    <aside className="fut-side"><Link className="fut-brand" to="/v2"><Command size={20}/><strong>FUT Hub</strong></Link><nav><Nav icon={<Home/>} label="Home" to="/v2" active={pathname==="/v2"}/><Nav icon={<Zap/>} label="Opportunities" to="/v2/opportunities" active={pathname==="/v2/opportunities"} badge={buyCount||undefined}/><Nav icon={<Users/>} label="Players" to="/v2/players"/><Nav icon={<BarChart3/>} label="Market" to="/v2/market"/><Nav icon={<Star/>} label="Watchlist" to="/v2/watchlist"/><Nav icon={<Briefcase/>} label="Portfolio" to="/v2/portfolio"/></nav><button className="account-chip" onClick={()=>navigate("/profile")}><User size={16}/><b>{tier}</b><span>Account</span></button></aside>
-    <main className="fut-main">
+    <main className="fut-main home-in-shell">
       <header className="fut-topbar"><button className="fut-search" onClick={()=>navigate("/v2/players")}><Search size={19}/><span>Search player, card or price</span><kbd>/</kbd></button><div className="feed-live"><i/> LIVE</div><button className="bell-btn" onClick={()=>navigate("/v2/watchlist")}><Bell size={18}/></button></header>
       <Ticker items={items} events={dashboard.latestMarketEvents}/>
       <section className="decision-stage">
@@ -66,7 +62,6 @@ export default function HomeDashboard(){
 }
 
 function AnalysisModal({item,onClose,navigate,onWatch,watchState}){useEffect(()=>{const previous=document.body.style.overflow;document.body.style.overflow="hidden";const close=(event)=>event.key==="Escape"&&onClose();window.addEventListener("keydown",close);return()=>{document.body.style.overflow=previous;window.removeEventListener("keydown",close)}},[onClose]);const entry=Number(item.entryPrice??item.currentBin)||0;const gain=profit(item);const target=entry&&gain?Math.ceil((entry+gain)/.95/250)*250:0;const confidence=Math.max(0,Math.min(100,Math.round(Number(item.confidence)||0)));const fair=Number(item.fairValue)||0;const reasons=[fair>entry?`${percent((fair-entry)/entry*100)} below recent value`:reason(item),gain>0?<><CoinValue value={gain} signed/> estimated after EA tax</>:`Current price does not leave enough margin`,`${item.risk||"Unknown"} risk · ${hold(item.holdingPeriod)}`];return <div className="dash-analysis-backdrop" onMouseDown={(event)=>event.target===event.currentTarget&&onClose()}><section className="dash-analysis-modal" role="dialog" aria-modal="true" aria-label={`${nameOf(item.player)} quick analysis`}><button className="dash-modal-close" onClick={onClose} aria-label="Close analysis"><X size={20}/></button><div className="dash-modal-card"><CardImage player={item.player} featured/></div><div className="dash-modal-copy"><div className="dash-modal-heading"><div><PlayerMeta player={item.player}/><h2>{nameOf(item.player)}</h2></div><b className={`call ${String(item.recommendation||"WATCH").toLowerCase()}`}>{item.recommendation||"WATCH"}</b></div><p className="dash-modal-verdict">Buy below <CoinValue value={entry}/>. Aim to sell around <CoinValue value={target}/>.</p><div className="dash-modal-numbers"><Metric label="Buy below" value={<CoinValue value={entry}/>} sub="Maximum entry" tone="entry"/><Metric label="Expected profit" value={<CoinValue value={gain} signed/>} sub="After EA tax" tone={gain>=0?"positive":"negative"}/><Metric label="Sell target" value={<CoinValue value={target}/>} sub="List around this price" tone="target"/></div><div className="dash-modal-lower"><ModalPriceChart cardId={item.cardId} entryPrice={entry} targetPrice={target} fairValue={fair}/><div className="dash-modal-summary"><div className="dash-confidence"><div><span>Confidence</span><strong>{confidence}%</strong></div><i><b style={{width:`${confidence}%`}}/></i></div><ul>{reasons.map((text,index)=><li key={index}><span>✓</span><span className="reason-copy">{text}</span></li>)}</ul><div className="dash-modal-actions"><button onClick={()=>navigate(`/v2/portfolio?card_id=${item.cardId}&buy=${entry}&sell=${target}&quantity=1&player=${encodeURIComponent(nameOf(item.player))}`)}><Target size={17}/> Log trade</button><button className="secondary watch-action" onClick={()=>onWatch(item)}><Star size={17} fill={watchState==="saved"?"currentColor":"none"}/>{watchState==="saved"?"Watching":"Add to watchlist"}</button></div></div></div></div></section></div>}
-function Nav({icon,label,to,active,badge}){return <Link to={to} className={active?"active":""}>{icon}<span>{label}</span>{badge?<em>{badge}</em>:null}</Link>}
 function Metric({label,value,sub,tone}){return <div className={`metric ${tone||""}`}><span>{label}</span><strong>{value}</strong>{sub?<small>{sub}</small>:null}</div>}
 function ConfidenceRing({value,compact=false}){const score=Math.max(0,Math.min(100,Math.round(Number(value)||0)));return <div className={`confidence-ring ${compact?"compact":""}`} style={{"--confidence":`${score*3.6}deg`}}><span>{score}<small>%</small></span></div>}
 function QueueCard({item,rank,onOpen,onWatch,watchState}){const open=()=>onOpen(item);return <div className="queue-card" role="button" tabIndex={0} onClick={open} onKeyDown={event=>(event.key==="Enter"||event.key===" ")&&open()}><span className="rank">#{rank}</span><div className="queue-art"><CardImage player={item.player} compact/></div><div className="queue-name"><strong>{nameOf(item.player)}</strong><PlayerMeta player={item.player}/><small>{reason(item)}</small></div><button className={`queue-watch ${watchState==="saved"?"saved":""}`} onClick={event=>{event.stopPropagation();onWatch(item)}} aria-label={watchState==="saved"?`${nameOf(item.player)} is on your watchlist`:`Add ${nameOf(item.player)} to watchlist`}><Star size={17} fill={watchState==="saved"?"currentColor":"none"}/></button><div className="queue-reason"><b>WHY THIS MOVE</b><span>{reason(item)}</span></div><div className="queue-signals"><TradeSignal label="BUY BELOW" value={item.entryPrice??item.currentBin} tone="entry"/><TradeSignal label="EXPECTED PROFIT" value={profit(item)} tone="profit" signed sub={`${roi(item)} after tax`}/></div><ConfidenceRing value={item.confidence} compact/><ChevronRight className="queue-arrow" size={18}/></div>}
