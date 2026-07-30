@@ -37,7 +37,7 @@
   align-items: center;
   gap: 8px;
   background: var(--v2-accent);
-  color: #07120c;
+  color: #07120d;
   padding: 12px 16px;
   border-radius: 10px;
   font-weight: 800;
@@ -196,7 +196,7 @@
 .club-success button {
   width: 100%;
   background: var(--v2-accent);
-  color: #07120c;
+  color: #07120d;
   border: 0;
   border-radius: 10px;
   padding: 11px;
@@ -226,7 +226,7 @@
   color: var(--v2-muted);
 }
 .positive {
-  color: #55d98a;
+  color: #55d99b;
 }
 .negative {
   color: #ff6b73;
@@ -330,7 +330,7 @@
 .club-modal {
   position: relative;
   width: min(620px, 100%);
-  background: #11151b;
+  background: #161616;
   border: 1px solid var(--v2-border);
   border-radius: 18px;
   padding: 24px;
@@ -385,7 +385,7 @@
 .club-form-grid textarea,
 .close-modal input {
   width: 100%;
-  background: #0b0e12;
+  background: #0e0e0e;
   border: 1px solid var(--v2-border);
   border-radius: 10px;
   padding: 11px;
@@ -401,7 +401,7 @@
 .club-preview > div,
 .close-breakdown > div {
   padding: 12px;
-  background: #0b0e12;
+  background: #0e0e0e;
   border-radius: 10px;
 }
 .club-preview span {
@@ -430,7 +430,7 @@
   place-items: center;
   border-radius: 50%;
   background: rgba(85, 217, 138, 0.14);
-  color: #55d98a;
+  color: #55d99b;
 }
 .close-modal h2 {
   margin: 5px 0 20px;

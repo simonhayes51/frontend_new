@@ -4,19 +4,29 @@
  * clash with v1's styling. Not a second Tailwind config - consumed via
  * Tailwind arbitrary-value classes (bg-[var(--v2-card)] etc.), which
  * avoids touching the single shared build/PostCSS pipeline.
+ *
+ * Palette matches the FUT Trader Hub marketing site: near-black concrete,
+ * chrome/off-white text, one signal-green accent - no navy tint.
  */
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 .v2-root {
-  --v2-bg: #071018;
-  --v2-card: #0c1822;
-  --v2-elevated: #101e2a;
-  --v2-border: #223444;
-  --v2-text: #f6f8fb;
-  --v2-muted: #88a0b5;
-  --v2-accent: #9cff3b;
-  --v2-positive: #22c55e;
-  --v2-negative: #ef4444;
-  --v2-warning: #f59e0b;
-  --v2-radius: 16px;
+  --v2-bg: #08090a;
+  --v2-card: #111214;
+  --v2-elevated: #17181b;
+  --v2-border: #222327;
+  --v2-text: #f3f3f2;
+  --v2-muted: #8d8f95;
+  --v2-dim: #5c5e64;
+  --v2-accent: #39ff8a;
+  --v2-positive: #39ff8a;
+  --v2-negative: #ff5c5c;
+  --v2-warning: #f2c94c;
+  --v2-radius: 10px;
+  --v2-font: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --v2-font-display: 'Oswald', ui-sans-serif, system-ui, sans-serif;
+  --v2-font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
   --bg: var(--v2-bg);
   --panel: var(--v2-card);
   --panel2: var(--v2-elevated);
@@ -24,18 +34,58 @@
   --text: var(--v2-text);
   --muted: var(--v2-muted);
   --green: var(--v2-accent);
-  --amber: #ffd34d;
-  --red: #ff6574;
+  --amber: var(--v2-warning);
+  --red: var(--v2-negative);
 
+  position: relative;
   background: var(--v2-bg);
   color: var(--v2-text);
   min-height: 100vh;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--v2-font);
+}
+
+/* concrete grain + faint blueprint grid, behind all shell content */
+.v2-root::before,
+.v2-root::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.v2-root::before {
+  opacity: .5;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+}
+.v2-root::after {
+  background-image:
+    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 40%, transparent 100%);
+}
+.v2-global-nav,
+.v2-shell-content {
+  position: relative;
+  z-index: 1;
 }
 
 .v2-shell-content { min-width: 0; padding-left: 228px; }
 .home-in-shell { margin-left: 0 !important; }
 .v2-global-nav .nav-short-label { display: none; }
+
+/* headings inherit the site's condensed display face */
+.v2-root h1,
+.v2-root h2,
+.v2-root .lead-head h1,
+.v2-root .pulse-head h2,
+.v2-root .section-head h2 {
+  font-family: var(--v2-font-display);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: -.01em;
+}
 
 @media (max-width: 800px) {
   .v2-shell-content { padding-left: 0; }
