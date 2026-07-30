@@ -43,7 +43,7 @@
 }
 .queue-price > .coin-value {
   justify-content: flex-end;
-  color: #a9bac8 !important;
+  color: #b8b8b8 !important;
   font-size: 15px !important;
   font-weight: 800 !important;
 }
@@ -62,13 +62,13 @@
 }
 .lead-numbers .metric {
   min-height: 96px;
-  border: 1px solid #263b4a !important;
-  border-radius: 12px;
-  background: #09151e;
+  border: 1px solid #383838 !important;
+  border-radius:4px;
+  background: #141414;
 }
 .lead-numbers .metric.entry {
   border-color: rgba(255,211,77,.42) !important;
-  background: linear-gradient(135deg,rgba(255,211,77,.10),#09151e 72%);
+  background: linear-gradient(135deg,rgba(255,211,77,.10),#141414 72%);
 }
 .lead-numbers .metric.entry > span,
 .dash-modal-numbers .metric.entry > span {
@@ -76,11 +76,11 @@
 }
 .lead-numbers .metric.positive {
   border-color: rgba(156,255,59,.42) !important;
-  background: linear-gradient(135deg,rgba(156,255,59,.11),#09151e 72%);
+  background: linear-gradient(135deg,rgba(156,255,59,.11),#141414 72%);
 }
 .lead-numbers .metric.positive > span,
 .dash-modal-numbers .metric.positive > span {
-  color: #9cff3b;
+  color: #3bffa4;
 }
 .lead-numbers .metric.entry > strong { color: #fff4bf; }
 .dash-modal-numbers .metric.entry {
@@ -105,13 +105,13 @@
   align-items: center;
   gap: 5px;
   padding: 5px 7px;
-  border: 1px solid #263b4a;
-  border-radius: 7px;
-  background: #0c1922;
+  border: 1px solid #383838;
+  border-radius:2px;
+  background: #171717;
   text-align: left;
 }
 .trade-signal > span {
-  color: #7892a8 !important;
+  color: #909090 !important;
   font-size: 7px !important;
   font-weight: 900 !important;
   letter-spacing: .06em !important;
@@ -123,7 +123,7 @@
 }
 .trade-signal > small {
   grid-column: 1 / -1;
-  color: #7890a4;
+  color: #8e8e8e;
   font-size: 8px;
   text-align: right;
 }
@@ -137,7 +137,7 @@
   background: rgba(156,255,59,.08);
 }
 .trade-signal.profit > span,
-.trade-signal.profit > strong { color: #9cff3b !important; }
+.trade-signal.profit > strong { color: #3bffa4 !important; }
 .queue-reason { display: none; }
 .player-meta-pills {
   display: flex;
@@ -152,10 +152,10 @@
   min-height: 22px;
   margin: 0 !important;
   padding: 3px 7px;
-  border: 1px solid #2d4658;
-  border-radius: 999px;
-  background: #101f2b;
-  color: #a9bdcc !important;
+  border: 1px solid #424242;
+  border-radius:999px;
+  background: #1e1e1e;
+  color: #bbbbbb !important;
   font-size: 9px !important;
   font-weight: 800;
   line-height: 1;
@@ -165,7 +165,7 @@
 .player-meta-pills > span:first-child {
   border-color: rgba(156,255,59,.32);
   background: rgba(156,255,59,.08);
-  color: #baff7b !important;
+  color: #7bffc1 !important;
 }
 .queue-card {
   grid-template-columns: 35px 72px minmax(0,1fr) 34px 120px 43px 18px !important;
@@ -181,17 +181,17 @@
   width: 34px;
   height: 34px;
   padding: 0;
-  border: 1px solid #30495b;
-  border-radius: 9px;
-  background: #101f2b;
-  color: #9db1c2;
+  border: 1px solid #464646;
+  border-radius:3px;
+  background: #1e1e1e;
+  color: #b0b0b0;
   cursor: pointer;
 }
 .queue-watch:hover,
 .queue-watch.saved {
-  border-color: #9cff3b;
+  border-color: #3bffa4;
   background: rgba(156,255,59,.11);
-  color: #9cff3b;
+  color: #3bffa4;
 }
 .strategy-profit {
   display: flex;
@@ -201,12 +201,12 @@
   margin-top: 9px;
   padding: 6px 8px;
   border: 1px solid rgba(156,255,59,.28);
-  border-radius: 7px;
+  border-radius:2px;
   background: rgba(156,255,59,.07);
-  color: #9cff3b;
+  color: #3bffa4;
 }
 .strategy-profit > small {
-  color: #9cff3b !important;
+  color: #3bffa4 !important;
   font-size: 7px !important;
   font-weight: 900;
   letter-spacing: .06em;
@@ -223,7 +223,7 @@
   height: 21px;
   border-radius: 50%;
   background: rgba(156,255,59,.12);
-  color: #9cff3b;
+  color: #3bffa4;
   font-weight: 900;
 }
 .dash-analysis-modal li .coin-value {
@@ -236,18 +236,18 @@
   height: auto;
   border-radius: 0;
   background: transparent;
-  color: #b8c8d5;
+  color: #c6c6c6;
   font-weight: 400;
 }
 .dash-modal-actions {
   grid-template-columns: minmax(130px,1fr) minmax(145px,1fr) !important;
 }
 .dash-modal-actions .watch-action {
-  color: #dce8f0;
+  color: #e6e6e6;
 }
-.dash-modal-back{position:absolute;z-index:3;top:15px;left:18px;display:flex;align-items:center;gap:7px;color:#a9bdcc;font-size:12px;font-weight:800}
+.dash-modal-back{position:absolute;z-index:3;top:15px;left:18px;display:flex;align-items:center;gap:7px;color:#bbbbbb;font-size:12px;font-weight:800}
 .dash-modal-back svg{transform:rotate(180deg)}
-.dash-modal-back:hover{color:#9cff3b}
+.dash-modal-back:hover{color:#3bffa4}
 .dash-chart-tooltip {
   display: flex !important;
   flex-direction: column !important;
@@ -255,13 +255,13 @@
   gap: 3px !important;
   min-width: 132px;
   padding: 10px 12px !important;
-  border: 1px solid #4c687c !important;
-  border-radius: 10px !important;
-  background: #0b1822 !important;
+  border: 1px solid #646464 !important;
+  border-radius:3px !important;
+  background: #161616 !important;
   box-shadow: 0 12px 30px rgba(0,0,0,.72) !important;
 }
 .dash-chart-tooltip > small {
-  color: #7892a8;
+  color: #909090;
   font-size: 8px;
   font-weight: 900;
   letter-spacing: .12em;
@@ -273,7 +273,7 @@
 }
 .dash-chart-tooltip > span {
   display: block !important;
-  color: #b8c8d5 !important;
+  color: #c6c6c6 !important;
   font-size: 10px !important;
   line-height: 1.25;
   white-space: nowrap;
@@ -299,10 +299,10 @@
     min-height: 178px !important;
     padding: 15px 16px !important;
     overflow: hidden;
-    border-radius: 15px !important;
+    border-radius:15px !important;
     background:
       radial-gradient(circle at 12% 35%,rgba(156,255,59,.06),transparent 30%),
-      linear-gradient(145deg,#0b1822,#09151e) !important;
+      linear-gradient(145deg,#161616,#141414) !important;
     transition: border-color .16s ease,transform .16s ease;
   }
   .queue-card:hover {
@@ -314,7 +314,7 @@
     position: absolute;
     inset: 0 auto 0 0;
     width: 3px;
-    background: linear-gradient(#9cff3b,rgba(156,255,59,0));
+    background: linear-gradient(#3bffa4,rgba(156,255,59,0));
   }
   .queue-card > .rank {
     grid-area: rank;
@@ -323,10 +323,10 @@
     place-items: center;
     min-width: 38px;
     height: 28px;
-    border: 1px solid #355064;
-    border-radius: 999px;
-    background: #101f2b;
-    color: #b3c6d5;
+    border: 1px solid #4c4c4c;
+    border-radius:999px;
+    background: #1e1e1e;
+    color: #c4c4c4;
     font-size: 11px;
   }
   .queue-card > .queue-art {
@@ -357,11 +357,11 @@
     align-items: center;
     gap: 8px;
     min-width: 0;
-    color: #9fb2c1;
+    color: #b0b0b0;
     font-size: 11px;
   }
   .queue-reason > b {
-    color: #6f899d;
+    color: #868686;
     font-size: 8px;
     letter-spacing: .08em;
   }
@@ -378,7 +378,7 @@
   }
   .queue-card > .queue-arrow {
     grid-area: arrow;
-    color: #7991a4;
+    color: #8e8e8e;
   }
   .queue-signals {
     position: relative;
@@ -387,8 +387,8 @@
     grid-template-columns: 1fr 1fr;
     gap: 0;
     overflow: hidden;
-    border: 1px solid #294250;
-    border-radius: 10px;
+    border: 1px solid #3c3c3c;
+    border-radius:3px;
     background: #07131b;
   }
   .queue-signals::after {
@@ -401,10 +401,10 @@
     place-items: center;
     width: 24px;
     height: 24px;
-    border: 1px solid #405a6b;
+    border: 1px solid #565656;
     border-radius: 50%;
-    background: #10202b;
-    color: #e1ebf2;
+    background: #1e1e1e;
+    color: #eaeaea;
     transform: translate(-50%,-50%);
   }
   .queue-signals .trade-signal {
@@ -417,7 +417,7 @@
   }
   .queue-signals .trade-signal + .trade-signal {
     padding-left: 20px;
-    border-left: 1px solid #294250;
+    border-left: 1px solid #3c3c3c;
   }
   .queue-signals .trade-signal > span {
     align-self: center;
@@ -445,14 +445,14 @@
     gap: 13px 16px !important;
     min-height: 214px !important;
     padding: 16px !important;
-    border-radius: 15px !important;
+    border-radius:15px !important;
     background:
       radial-gradient(circle at 14% 25%,rgba(101,199,255,.07),transparent 29%),
-      #09151e !important;
+      #141414 !important;
   }
   .strategy-card-new:hover {
-    border-color: #456174;
-    background-color: #0c1b25 !important;
+    border-color: #5c5c5c;
+    background-color: #181818 !important;
   }
   .strategy-card-art {
     grid-area: art;
@@ -482,7 +482,7 @@
   }
   .strategy-card-copy > p {
     margin: 12px 0 0;
-    color: #7890a4;
+    color: #8e8e8e;
     font-size: 11px;
   }
   .strategy-trade {
@@ -502,7 +502,7 @@
     position: absolute;
     right: 14px;
     bottom: 79px;
-    color: #6f899d;
+    color: #868686;
   }
   .dash-analysis-modal {
     grid-template-columns: 280px minmax(0,1fr) !important;
@@ -511,10 +511,10 @@
     padding: 28px !important;
   }
   .dash-modal-card {
-    border: 1px solid #203746;
+    border: 1px solid #333333;
     background:
       radial-gradient(circle at 50% 42%,rgba(156,255,59,.14),transparent 48%),
-      linear-gradient(160deg,#0e1c26,#08131c) !important;
+      linear-gradient(160deg,#1a1a1a,#08131c) !important;
   }
   .dash-modal-card .ft-card-img.featured {
     width: 245px !important;
@@ -523,7 +523,7 @@
   .dash-modal-verdict {
     margin: 15px 0 17px !important;
     padding: 11px 14px;
-    border-left: 3px solid #9cff3b;
+    border-left: 3px solid #3bffa4;
     border-radius: 0 9px 9px 0;
     background: rgba(156,255,59,.045);
   }
@@ -534,8 +534,8 @@
   }
   .dash-modal-numbers .metric {
     min-height: 104px;
-    border: 1px solid #263b4a;
-    border-radius: 11px;
+    border: 1px solid #383838;
+    border-radius:3px;
   }
   .dash-modal-lower {
     grid-template-columns: minmax(0,1.45fr) minmax(310px,.85fr) !important;
@@ -548,13 +548,13 @@
   .dash-analysis-modal ul {
     gap: 0 !important;
     margin-top: 15px !important;
-    border-top: 1px solid #203645;
+    border-top: 1px solid #323232;
   }
   .dash-analysis-modal li {
     align-items: center;
     min-height: 43px;
     padding: 8px 0;
-    border-bottom: 1px solid #203645;
+    border-bottom: 1px solid #323232;
   }
   .dash-modal-actions {
     grid-template-columns: 1fr 1fr !important;
@@ -588,17 +588,17 @@
     min-height: 0 !important;
     padding: 16px !important;
     overflow: hidden;
-    border-radius: 16px !important;
+    border-radius:4px !important;
     background:
       radial-gradient(circle at 12% 25%,rgba(156,255,59,.07),transparent 28%),
-      #09151e !important;
+      #141414 !important;
   }
   .queue-card::before {
     content: "";
     position: absolute;
     inset: 0 auto 0 0;
     width: 3px;
-    background: linear-gradient(#9cff3b,rgba(156,255,59,0));
+    background: linear-gradient(#3bffa4,rgba(156,255,59,0));
   }
   .queue-card > .rank {
     position: absolute;
@@ -607,10 +607,10 @@
     z-index: 2;
     align-self: auto;
     padding: 4px 7px;
-    border: 1px solid #385164;
-    border-radius: 999px;
-    background: #101f2b;
-    color: #b8c9d7;
+    border: 1px solid #4e4e4e;
+    border-radius:999px;
+    background: #1e1e1e;
+    color: #c8c8c8;
     font-size: 10px;
     letter-spacing: .04em;
   }
@@ -659,17 +659,17 @@
     gap: 9px;
     margin: 0 !important;
     padding: 10px 11px;
-    border: 1px solid #203645;
-    border-radius: 9px;
+    border: 1px solid #323232;
+    border-radius:3px;
     background: rgba(255,255,255,.025);
-    color: #adbecb;
+    color: #bcbcbc;
     font-size: 11px;
     white-space: nowrap;
     overflow: hidden;
   }
   .queue-reason > b {
     display: block;
-    color: #7892a8;
+    color: #909090;
     font-size: 8px;
     letter-spacing: .09em;
   }
@@ -684,8 +684,8 @@
     grid-template-columns: 1fr 1fr;
     gap: 0;
     overflow: hidden;
-    border: 1px solid #2b4352;
-    border-radius: 11px;
+    border: 1px solid #3f3f3f;
+    border-radius:3px;
     background: #07121a;
   }
   .queue-signals::after {
@@ -698,10 +698,10 @@
     place-items: center;
     width: 23px;
     height: 23px;
-    border: 1px solid #405666;
+    border: 1px solid #535353;
     border-radius: 50%;
-    background: #101f2a;
-    color: #dce7ef;
+    background: #1d1d1d;
+    color: #e6e6e6;
     font-size: 13px;
     transform: translate(-50%,-50%);
   }
@@ -713,7 +713,7 @@
     border-radius: 0;
   }
   .queue-signals .trade-signal + .trade-signal {
-    border-left: 1px solid #2b4352;
+    border-left: 1px solid #3f3f3f;
   }
   .queue-signals .trade-signal > span {
     display: block;
@@ -742,13 +742,13 @@
     z-index: 3;
     width: 36px;
     height: 36px;
-    border-radius: 10px;
+    border-radius:3px;
   }
   .queue-card > .queue-arrow {
     position: absolute;
     top: 62px;
     right: 13px;
-    color: #7690a5;
+    color: #8e8e8e;
   }
   .strategy-card-new {
     position: relative;
@@ -760,7 +760,7 @@
     gap: 12px 14px !important;
     min-height: 0 !important;
     padding: 14px !important;
-    border-radius: 14px !important;
+    border-radius:4px !important;
   }
   .strategy-card-art {
     grid-area: art;
@@ -789,7 +789,7 @@
   }
   .strategy-card-copy > p {
     margin: 10px 0 0;
-    color: #7890a4;
+    color: #8e8e8e;
     font-size: 10px;
   }
   .strategy-trade {
@@ -816,7 +816,7 @@
     max-height: calc(100dvh - 12px) !important;
     overflow-y: auto !important;
     overscroll-behavior: contain;
-    border-radius: 22px 22px 0 0 !important;
+    border-radius:6px 22px 0 0 !important;
     padding: 20px 16px calc(18px + env(safe-area-inset-bottom)) !important;
   }
   .dash-modal-card {
@@ -830,8 +830,8 @@
     height: 116px;
     min-height: 0 !important;
     overflow: hidden;
-    border: 1px solid #24394a;
-    border-radius: 13px;
+    border: 1px solid #373737;
+    border-radius:4px;
   }
   .dash-modal-card .ft-card-img.featured {
     width: 82px !important;
@@ -861,9 +861,9 @@
   .dash-modal-verdict {
     margin: 18px 0 14px !important;
     padding: 12px 14px;
-    border: 1px solid #24394a;
-    border-radius: 11px;
-    background: #09151e;
+    border: 1px solid #373737;
+    border-radius:3px;
+    background: #141414;
     font-size: 16px !important;
   }
   .dash-modal-numbers {
@@ -879,8 +879,8 @@
     align-items: center;
     min-height: 74px;
     padding: 12px 14px !important;
-    border: 1px solid #263b4a;
-    border-radius: 11px;
+    border: 1px solid #383838;
+    border-radius:3px;
   }
   .dash-modal-numbers .metric > span,
   .dash-modal-numbers .metric > small {
@@ -916,14 +916,14 @@
   .dash-analysis-modal ul {
     gap: 0 !important;
     margin-top: 18px !important;
-    border-top: 1px solid #203645;
+    border-top: 1px solid #323232;
   }
   .dash-analysis-modal li {
     align-items: center;
     gap: 11px;
     min-height: 51px;
     padding: 10px 0;
-    border-bottom: 1px solid #203645;
+    border-bottom: 1px solid #323232;
     font-size: 13px;
     line-height: 1.45;
   }
@@ -936,7 +936,7 @@
   .dash-modal-actions .watch-action {
     grid-column: 1 / -1;
     grid-row: 1;
-    border-color: #3f5b6d;
+    border-color: #565656;
   }
   .dash-modal-actions > button:first-child {
     grid-column: 1 / -1;
@@ -966,9 +966,9 @@
 }
 
 .home-in-shell { margin-left: 0 !important; }
-.map-bars > button { display: grid; grid-template-columns: 190px minmax(0,1fr) 60px; align-items: center; gap: 12px; width: 100%; color: #f6f8fb; text-align: left; }
-.map-bars > button:hover span { color: #9cff3b; }
-.map-bars > button > i { height: 8px; overflow: hidden; border-radius: 99px; background: #152633; }
-.map-bars > button > i > b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#4dcf79,#9cff3b); }
-.map-bars > button > strong { color: #9cff3b; font-size: 12px; text-align: right; }
+.map-bars > button { display: grid; grid-template-columns: 190px minmax(0,1fr) 60px; align-items: center; gap: 12px; width: 100%; color: #f8f8f8; text-align: left; }
+.map-bars > button:hover span { color: #3bffa4; }
+.map-bars > button > i { height: 8px; overflow: hidden; border-radius:99px; background: #242424; }
+.map-bars > button > i > b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#4dcf92,#3bffa4); }
+.map-bars > button > strong { color: #3bffa4; font-size: 12px; text-align: right; }
 @media (max-width: 700px) { .map-bars > button { grid-template-columns: 110px minmax(0,1fr) 48px; } }

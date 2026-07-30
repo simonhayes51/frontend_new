@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Briefcase, Command, Home, SlidersHorizontal, Star, User, Users } from "lucide-react";
+import { Briefcase, Home, SlidersHorizontal, Star, User, Users } from "lucide-react";
 import { useEntitlements } from "../../context/EntitlementsContext";
 
 const ITEMS = [
@@ -17,7 +17,7 @@ export default function Sidebar() {
   const tier = isAdmin || features.includes("opportunity_feed") ? "ELITE" : isPremium ? "PRO" : "FREE";
 
   return <aside className="fut-side v2-global-nav">
-    <Link className="fut-brand" to="/v2"><Command size={20}/><strong>FUT Hub</strong></Link>
+    <Link className="fut-brand" to="/v2"><span className="brand-mark">FT</span><strong>FUT <b>Hub</b></strong></Link>
     <nav aria-label="Main">
       {ITEMS.map((item) => {
         const active = item.match(pathname);

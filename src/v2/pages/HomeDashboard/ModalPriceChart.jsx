@@ -30,20 +30,20 @@ export default function ModalPriceChart({ cardId, entryPrice, targetPrice, fairV
       : isError || points.length === 0 ? <div className="dash-chart-empty">Not enough completed sales yet.</div>
       : <ResponsiveContainer width="100%" height={190}>
           <AreaChart data={points} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
-            <defs><linearGradient id={`modalPriceFill-${cardId}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#9cff3b" stopOpacity={0.34}/><stop offset="100%" stopColor="#9cff3b" stopOpacity={0}/></linearGradient></defs>
-            <CartesianGrid stroke="#1b3040" strokeDasharray="3 4" vertical={false}/>
-            <XAxis dataKey="time" type="number" domain={["dataMin", "dataMax"]} scale="time" tickFormatter={formatDay} tick={{ fill: "#7892a8", fontSize: 10 }} axisLine={false} tickLine={false}/>
-            <YAxis domain={["auto", "auto"]} width={55} tickFormatter={compactCoins} tick={{ fill: "#7892a8", fontSize: 10 }} axisLine={false} tickLine={false}/>
+            <defs><linearGradient id={`modalPriceFill-${cardId}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3bffa4" stopOpacity={0.34}/><stop offset="100%" stopColor="#3bffa4" stopOpacity={0}/></linearGradient></defs>
+            <CartesianGrid stroke="#2e2e2e" strokeDasharray="3 4" vertical={false}/>
+            <XAxis dataKey="time" type="number" domain={["dataMin", "dataMax"]} scale="time" tickFormatter={formatDay} tick={{ fill: "#909090", fontSize: 10 }} axisLine={false} tickLine={false}/>
+            <YAxis domain={["auto", "auto"]} width={55} tickFormatter={compactCoins} tick={{ fill: "#909090", fontSize: 10 }} axisLine={false} tickLine={false}/>
             <Tooltip
               content={<PriceTooltip/>}
-              cursor={{ stroke: "#d7e1e9", strokeWidth: 1 }}
+              cursor={{ stroke: "#e0e0e0", strokeWidth: 1 }}
               allowEscapeViewBox={{ x: false, y: true }}
               wrapperStyle={{ zIndex: 4, pointerEvents: "none" }}
             />
             {entryPrice > 0 && <ReferenceLine y={entryPrice} stroke="#ffd34d" strokeDasharray="5 4" label={{ value: "BUY", fill: "#ffd34d", fontSize: 10, position: "insideTopRight" }}/>} 
             {fairValue > 0 && <ReferenceLine y={fairValue} stroke="#65c7ff" strokeDasharray="3 4" label={{ value: "FAIR", fill: "#65c7ff", fontSize: 10, position: "insideTopLeft" }}/>} 
-            {targetPrice > 0 && <ReferenceLine y={targetPrice} stroke="#9cff3b" strokeDasharray="5 4" label={{ value: "SELL", fill: "#9cff3b", fontSize: 10, position: "insideTopRight" }}/>} 
-            <Area type="monotone" dataKey="price" stroke="#9cff3b" strokeWidth={3} fill={`url(#modalPriceFill-${cardId})`} activeDot={{ r: 5 }} dot={false}/>
+            {targetPrice > 0 && <ReferenceLine y={targetPrice} stroke="#3bffa4" strokeDasharray="5 4" label={{ value: "SELL", fill: "#3bffa4", fontSize: 10, position: "insideTopRight" }}/>} 
+            <Area type="monotone" dataKey="price" stroke="#3bffa4" strokeWidth={3} fill={`url(#modalPriceFill-${cardId})`} activeDot={{ r: 5 }} dot={false}/>
           </AreaChart>
         </ResponsiveContainer>}
     </div>
