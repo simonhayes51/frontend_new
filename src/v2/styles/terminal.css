@@ -68,7 +68,7 @@
   height: calc(100vh - 24px);
   padding: 10px;
   border: 1px solid rgba(151, 164, 183, 0.16);
-  border-radius: 8px;
+  border-radius:2px;
   background:
     linear-gradient(180deg, rgba(16, 24, 34, 0.82), rgba(6, 11, 17, 0.78)),
     rgba(7, 11, 17, 0.9);
@@ -107,7 +107,7 @@
   place-items: center;
   width: 34px;
   height: 34px;
-  border-radius: 8px;
+  border-radius:2px;
   color: #07100c;
   background: linear-gradient(135deg, #8af5c3, #64d29f);
   box-shadow: 0 0 24px rgba(103, 232, 95, 0.24);
@@ -130,7 +130,7 @@
   gap: 10px;
   min-height: 42px;
   padding: 0 10px;
-  border-radius: 8px;
+  border-radius:2px;
   color: #e0e0e0;
   transition: background 180ms ease, color 180ms ease, transform 180ms ease;
 }
@@ -147,7 +147,7 @@
   left: -10px;
   width: 2px;
   height: 32px;
-  border-radius: 999px;
+  border-radius:999px;
   background: #5fe8a8;
 }
 
@@ -165,7 +165,7 @@
   height: 20px;
   display: grid;
   place-items: center;
-  border-radius: 999px;
+  border-radius:999px;
   color: #d2ffea;
   background: rgba(103, 232, 95, 0.2);
   font-size: 11px;
@@ -178,7 +178,7 @@
   gap: 10px;
   padding: 12px;
   border: 1px solid rgba(255, 209, 102, 0.22);
-  border-radius: 8px;
+  border-radius:2px;
   background:
     radial-gradient(circle at 20% 0%, rgba(255, 209, 102, 0.12), transparent 48%),
     rgba(255, 255, 255, 0.035);
@@ -203,7 +203,7 @@
 .terminal-shell .analysis-actions button,
 .terminal-shell .rail-panel header button {
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
+  border-radius:2px;
   background: rgba(255, 255, 255, 0.045);
   color: #f8f8f8;
   cursor: pointer;
@@ -239,7 +239,7 @@
   height: 40px;
   padding: 0 8px 0 14px;
   border: 1px solid rgba(151, 164, 183, 0.18);
-  border-radius: 8px;
+  border-radius:2px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.028)),
     rgba(8, 12, 18, 0.9);
@@ -258,7 +258,7 @@
   min-width: 32px;
   padding: 4px 7px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 6px;
+  border-radius:2px;
   color: #d6d6d6;
   font-size: 11px;
 }
@@ -311,7 +311,7 @@
   width: 34px;
   height: 34px;
   border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: 8px;
+  border-radius:2px;
   background: rgba(255, 255, 255, 0.035);
   cursor: pointer;
 }
@@ -350,7 +350,7 @@
 .terminal-shell .profile-chip em {
   padding: 2px 5px;
   border: 1px solid rgba(255, 209, 102, 0.52);
-  border-radius: 4px;
+  border-radius:2px;
   color: #ffd84a;
   font-size: 9px;
   font-style: normal;
@@ -374,7 +374,7 @@
 .terminal-shell .rail-panel,
 .terminal-shell .morning-brief-panel {
   border: 1px solid rgba(151, 164, 183, 0.17);
-  border-radius: 8px;
+  border-radius:2px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.023)),
     rgba(7, 11, 17, 0.88);
@@ -512,7 +512,7 @@
   min-height: 214px;
   padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
+  border-radius:2px;
   overflow: hidden;
   background:
     radial-gradient(circle at 0% 0%, rgba(103, 232, 95, 0.13), transparent 58%),
@@ -576,7 +576,7 @@
   height: 25px;
   display: grid;
   place-items: center;
-  border-radius: 999px;
+  border-radius:999px;
   color: #07100c;
   background: #5fe8a8;
   font-size: 12px;
@@ -683,7 +683,7 @@
 
 .terminal-shell .signal-foot b {
   padding: 4px 6px;
-  border-radius: 6px;
+  border-radius:2px;
   color: #bbbbbb;
   background: rgba(255, 255, 255, 0.045);
   font-size: 10px;
@@ -720,7 +720,7 @@
    radius so it doesn't read as a loose, unbounded photo in the
    meantime. */
 .terminal-shell .player-card-art > div {
-  border-radius: 6px;
+  border-radius:2px;
   overflow: hidden;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
@@ -824,7 +824,7 @@
   grid-template-columns: 1.1fr 1fr 1fr 1.1fr;
   margin-top: 11px;
   border: 1px solid rgba(151, 164, 183, 0.14);
-  border-radius: 8px;
+  border-radius:2px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.03);
 }
@@ -838,7 +838,7 @@
 .terminal-shell .decision-proof-row span {
   padding: 5px 8px;
   border: 1px solid rgba(151, 164, 183, 0.12);
-  border-radius: 999px;
+  border-radius:999px;
   color: #bababa;
   background: rgba(255, 255, 255, 0.025);
   font-size: 11px;
@@ -900,7 +900,7 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-top: 12px;
   border: 1px solid rgba(151, 164, 183, 0.12);
-  border-radius: 8px;
+  border-radius:2px;
   overflow: hidden;
 }
 
@@ -961,7 +961,7 @@
 .terminal-shell .history-panel,
 .terminal-shell .raw-context-panel {
   border: 1px solid rgba(151, 164, 183, 0.12);
-  border-radius: 8px;
+  border-radius:2px;
   background: rgba(3, 8, 12, 0.36);
 }
 
@@ -980,7 +980,7 @@
   min-width: 37px;
   height: 24px;
   border: 0;
-  border-radius: 6px;
+  border-radius:2px;
   color: #aaaaaa;
   background: transparent;
   font-size: 11px;
@@ -1058,7 +1058,7 @@
   min-height: 260px;
   padding: 28px;
   border: 1px solid rgba(151, 164, 183, 0.12);
-  border-radius: 8px;
+  border-radius:2px;
   background: rgba(3, 8, 12, 0.36);
   text-align: center;
 }
@@ -1141,7 +1141,7 @@
 }
 
 .terminal-shell .avatar > div {
-  border-radius: 6px;
+  border-radius:2px;
   overflow: hidden;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
@@ -1212,7 +1212,7 @@
   align-content: start;
   gap: 0;
   border: 1px solid rgba(151, 164, 183, 0.17);
-  border-radius: 8px;
+  border-radius:2px;
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
@@ -1261,7 +1261,7 @@
   margin-top: 7px;
   padding: 11px 34px 11px 11px;
   border: 1px solid rgba(103, 232, 95, 0.24);
-  border-radius: 8px;
+  border-radius:2px;
   background:
     linear-gradient(90deg, rgba(103, 232, 95, 0.12), rgba(103, 232, 95, 0.04)),
     rgba(255, 255, 255, 0.025);
@@ -1477,7 +1477,7 @@
   margin: 0;
   padding: 10px;
   border: 1px solid rgba(151, 164, 183, 0.12);
-  border-radius: 8px;
+  border-radius:2px;
   background: rgba(255, 255, 255, 0.025);
 }
 
