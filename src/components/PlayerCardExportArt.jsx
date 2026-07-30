@@ -59,6 +59,7 @@ export default function PlayerCardExportArt({
   width = BASE_WIDTH,
   height = BASE_HEIGHT,
   bgImage,
+  cardColor,
   cutoutImage,
   fallbackImage,
   cutoutType,
@@ -76,7 +77,11 @@ export default function PlayerCardExportArt({
   const px = (value) => Math.round(value * scale * 1000) / 1000;
   const isBase = cutoutType === "base";
   const theme = cardTheme(bgImage, versionLabel);
-  const textColour = theme.text;
+  const resolvedCardColor =
+    typeof cardColor === "string" && cardColor.trim()
+      ? cardColor.trim()
+      : theme.text;
+  const textColour = resolvedCardColor;
   const textShadow = theme.shadow;
 
   const statItems = [
@@ -116,7 +121,8 @@ export default function PlayerCardExportArt({
         height,
         background: "transparent",
         isolation: "isolate",
-        color: textColour,
+        "--cardColor": textColour,
+        color: "var(--cardColor)",
         fontFamily: "Arial, sans-serif",
         textShadow,
       }}
@@ -172,7 +178,7 @@ export default function PlayerCardExportArt({
           fontSize: px(30),
           fontWeight: 700,
           lineHeight: `${px(26.0064)}px`,
-          color: textColour,
+          color: "var(--cardColor)",
           textShadow,
         }}
       >
@@ -191,7 +197,7 @@ export default function PlayerCardExportArt({
           fontSize: px(14.0364),
           fontWeight: 600,
           lineHeight: `${px(17.6)}px`,
-          color: textColour,
+          color: "var(--cardColor)",
           textShadow,
         }}
       >
@@ -207,7 +213,7 @@ export default function PlayerCardExportArt({
           width: px(196.55),
           height: px(83.15),
           justifyContent: "space-evenly",
-          color: textColour,
+          color: "var(--cardColor)",
           textShadow,
         }}
       >
@@ -243,7 +249,7 @@ export default function PlayerCardExportArt({
                 minWidth: px(20.3),
                 height: px(33.1),
                 fontFamily: "Arial, sans-serif",
-                color: textColour,
+                color: "var(--cardColor)",
                 textShadow,
               }}
             >
