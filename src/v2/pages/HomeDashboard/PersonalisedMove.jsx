@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Coins, Minus, Plus, WalletCards } from "lucide-react";
+import CoinValue from "../../components/CoinValue";
 
 const STORAGE_KEY = "futhub_coin_balance";
 
@@ -50,7 +51,7 @@ export default function PersonalisedMove({ item, onOpen }) {
               <button type="submit">Save</button>
             </form>
           ) : (
-            <button onClick={() => setEditing(true)}>{formatCoins(balance)} <small>Edit</small></button>
+            <button onClick={() => setEditing(true)}><CoinValue value={balance}/> <small>Edit</small></button>
           )}
         </div>
       </div>
@@ -64,9 +65,9 @@ export default function PersonalisedMove({ item, onOpen }) {
             <button onClick={() => setQuantity((value) => Math.min(maxQuantity, value + 1))} disabled={quantity >= maxQuantity} aria-label="Increase quantity"><Plus size={17}/></button>
           </div>
         </div>
-        <MoveNumber label="Buy below" value={formatCoins(entry)} sub="each"/>
-        <MoveNumber label="Capital needed" value={formatCoins(move.capital)} sub={`${formatCoins(Math.max(0, balance - move.capital))} left`}/>
-        <MoveNumber label="Expected profit" value={signedCoins(move.profit)} sub="after EA tax" positive/>
+        <MoveNumber label="Buy below" value={<CoinValue value={entry}/>} sub="each"/>
+        <MoveNumber label="Capital needed" value={<CoinValue value={move.capital}/>} sub={<><CoinValue value={Math.max(0, balance - move.capital)}/> left</>}/>
+        <MoveNumber label="Expected profit" value={<CoinValue value={move.profit} signed/>} sub="after EA tax" positive/>
         <button className="personal-move-action" onClick={() => onOpen({ ...item, suggestedQuantity: quantity, coinBalance: balance })}>View move</button>
       </div>
       {balance < entry && <p className="personal-move-warning">Your saved balance is below this card's entry price. Update your coins or choose a cheaper opportunity.</p>}
@@ -95,15 +96,4 @@ function projectedProfit(item) {
 
 function displayName(player = {}) {
   return player.displayName || player.cardName || player.nickname || player.name || "Unknown player";
-}
-
-function formatCoins(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? Math.round(number).toLocaleString("en-GB") : "—";
-}
-
-function signedCoins(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return "—";
-  return `${number >= 0 ? "+" : "−"}${formatCoins(Math.abs(number))}`;
 }
