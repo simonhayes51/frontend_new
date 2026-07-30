@@ -7,7 +7,7 @@
 // player_summary() returned for this card - may be a locked/error shape
 // ({error, status}) rather than a real recommendation object, so the
 // badge/gauge/ROI row only renders when it looks like real data.
-import PlayerCardArt from "../../../../components/PlayerCardArt";
+import PlayerCardImage from "../../../../components/PlayerCardImage";
 import RecommendationBadge, { TONE_FOR_RECOMMENDATION } from "../../../components/RecommendationBadge";
 import ConfidenceGauge from "../../../components/ConfidenceGauge";
 import StatTile from "../../../components/StatTile";
@@ -28,22 +28,10 @@ export default function HeaderSection({ meta, recommendation }) {
   return (
     <div className="rounded-[var(--v2-radius)] border border-[var(--v2-border)] bg-[var(--v2-card)] p-6">
       <div className="flex flex-col sm:flex-row items-start gap-6">
-        <PlayerCardArt
-          bgImage={meta.card_bg_image}
-          cutoutImage={meta.card_cutout_image}
-          cutoutType={meta.card_cutout_type || "special"}
-          fallbackImage={meta.image_url}
-          rating={meta.rating}
-          position={meta.position}
-          name={meta.card_name || meta.name}
+        <PlayerCardImage
+          player={meta}
+          enablePolling
           altText={meta.name}
-          stats={{
-            pace: meta.pace, shooting: meta.shooting, passing: meta.passing,
-            dribbling: meta.dribbling, defending: meta.defending, physicality: meta.physicality,
-          }}
-          nationImage={meta.nation_image}
-          leagueImage={meta.league_image}
-          clubImage={meta.club_image}
           widthClass="w-52"
         />
 
@@ -73,7 +61,7 @@ export default function HeaderSection({ meta, recommendation }) {
             </div>
           )}
 
-          {meta.generated_card_url && (
+          {meta.generated_card_status === "ready" && meta.generated_card_url && !meta.generated_card_flagged && (
             <a
               href={meta.generated_card_url}
               download={`${(meta.card_name || meta.name || "card").replace(/\s+/g, "_")}.png`}

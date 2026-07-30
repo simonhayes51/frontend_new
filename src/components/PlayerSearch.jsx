@@ -3,7 +3,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Search, TrendingUp, TrendingDown, Minus, Loader2, Target } from "lucide-react";
 import PriceTrendChart from "./PriceTrendChart.jsx";
 import FairValueBadge from "./FairValueBadge.jsx";
-import PlayerCardArt from "./PlayerCardArt.jsx";
+import PlayerCardImage from "./PlayerCardImage.jsx";
 import BacktestPanel from "./BacktestPanel.jsx";
 import SalesLineChart from "./SalesLineChart.jsx";
 
@@ -564,18 +564,25 @@ const PlayerDetail = ({ player, onBack }) => {
 
       <div className="bg-black/40 backdrop-blur-md border border-white/10 text-white rounded-xl p-6">
         <div className="flex flex-col lg:flex-row items-start gap-6 mb-6">
-          <PlayerCardArt
-            bgImage={d.cardBgImage}
-            cutoutImage={d.cardCutoutImage}
-            cutoutType={d.cutoutType}
-            fallbackImage={d.cardImage}
-            rating={d.rating}
-            position={d.position}
-            name={d.cardName || player.name || d.fullName}
-            stats={d.stats}
-            nationImage={d.nationImage}
-            leagueImage={d.leagueImage}
-            clubImage={d.clubImage}
+          <PlayerCardImage
+            enablePolling
+            player={{
+              card_id: cardId,
+              generated_card_url: player.generated_card_url,
+              generated_card_status: player.generated_card_status,
+              generated_card_flagged: player.generated_card_flagged,
+              card_bg_image: d.cardBgImage,
+              card_cutout_image: d.cardCutoutImage,
+              card_cutout_type: d.cutoutType,
+              image_url: d.cardImage,
+              rating: d.rating,
+              position: d.position,
+              card_name: d.cardName || player.name || d.fullName,
+              stats: d.stats,
+              nation_image: d.nationImage,
+              league_image: d.leagueImage,
+              club_image: d.clubImage,
+            }}
             versionLabel={d.version}
             altText={d.fullName}
             widthClass="w-48"

@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import PriceTrendChart from "../components/PriceTrendChart.jsx";
-import PlayerCardArt from "../components/PlayerCardArt.jsx";
+import PlayerCardImage from "../components/PlayerCardImage.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const PLACEHOLDER = "/img/card-placeholder.png";
@@ -245,18 +245,22 @@ function CardBlock({ cardId, platform }) {
   return (
     <div className="bg-black/40 border border-white/10 rounded-2xl p-4">
       <div className="flex items-start gap-4">
-        <PlayerCardArt
-          bgImage={meta.bgImage}
-          cutoutImage={meta.cutoutImage}
-          cutoutType={meta.cutoutType}
-          fallbackImage={meta.cardImage}
-          rating={meta.rating}
-          position={meta.position}
-          name={meta.displayName}
-          stats={meta.stats}
-          nationImage={meta.nationImage}
-          leagueImage={meta.leagueImage}
-          clubImage={meta.clubImage}
+        <PlayerCardImage
+          enablePolling
+          player={{
+            card_id: cardId,
+            card_bg_image: meta.bgImage,
+            card_cutout_image: meta.cutoutImage,
+            card_cutout_type: meta.cutoutType,
+            image_url: meta.cardImage,
+            rating: meta.rating,
+            position: meta.position,
+            card_name: meta.displayName,
+            stats: meta.stats,
+            nation_image: meta.nationImage,
+            league_image: meta.leagueImage,
+            club_image: meta.clubImage,
+          }}
           versionLabel={meta.version}
           altText={meta.fullName}
           widthClass="w-36"
