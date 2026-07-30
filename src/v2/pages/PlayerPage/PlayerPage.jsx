@@ -3,7 +3,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, BarChart3, Check, ChevronDown, CircleDollarSign, Shield, Target, TrendingUp } from "lucide-react";
 import { usePlayerSummary } from "../../hooks/usePlayerSummary";
-import PlayerCardArt from "../../../components/PlayerCardArt";
+import PlayerCardImage from "../../../components/PlayerCardImage";
 import SalesChartSection from "./sections/SalesChartSection";
 import ScoresSection from "./sections/ScoresSection";
 import DeferredSections from "./sections/DeferredSections";
@@ -120,7 +120,7 @@ function buildView(data, snapshot) {
   const profit = entry && Number.isFinite(roi) ? Math.round(entry * roi / 100) : 0;
   return {meta,rec,title:meta.card_name||meta.cardName||meta.name||"Player",recommendation:String(rec.recommendation||rec.status||"WATCH").toUpperCase(),entry,fair,profit,confidence:Math.round(firstNumber(rec.confidence,rec.score_confidence,0)),risk:rec.risk||riskLabel(rec.score_risk),sales24h:firstNumber(rec.sales24h,rec.sales_24h,data?.market_metrics?.sales_24h,data?.market_metrics?.sample_size_24h),reason:rec.reasoning||rec.summary||"The current price is being compared with recent completed sales."};
 }
-function PlayerArtwork({ meta = {} }) { const generated=meta.generated_card_url||meta.generatedCardUrl;if(generated)return <img className="quick-generated-card" src={generated} alt={meta.card_name||meta.cardName||meta.name}/>;return <PlayerCardArt bgImage={meta.card_bg_image||meta.cardBgImage} cutoutImage={meta.card_cutout_image||meta.cardCutoutImage} cutoutType={meta.card_cutout_type||meta.cardCutoutType||"special"} fallbackImage={meta.image_url||meta.imageUrl} rating={meta.rating} position={meta.position} name={meta.card_name||meta.cardName||meta.name} altText={meta.name} stats={meta.stats||{pace:meta.pace,shooting:meta.shooting,passing:meta.passing,dribbling:meta.dribbling,defending:meta.defending,physicality:meta.physicality}} nationImage={meta.nation_image||meta.nationImage} leagueImage={meta.league_image||meta.leagueImage} clubImage={meta.club_image||meta.clubImage} showStats widthClass="w-64"/>; }
+function PlayerArtwork({ meta = {} }) { return <PlayerCardImage player={meta} enablePolling imgClassName="quick-generated-card" showStats widthClass="w-64"/>; }
 function NumberCard({icon,label,value,detail,positive}) { return <div className={`quick-number ${positive ? "positive" : ""}`}><i>{icon}</i><span>{label}</span><strong>{value||"—"}</strong><small>{detail}</small></div>; }
 function MiniFact({label,value,sub}) { return <div><span>{label}</span><strong>{value||"—"}</strong><small>{sub}</small></div>; }
 function QuickSkeleton(){return <div className="quick-analysis-page"><div className="quick-topline"><span>Loading card…</span></div><div className="quick-skeleton"><div/><section><span/><span/><span/></section></div></div>}
