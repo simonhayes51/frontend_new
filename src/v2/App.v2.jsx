@@ -9,13 +9,21 @@ import SbcEventDetail from "./pages/SbcEventDetail/SbcEventDetail";
 import AdminSbcImports from "./pages/AdminSbcImports/AdminSbcImports";
 import Admin from "./pages/Admin/Admin";
 import ClubRoute from "./pages/Club/ClubRoute";
+import Players from "./pages/Players/Players";
+import Market from "./pages/Market/Market";
+import Watchlist from "./pages/Watchlist/Watchlist";
 
 export default function V2App() {
   return (
     <Routes>
       <Route index element={<HomeDashboard />} />
+      <Route path="opportunities" element={<HomeDashboard />} />
+      <Route path="players" element={<ShellLayout><Players /></ShellLayout>} />
       <Route path="health" element={<ShellLayout><HealthCheck /></ShellLayout>} />
       <Route path="players/:cardId" element={<ShellLayout><PlayerPage /></ShellLayout>} />
+      <Route path="market" element={<ShellLayout><Market /></ShellLayout>} />
+      <Route path="watchlist" element={<ShellLayout><Watchlist /></ShellLayout>} />
+      <Route path="portfolio" element={<ShellLayout><ClubRoute /></ShellLayout>} />
       <Route path="sbc" element={<ShellLayout><SbcHub /></ShellLayout>} />
       <Route path="sbc/:eventId" element={<ShellLayout><SbcEventDetail /></ShellLayout>} />
       <Route path="club" element={<ShellLayout><ClubRoute /></ShellLayout>} />

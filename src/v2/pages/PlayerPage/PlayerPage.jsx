@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, BarChart3, Check, ChevronDown, CircleDollarSign, Shield, Target, TrendingUp } from "lucide-react";
+import { ArrowLeft, BarChart3, Check, ChevronDown, Coins, Shield, Target, TrendingUp } from "lucide-react";
 import { usePlayerSummary } from "../../hooks/usePlayerSummary";
-import PlayerCardImage from "../../../components/PlayerCardImage";
+import PlayerCardArt from "../../../components/PlayerCardArt";
 import SalesChartSection from "./sections/SalesChartSection";
 import ScoresSection from "./sections/ScoresSection";
 import DeferredSections from "./sections/DeferredSections";
+import CoinValue from "../../components/CoinValue";
 import "../../styles/player-analysis.css";
 
 export default function PlayerPage() {
@@ -54,14 +55,14 @@ export default function PlayerPage() {
 
         <div className="quick-verdict">
           <span>{headline(view.recommendation)}</span>
-          <strong>{view.entry ? `${coins(view.entry)} coins` : "Wait for a price"}</strong>
+          <strong>{view.entry ? <CoinValue value={view.entry}/> : "Wait for a price"}</strong>
           <p>{plainReason(view, discount)}</p>
         </div>
 
         <div className="quick-numbers">
-          <NumberCard icon={<CircleDollarSign/>} label="Buy at or below" value={coins(view.entry)} detail="Your entry"/>
-          <NumberCard icon={<TrendingUp/>} label="Potential profit" value={signedCoins(view.profit)} detail="After EA tax" positive={view.profit > 0}/>
-          <NumberCard icon={<Target/>} label="Aim to sell" value={coins(targetSale)} detail="Estimated target"/>
+          <NumberCard icon={<Coins/>} label="Buy at or below" value={<CoinValue value={view.entry}/>} detail="Your entry"/>
+          <NumberCard icon={<TrendingUp/>} label="Potential profit" value={<CoinValue value={view.profit} signed/>} detail="After EA tax" positive={view.profit > 0}/>
+          <NumberCard icon={<Target/>} label="Aim to sell" value={<CoinValue value={targetSale}/>} detail="Estimated target"/>
         </div>
 
         <div className="quick-confidence">
@@ -76,14 +77,14 @@ export default function PlayerPage() {
         </div>
 
         <div className="quick-actions">
-          <Link className="primary" to={`/trades?card_id=${cardId}`}><Target size={17}/> Log this trade</Link>
+          <Link className="primary" to={`/v2/portfolio?card_id=${cardId}`}><Target size={17}/> Log this trade</Link>
           <button onClick={() => setShowChart((v) => !v)}><BarChart3 size={17}/>{showChart ? "Hide price chart" : "Check price chart"}</button>
         </div>
       </section>
     </main>
 
     <section className="quick-strip">
-      <MiniFact label="Fair value" value={coins(view.fair)} sub={discount !== null ? `${Math.abs(discount).toFixed(1)}% ${discount >= 0 ? "below" : "above"}` : "Recent value"}/>
+      <MiniFact label="Fair value" value={<CoinValue value={view.fair}/>} sub={discount !== null ? `${Math.abs(discount).toFixed(1)}% ${discount >= 0 ? "below" : "above"}` : "Recent value"}/>
       <MiniFact label="Sales today" value={compact(view.sales24h)} sub="Completed sales"/>
       <MiniFact label="Best method" value={strategyLabel(view.rec?.qualified_strategies)} sub="Suggested play"/>
       <MiniFact label="Time needed" value={holdingPeriod(view.rec)} sub="Expected hold"/>
@@ -120,7 +121,7 @@ function buildView(data, snapshot) {
   const profit = entry && Number.isFinite(roi) ? Math.round(entry * roi / 100) : 0;
   return {meta,rec,title:meta.card_name||meta.cardName||meta.name||"Player",recommendation:String(rec.recommendation||rec.status||"WATCH").toUpperCase(),entry,fair,profit,confidence:Math.round(firstNumber(rec.confidence,rec.score_confidence,0)),risk:rec.risk||riskLabel(rec.score_risk),sales24h:firstNumber(rec.sales24h,rec.sales_24h,data?.market_metrics?.sales_24h,data?.market_metrics?.sample_size_24h),reason:rec.reasoning||rec.summary||"The current price is being compared with recent completed sales."};
 }
-function PlayerArtwork({ meta = {} }) { return <PlayerCardImage player={meta} enablePolling imgClassName="quick-generated-card" showStats widthClass="w-64"/>; }
+function PlayerArtwork({ meta = {} }) { const generated=meta.generated_card_url||meta.generatedCardUrl;if(generated)return <img className="quick-generated-card" src={generated} alt={meta.card_name||meta.cardName||meta.name}/>;return <PlayerCardArt bgImage={meta.card_bg_image||meta.cardBgImage} cutoutImage={meta.card_cutout_image||meta.cardCutoutImage} cutoutType={meta.card_cutout_type||meta.cardCutoutType||"special"} fallbackImage={meta.image_url||meta.imageUrl} rating={meta.rating} position={meta.position} name={meta.card_name||meta.cardName||meta.name} altText={meta.name} stats={meta.stats||{pace:meta.pace,shooting:meta.shooting,passing:meta.passing,dribbling:meta.dribbling,defending:meta.defending,physicality:meta.physicality}} nationImage={meta.nation_image||meta.nationImage} leagueImage={meta.league_image||meta.leagueImage} clubImage={meta.club_image||meta.clubImage} showStats widthClass="w-64"/>; }
 function NumberCard({icon,label,value,detail,positive}) { return <div className={`quick-number ${positive ? "positive" : ""}`}><i>{icon}</i><span>{label}</span><strong>{value||"—"}</strong><small>{detail}</small></div>; }
 function MiniFact({label,value,sub}) { return <div><span>{label}</span><strong>{value||"—"}</strong><small>{sub}</small></div>; }
 function QuickSkeleton(){return <div className="quick-analysis-page"><div className="quick-topline"><span>Loading card…</span></div><div className="quick-skeleton"><div/><section><span/><span/><span/></section></div></div>}
@@ -131,8 +132,6 @@ function friendlyCall(call){return call==="WAIT"?"WATCH":call}
 function recommendationTone(call){return call==="BUY"?"buy":call==="SELL"||call==="AVOID"?"avoid":"watch"}
 function riskCopy(risk){return `${risk||"Unknown"} risk`}
 function firstNumber(...values){for(const value of values){const n=Number(value);if(Number.isFinite(n)&&n!==0)return n;}return 0}
-function coins(v){const n=Number(v);return n>0?new Intl.NumberFormat("en-GB").format(Math.round(n)):"—"}
-function signedCoins(v){const n=Number(v);return Number.isFinite(n)&&n!==0?`${n>0?"+":""}${new Intl.NumberFormat("en-GB").format(Math.round(n))}`:"—"}
 function compact(v){const n=Number(v);return Number.isFinite(n)&&n>0?new Intl.NumberFormat("en-GB",{notation:n>999?"compact":"standard",maximumFractionDigits:1}).format(n):"—"}
 function toPct(v){const n=Number(v);return !Number.isFinite(n)?0:Math.abs(n)<=1?n*100:n}
 function riskLabel(v){const n=Number(v);return !Number.isFinite(n)?"Unknown":n>=70?"High":n>=40?"Medium":"Low"}

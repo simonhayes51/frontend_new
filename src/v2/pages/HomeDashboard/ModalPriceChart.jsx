@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useSalesCandles } from "../../hooks/useSalesCandles";
+import CoinValue from "../../components/CoinValue";
 
 const RANGES = {
   "24h": { days: 1, bucketHours: 1 },
@@ -19,7 +20,7 @@ export default function ModalPriceChart({ cardId, entryPrice, targetPrice, fairV
 
   return <div className="dash-price-chart">
     <div className="dash-price-chart-head">
-      <div><span>{range} price</span><strong>Completed sales</strong></div>
+      <div><strong>Completed sales</strong></div>
       <div className="dash-chart-ranges" aria-label="Chart range">
         {Object.keys(RANGES).map(key => <button key={key} className={range === key ? "active" : ""} onClick={() => setRange(key)}>{key}</button>)}
       </div>
@@ -47,7 +48,7 @@ export default function ModalPriceChart({ cardId, entryPrice, targetPrice, fairV
 function PriceTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const point = payload[0].payload;
-  return <div className="dash-chart-tooltip"><strong>{Math.round(point.price).toLocaleString("en-GB")} coins</strong><span>{new Date(point.time).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>;
+  return <div className="dash-chart-tooltip"><strong><CoinValue value={point.price}/></strong><span>{new Date(point.time).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>;
 }
 function formatDay(value) { return new Date(value).toLocaleDateString("en-GB", { weekday: "short", day: "numeric" }); }
 function compactCoins(value) { const n=Number(value); return Number.isFinite(n) ? (n>=1000?`${Math.round(n/1000)}k`:String(Math.round(n))) : ""; }
