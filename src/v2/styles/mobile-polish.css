@@ -245,6 +245,9 @@
 .dash-modal-actions .watch-action {
   color: #dce8f0;
 }
+.dash-modal-back{position:absolute;z-index:3;top:15px;left:18px;display:flex;align-items:center;gap:7px;color:#a9bdcc;font-size:12px;font-weight:800}
+.dash-modal-back svg{transform:rotate(180deg)}
+.dash-modal-back:hover{color:#9cff3b}
 .dash-chart-tooltip {
   display: flex !important;
   flex-direction: column !important;
