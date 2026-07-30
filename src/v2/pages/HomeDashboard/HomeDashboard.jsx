@@ -11,6 +11,7 @@ import CoinValue from "../../components/CoinValue";
 import "../../styles/terminal.css";
 import "../../styles/dashboard-v2.css";
 import "../../styles/dashboard-analysis-modal.css";
+import "../../styles/mobile-polish.css";
 
 const EMPTY={marketRegime:{label:"Unknown",confidence:0,summary:"",metrics:{}},todaysOpportunities:[],highConfidenceInvestments:[],cardsToAvoid:[],biggestMovers:[],watchlistAlerts:[],latestMarketEvents:[],latestSbcImpact:[],locked:{opportunityFeed:false}};
 const STRATEGIES=[["best_picks","For you"],["quick_flip","Quick flips"],["low_risk","Low risk"],["swing_trade","2–3 days"],["long_hold","Long hold"],["sbc","SBC plays"]];

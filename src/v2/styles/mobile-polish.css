@@ -1,0 +1,127 @@
+/* Shared visual correction for v2's legacy shells and the dashboard.
+   Keep coin contents immune to generic label selectors. */
+.coin-value {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: .34em !important;
+  width: auto !important;
+  height: auto !important;
+  white-space: nowrap;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+.coin-value > img {
+  width: .72em !important;
+  height: .72em !important;
+  min-width: 14px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+.coin-value > span {
+  display: inline !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+.metric > strong .coin-value {
+  color: inherit !important;
+  font-size: inherit !important;
+}
+.queue-price > .coin-value {
+  justify-content: flex-end;
+  color: #a9bac8 !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+}
+.queue-price > strong {
+  display: flex !important;
+  justify-content: flex-end;
+  font-size: 19px !important;
+}
+.strategy-card-new > div > b .coin-value { font-size: 18px !important; }
+.dash-analysis-modal li > span:first-child {
+  display: grid;
+  place-items: center;
+  flex: 0 0 21px;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: rgba(156,255,59,.12);
+  color: #9cff3b;
+  font-weight: 900;
+}
+.dash-analysis-modal li .coin-value {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 700px) {
+  .dash-analysis-backdrop {
+    align-items: end !important;
+    padding: 0 !important;
+  }
+  .dash-analysis-modal {
+    display: block !important;
+    width: 100% !important;
+    max-height: calc(100dvh - 12px) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    border-radius: 22px 22px 0 0 !important;
+    padding: 20px 16px calc(18px + env(safe-area-inset-bottom)) !important;
+  }
+  .dash-modal-card { display: none !important; }
+  .dash-modal-copy { display: block !important; }
+  .dash-modal-heading {
+    align-items: center;
+    padding-right: 48px !important;
+  }
+  .dash-modal-heading h2 { font-size: 30px !important; }
+  .dash-modal-verdict {
+    margin: 14px 0 !important;
+    font-size: 16px !important;
+  }
+  .dash-modal-numbers {
+    grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+  }
+  .dash-modal-lower {
+    display: block !important;
+    margin-top: 14px !important;
+  }
+  .dash-price-chart { margin-top: 0 !important; }
+  .dash-modal-summary {
+    display: block !important;
+    margin-top: 12px;
+  }
+  .dash-modal-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .dash-analysis-modal {
+    padding: 18px 14px calc(16px + env(safe-area-inset-bottom)) !important;
+  }
+  .dash-modal-heading {
+    padding-right: 42px !important;
+  }
+  .dash-modal-heading h2 { font-size: 27px !important; }
+  .dash-modal-numbers .metric { padding: 11px 9px !important; }
+  .dash-modal-numbers .metric > strong { font-size: 20px !important; }
+  .dash-modal-numbers .metric > small { font-size: 10px !important; }
+  .dash-chart-frame { height: 175px !important; }
+  .dash-modal-actions button { padding-inline: 10px !important; }
+}
