@@ -26,17 +26,24 @@ const ReferralProgram = () => {
     }
   };
 
+  // /api/referrals/stats returns { referral_code, stats: {...}, rewards: {...},
+  // recent_referrals: [...], share_url }, not the camelCase shape this
+  // component used to assume (referralData.code/.totalReferrals/etc were
+  // always undefined against the real response - reading referral_code
+  // directly fixes both the stats display and the "share a working link"
+  // bug in one pass, since share_url is already fully formed server-side.
+  const referralLink = referralData?.share_url || `https://app.futhub.co.uk?ref=${referralData?.referral_code || ''}`;
+
   const copyReferralLink = () => {
-    const link = `https://futhub.co.uk/?ref=${referralData?.code}`;
-    navigator.clipboard.writeText(link);
+    navigator.clipboard.writeText(referralLink);
     setCopied(true);
     toast.success('Referral link copied!');
     setTimeout(() => setCopied(false), 2000);
   };
 
   const shareOnPlatform = (platform) => {
-    const link = `https://futhub.co.uk/?ref=${referralData?.code}`;
-    const text = '🎮 Level up your FUT trading with AI-powered insights! Get 7 days free Premium when you sign up:';
+    const link = referralLink;
+    const text = '🎮 Level up your FUT trading with AI-powered insights! Join with my link:';
 
     const urls = {
       twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`,
@@ -52,32 +59,24 @@ const ReferralProgram = () => {
     }
   };
 
+  // Matches what /api/referrals/stats actually computes and grants today
+  // (a flat coin reward per conversion) - this used to promise 7 days/1
+  // month/lifetime Premium and a 30% recurring commission, none of which
+  // any backend code grants, which is exactly the kind of broken promise
+  // a trading-recommendation product can't afford sitting in production.
+  const perConversion = referralData?.rewards?.per_conversion ?? 100;
   const rewards = [
     {
-      icon: '🎁',
-      title: '7 Days Premium',
-      description: 'Both you and your friend get 7 days of Premium access',
+      icon: '🪙',
+      title: `${perConversion.toLocaleString()} Coins`,
+      description: 'Earned automatically the moment your friend signs up',
       requirement: 'Per successful referral'
     },
     {
-      icon: '💎',
-      title: 'Free Month',
-      description: 'Get a full month of Premium when you refer 5 friends',
-      requirement: '5 referrals',
-      highlight: true
-    },
-    {
-      icon: '👑',
-      title: 'Lifetime Premium',
-      description: 'Refer 50 users and get lifetime Premium access',
-      requirement: '50 referrals',
-      highlight: true
-    },
-    {
-      icon: '💰',
-      title: 'Commission',
-      description: 'Earn 30% recurring commission on paid subscriptions',
-      requirement: 'Premium referrals'
+      icon: '📈',
+      title: 'Stacks Every Time',
+      description: 'No cap - every friend who joins earns you more',
+      requirement: 'Unlimited referrals'
     }
   ];
 
@@ -117,7 +116,7 @@ const ReferralProgram = () => {
           >
             <Users className="w-8 h-8 text-purple-400 mb-2" />
             <p className="text-sm text-slate-400 mb-1">Total Referrals</p>
-            <h3 className="text-3xl font-black">{referralData?.totalReferrals || 0}</h3>
+            <h3 className="text-3xl font-black">{referralData?.stats?.conversions || 0}</h3>
           </motion.div>
 
           <motion.div
@@ -127,8 +126,8 @@ const ReferralProgram = () => {
             className="bg-gradient-to-br from-green-900/40 to-green-800/20 rounded-2xl p-6 border border-green-500/30"
           >
             <Award className="w-8 h-8 text-green-400 mb-2" />
-            <p className="text-sm text-slate-400 mb-1">Rewards Earned</p>
-            <h3 className="text-3xl font-black">{referralData?.rewardsEarned || 0}</h3>
+            <p className="text-sm text-slate-400 mb-1">Coins Earned</p>
+            <h3 className="text-3xl font-black">{(referralData?.rewards?.total_earned || 0).toLocaleString()}</h3>
           </motion.div>
 
           <motion.div
@@ -138,8 +137,8 @@ const ReferralProgram = () => {
             className="bg-gradient-to-br from-yellow-900/40 to-yellow-800/20 rounded-2xl p-6 border border-yellow-500/30"
           >
             <TrendingUp className="w-8 h-8 text-yellow-400 mb-2" />
-            <p className="text-sm text-slate-400 mb-1">Active Referrals</p>
-            <h3 className="text-3xl font-black">{referralData?.activeReferrals || 0}</h3>
+            <p className="text-sm text-slate-400 mb-1">Conversion Rate</p>
+            <h3 className="text-3xl font-black">{referralData?.stats?.conversion_rate ?? 0}%</h3>
           </motion.div>
 
           <motion.div
@@ -150,7 +149,7 @@ const ReferralProgram = () => {
           >
             <LinkIcon className="w-8 h-8 text-blue-400 mb-2" />
             <p className="text-sm text-slate-400 mb-1">Link Clicks</p>
-            <h3 className="text-3xl font-black">{referralData?.linkClicks || 0}</h3>
+            <h3 className="text-3xl font-black">{referralData?.stats?.total_clicks || 0}</h3>
           </motion.div>
         </div>
 
@@ -164,7 +163,7 @@ const ReferralProgram = () => {
           <h2 className="text-xl font-bold mb-4">Your Referral Link</h2>
           <div className="flex gap-3">
             <div className="flex-1 bg-slate-800/50 border border-white/10 rounded-xl px-4 py-3 font-mono text-sm overflow-x-auto">
-              https://futhub.co.uk/?ref={referralData?.code || 'LOADING'}
+              {referralData ? referralLink : 'Loading…'}
             </div>
             <button
               onClick={copyReferralLink}
@@ -232,8 +231,10 @@ const ReferralProgram = () => {
           </div>
         </motion.div>
 
-        {/* Recent Referrals */}
-        {referralData?.recentReferrals && referralData.recentReferrals.length > 0 && (
+        {/* Recent Referrals - the backend only returns an already-anonymized
+            user_id prefix + joined_at (see app/routers/referrals.py), no
+            username or premium status, so this only shows what's real. */}
+        {referralData?.recent_referrals && referralData.recent_referrals.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -244,31 +245,22 @@ const ReferralProgram = () => {
               <h2 className="text-xl font-bold">Recent Referrals</h2>
             </div>
             <div className="divide-y divide-white/5">
-              {referralData.recentReferrals.map((referral, idx) => (
+              {referralData.recent_referrals.map((referral, idx) => (
                 <div key={idx} className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-purple-400 flex items-center justify-center font-bold">
-                      {referral.username?.charAt(0).toUpperCase() || '?'}
+                      {referral.user_id?.charAt(0).toUpperCase() || '?'}
                     </div>
                     <div>
-                      <p className="font-bold">{referral.username || 'Anonymous'}</p>
+                      <p className="font-bold font-mono text-sm">{referral.user_id || 'Anonymous'}</p>
                       <p className="text-sm text-slate-400">
-                        {new Date(referral.date).toLocaleDateString()}
+                        {referral.joined_at ? new Date(referral.joined_at).toLocaleDateString() : '—'}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    {referral.isPremium && (
-                      <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 text-sm font-bold rounded-full">
-                        💎 Premium
-                      </span>
-                    )}
-                    {!referral.isPremium && (
-                      <span className="px-3 py-1 bg-slate-700/50 text-slate-400 text-sm font-bold rounded-full">
-                        Free Tier
-                      </span>
-                    )}
-                  </div>
+                  <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-sm font-bold rounded-full">
+                    +{perConversion} coins
+                  </span>
                 </div>
               ))}
             </div>
@@ -290,15 +282,11 @@ const ReferralProgram = () => {
             </li>
             <li className="flex gap-3">
               <span className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-sm font-bold flex-shrink-0">2</span>
-              <p className="text-slate-300">When they sign up and verify their account, you both get 7 days of Premium</p>
+              <p className="text-slate-300">When they sign up using your link, you automatically earn {perConversion} coins</p>
             </li>
             <li className="flex gap-3">
               <span className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-sm font-bold flex-shrink-0">3</span>
-              <p className="text-slate-300">If they upgrade to Premium, you earn 30% recurring commission for as long as they stay subscribed</p>
-            </li>
-            <li className="flex gap-3">
-              <span className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-sm font-bold flex-shrink-0">4</span>
-              <p className="text-slate-300">Unlock milestone rewards as you refer more users</p>
+              <p className="text-slate-300">There's no cap - every friend who joins earns you more, with no limit on referrals</p>
             </li>
           </ol>
         </motion.div>

@@ -26,8 +26,12 @@ export async function refreshWatch(id) {
 // Price/liquidity threshold alerts - note the hyphenated path, a separate
 // endpoint group from /api/watchlist above (both live in the backend's
 // main.py, not app/routers/watchlist.py).
-export async function getAlerts() {
-  const { data } = await api.get("/api/watchlist-alerts");
+export async function getAlerts(config) {
+  // v2's Watchlist page is public-first (unlike v1's, behind PrivateRoute),
+  // so callers there need to pass __skipAuthRedirect - a 401 for a
+  // logged-out visitor is expected and handled inline, not a reason for
+  // axios.js's global interceptor to hard-redirect the whole page.
+  const { data } = await api.get("/api/watchlist-alerts", config);
   return data;
 }
 
