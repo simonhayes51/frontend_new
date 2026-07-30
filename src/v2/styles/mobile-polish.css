@@ -53,6 +53,112 @@
   font-size: 19px !important;
 }
 .strategy-card-new > div > b .coin-value { font-size: 18px !important; }
+
+/* Recommendation hierarchy: entry is amber, money made is lime. */
+.lead-numbers {
+  gap: 10px;
+  border: 0 !important;
+  margin-top: 4px;
+}
+.lead-numbers .metric {
+  min-height: 96px;
+  border: 1px solid #263b4a !important;
+  border-radius: 12px;
+  background: #09151e;
+}
+.lead-numbers .metric.entry {
+  border-color: rgba(255,211,77,.42) !important;
+  background: linear-gradient(135deg,rgba(255,211,77,.10),#09151e 72%);
+}
+.lead-numbers .metric.entry > span,
+.dash-modal-numbers .metric.entry > span {
+  color: #ffd34d;
+}
+.lead-numbers .metric.positive {
+  border-color: rgba(156,255,59,.42) !important;
+  background: linear-gradient(135deg,rgba(156,255,59,.11),#09151e 72%);
+}
+.lead-numbers .metric.positive > span,
+.dash-modal-numbers .metric.positive > span {
+  color: #9cff3b;
+}
+.lead-numbers .metric.entry > strong { color: #fff4bf; }
+.dash-modal-numbers .metric.entry {
+  background: rgba(255,211,77,.07);
+}
+.dash-modal-numbers .metric.positive {
+  background: rgba(156,255,59,.08);
+}
+.dash-modal-numbers .metric.target {
+  background: rgba(101,199,255,.06);
+}
+.dash-modal-numbers .metric.target > span { color: #65c7ff; }
+
+.queue-signals {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.trade-signal {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 7px;
+  border: 1px solid #263b4a;
+  border-radius: 7px;
+  background: #0c1922;
+  text-align: left;
+}
+.trade-signal > span {
+  color: #7892a8 !important;
+  font-size: 7px !important;
+  font-weight: 900 !important;
+  letter-spacing: .06em !important;
+  line-height: 1.1;
+}
+.trade-signal > strong {
+  font-size: 13px;
+  line-height: 1;
+}
+.trade-signal.entry {
+  border-color: rgba(255,211,77,.3);
+  background: rgba(255,211,77,.07);
+}
+.trade-signal.entry > span { color: #ffd34d !important; }
+.trade-signal.profit {
+  border-color: rgba(156,255,59,.3);
+  background: rgba(156,255,59,.08);
+}
+.trade-signal.profit > span,
+.trade-signal.profit > strong { color: #9cff3b !important; }
+.queue-signals > small {
+  color: #7890a4;
+  font-size: 9px;
+  text-align: right;
+}
+.strategy-profit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 9px;
+  padding: 6px 8px;
+  border: 1px solid rgba(156,255,59,.28);
+  border-radius: 7px;
+  background: rgba(156,255,59,.07);
+  color: #9cff3b;
+}
+.strategy-profit > small {
+  color: #9cff3b !important;
+  font-size: 7px !important;
+  font-weight: 900;
+  letter-spacing: .06em;
+}
+.strategy-profit .coin-value {
+  font-size: 16px !important;
+  font-weight: 900 !important;
+}
 .dash-analysis-modal li > span:first-child {
   display: grid;
   place-items: center;
@@ -108,6 +214,12 @@
   .dash-modal-actions {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
+  }
+  .lead-numbers {
+    gap: 8px;
+  }
+  .lead-numbers .metric {
+    min-height: 88px;
   }
 }
 
