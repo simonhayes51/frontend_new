@@ -2,6 +2,7 @@
 
 import { lazy, Suspense } from "react";
 import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
 import { DashboardProvider } from "./context/DashboardContext";
 import { SettingsProvider } from "./context/SettingsContext";
@@ -71,6 +72,11 @@ function App() {
         <EntitlementsProvider>
           <Router>
             <div id="app-shell-bg" className="bg-black min-h-screen text-white">
+              {/* Mounted once here (not inside v1's Layout) so toasts -
+                  e.g. EntitlementsContext's premium-expiry notice - render
+                  regardless of whether a v1 or v2 route is active; v2
+                  sits outside Layout entirely. */}
+              <Toaster position="top-right" />
               <Suspense fallback={<Loading />}>
                 <Routes>
                   {/* Public routes */}

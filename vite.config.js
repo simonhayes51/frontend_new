@@ -36,4 +36,13 @@ export default defineConfig({
       },
     },
   },
+  test: {
+    // `test`/`test:ui` in package.json ran vitest with no environment
+    // config and no jsdom - @testing-library/react was installed but
+    // couldn't actually render anything (no DOM), so no test using it
+    // could ever have passed.
+    environment: "jsdom",
+    setupFiles: ["./src/setupTests.js"],
+    globals: true,
+  },
 });

@@ -1,99 +1,104 @@
-// src/context/EntitlementsContext.jsx - Enhanced version keeping your structure
-import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
+// src/context/EntitlementsContext.jsx
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import toast from "react-hot-toast";
+import api from "../axios";
 
 const EntitlementsContext = createContext(null);
 
+const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+// window `focus` and `visibilitychange` both fire on a single tab-switch,
+// so without this a refresh gets triggered twice back to back.
+const MIN_REFRESH_GAP = 15 * 1000;
+
+const DEFAULT_LIMITS = { watchlist_max: 3, trending: { timeframes: ["24h"], limit: 5, smart: false } };
+
 export function EntitlementsProvider({ children }) {
-  const API = import.meta.env.VITE_API_URL || "";
   const [state, setState] = useState({
     loading: true,
     isPremium: false,
     isAdmin: false,
     features: [],
-    limits: { watchlist_max: 3, trending: { timeframes: ["24h"], limit: 5, smart: false } },
+    limits: DEFAULT_LIMITS,
     roles: [],
     lastCheck: null,
   });
 
-  // Check every 5 minutes for premium status
-  const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  const lastCheckRef = useRef(0);
+  const wasPremiumRef = useRef(false);
+  const loadedOnceRef = useRef(false);
 
-  const refreshEntitlements = async () => {
+  async function refreshEntitlements({ force = false } = {}) {
+    if (!force && Date.now() - lastCheckRef.current < MIN_REFRESH_GAP) return;
+    lastCheckRef.current = Date.now();
+
     try {
-      const res = await fetch(`${API}/api/entitlements`, { credentials: "include" });
-      const data = await res.json();
-      
-      const newState = {
-        loading: false,
-        isPremium: Boolean(data?.is_premium),
-        isAdmin: Boolean(data?.is_admin),
-        features: Array.isArray(data?.features) ? data.features : [],
-        limits: data?.limits || { watchlist_max: 3, trending: { timeframes: ["24h"], limit: 5, smart: false } },
-        roles: Array.isArray(data?.roles) ? data.roles : [],
-        lastCheck: new Date(),
-      };
+      // Public endpoint - compute_entitlements() on the backend defaults
+      // gracefully for anonymous callers rather than 401ing, but
+      // __skipAuthRedirect is set anyway since v2's pages are
+      // public-first: a stray 401 here must never hijack a logged-out
+      // visitor into a /login redirect (see src/axios.js's own note on
+      // this exact distinction).
+      const { data } = await api.get("/api/entitlements", { __skipAuthRedirect: true });
+      const isPremium = Boolean(data?.is_premium);
 
-      // Check if premium status changed
-      if (!state.loading && state.isPremium !== newState.isPremium) {
-        console.log(`Premium status changed: ${state.isPremium} → ${newState.isPremium}`);
-        
-        // If user lost premium, force refresh the page to clear cached data
-        if (state.isPremium && !newState.isPremium) {
-          alert("Your premium subscription has expired. The page will refresh to update your access.");
-          window.location.reload();
-          return;
-        }
+      // If a previously-premium session just lost premium (subscription
+      // lapsed, refund, etc.), cached premium-only data in memory could
+      // now be stale/wrong, so a reload is the safe move - but a native
+      // alert() is jarring and blocks the tab, so a toast instead, with
+      // enough delay to actually be seen before the page reloads.
+      if (loadedOnceRef.current && wasPremiumRef.current && !isPremium) {
+        toast.error("Your premium subscription has expired. Refreshing your access…", { duration: 4000 });
+        setTimeout(() => window.location.reload(), 1500);
+        return;
       }
 
-      setState(newState);
+      wasPremiumRef.current = isPremium;
+      loadedOnceRef.current = true;
+
+      setState({
+        loading: false,
+        isPremium,
+        isAdmin: Boolean(data?.is_admin),
+        features: Array.isArray(data?.features) ? data.features : [],
+        limits: data?.limits || DEFAULT_LIMITS,
+        roles: Array.isArray(data?.roles) ? data.roles : [],
+        lastCheck: new Date(),
+      });
     } catch (error) {
       console.error("Failed to refresh entitlements:", error);
-      setState(s => ({ ...s, loading: false }));
+      setState((s) => ({ ...s, loading: false }));
     }
-  };
+  }
 
   // Initial load
   useEffect(() => {
-    refreshEntitlements();
-  }, [API]);
+    refreshEntitlements({ force: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-refresh every 5 minutes
   useEffect(() => {
-    const interval = setInterval(refreshEntitlements, CHECK_INTERVAL);
+    const interval = setInterval(() => refreshEntitlements({ force: true }), CHECK_INTERVAL);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Refresh on window focus (user comes back to tab)
+  // Refresh when the tab regains focus/visibility - registered once
+  // (not tied to state) so switching tabs doesn't churn the listeners.
   useEffect(() => {
-    const handleFocus = () => {
-      const timeSinceLastCheck = state.lastCheck ? Date.now() - state.lastCheck.getTime() : Infinity;
-      
-      // If it's been more than 2 minutes since last check, refresh immediately
-      if (timeSinceLastCheck > 2 * 60 * 1000) {
-        refreshEntitlements();
-      }
+    const handleWake = () => {
+      if (!document.hidden) refreshEntitlements();
     };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [state.lastCheck]);
-
-  // Refresh on page visibility change
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        refreshEntitlements();
-      }
+    window.addEventListener("focus", handleWake);
+    document.addEventListener("visibilitychange", handleWake);
+    return () => {
+      window.removeEventListener("focus", handleWake);
+      document.removeEventListener("visibilitychange", handleWake);
     };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const value = useMemo(() => ({ 
-    ...state, 
-    refreshEntitlements 
-  }), [state]);
+  const value = useMemo(() => ({ ...state, refreshEntitlements }), [state]);
 
   return <EntitlementsContext.Provider value={value}>{children}</EntitlementsContext.Provider>;
 }

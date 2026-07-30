@@ -1,8 +1,9 @@
 // src/v2/components/Nav.jsx
 //
-// Composes the responsive app shell: Sidebar (persistent left rail,
-// desktop) + BottomNav (tab bar, mobile) as breakpoint variants of one
-// shell, replacing the single top nav bar this used to be directly.
+// Thin wrapper around Sidebar, which handles both the persistent left
+// rail (desktop) and the collapsed bottom tab bar (mobile, via CSS at
+// the 800px breakpoint in tokens.css) as one component - there is no
+// separate mobile nav component.
 import Sidebar from "./Sidebar";
 
 export default function Nav() {

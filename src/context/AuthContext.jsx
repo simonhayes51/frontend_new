@@ -3,6 +3,11 @@ import api from '../axios';
 
 const AuthContext = createContext();
 
+// Same convention as src/axios.js's own DEV-gated logging - these fire on
+// every page load for every visitor, so they stay out of the production
+// console entirely rather than leaking auth-flow internals as noise.
+const devLog = (...args) => { if (import.meta.env.DEV) console.log(...args); };
+
 const authReducer = (state, action) => {
   switch (action.type) {
     case 'SET_LOADING':
@@ -46,22 +51,22 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
-      console.log('🔍 Checking auth status...');
+      devLog('🔍 Checking auth status...');
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await api.get('/api/me');
       
       if (response.data.authenticated) {
-        console.log('✅ User authenticated:', response.data.user_id);
+        devLog('✅ User authenticated:', response.data.user_id);
         dispatch({ 
           type: 'SET_AUTHENTICATED', 
           payload: response.data 
         });
       } else {
-        console.log('❌ User not authenticated, reason:', response.data.error);
+        devLog('❌ User not authenticated, reason:', response.data.error);
         dispatch({ type: 'SET_UNAUTHENTICATED' });
       }
     } catch (error) {
-      console.log('❌ Auth check failed:', error.message);
+      devLog('❌ Auth check failed:', error.message);
       dispatch({ type: 'SET_UNAUTHENTICATED' });
     }
   };
@@ -81,14 +86,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    console.log('🔍 AuthProvider mounted');
-    console.log('🔍 Current pathname:', window.location.pathname);
-    console.log('🔍 Current hash:', window.location.hash);
+    devLog('🔍 AuthProvider mounted');
+    devLog('🔍 Current pathname:', window.location.pathname);
+    devLog('🔍 Current hash:', window.location.hash);
     
     // CRITICAL: Don't run auth checks if we're on /access-denied
     if (window.location.pathname === '/access-denied' || 
         window.location.pathname.includes('access-denied')) {
-      console.log('🔍 On access-denied page, skipping all auth checks');
+      devLog('🔍 On access-denied page, skipping all auth checks');
       dispatch({ type: 'SET_LOADING', payload: false });
       return;
     }

@@ -3,6 +3,7 @@ import { ArrowRight, RefreshCw, Star, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { deleteWatch, refreshWatch } from "../../../api/watchlist";
 import CoinValue from "../../components/CoinValue";
+import EmptyState from "../../components/EmptyState";
 import { useWatchlist } from "../../hooks/useWatchlist";
 import { PageHead } from "../Players/Players";
 import "../../styles/v2-destinations.css";
@@ -18,7 +19,7 @@ export default function Watchlist() {
   return (
     <main className="v2-destination">
       <PageHead eyebrow="YOUR WATCHLIST" title="Cards you’re tracking" copy="Live prices and movement for the cards you care about." action={<Link className="v2-primary-link" to="/v2/players">Add a player</Link>} />
-      {query.isLoading ? <WatchState text="Loading watchlist…" /> : query.error?.response?.status === 401 ? <WatchState text="Sign in to view your watchlist." action={<Link to="/login">Sign in</Link>} /> : query.isError ? <WatchState text="Your watchlist could not be loaded." action={<button onClick={() => query.refetch()}>Try again</button>} /> : items.length ? (
+      {query.isLoading ? <EmptyState icon={<Star size={28} />} text="Loading watchlist…" /> : query.error?.response?.status === 401 ? <EmptyState icon={<Star size={28} />} text="Sign in to view your watchlist." action={<Link to="/login">Sign in</Link>} /> : query.isError ? <EmptyState icon={<Star size={28} />} error text="Your watchlist could not be loaded." action={<button onClick={() => query.refetch()}>Try again</button>} /> : items.length ? (
         <section className="v2-watch-grid">
           {items.map((item) => (
             <article className="v2-watch-card" key={item.id}>
@@ -37,8 +38,7 @@ export default function Watchlist() {
             </article>
           ))}
         </section>
-      ) : <WatchState text="Your watchlist is empty." action={<Link to="/v2/players">Find a player</Link>} />}
+      ) : <EmptyState icon={<Star size={28} />} text="Your watchlist is empty." action={<Link to="/v2/players">Find a player</Link>} />}
     </main>
   );
 }
-function WatchState({ text, action }) { return <div className="v2-page-state"><Star size={28} /><p>{text}</p>{action}</div>; }
