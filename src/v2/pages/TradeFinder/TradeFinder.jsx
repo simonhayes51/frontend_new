@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, RotateCcw, SlidersHorizontal } from "lucide-react";
 import CoinValue from "../../components/CoinValue";
+import EmptyState from "../../components/EmptyState";
 import { useOpportunities } from "../../hooks/useRecommendationFeeds";
 import { PageHead } from "../Players/Players";
 import "./trade-finder.css";
@@ -73,7 +74,7 @@ export default function TradeFinder() {
       {filtersActive ? <button onClick={() => setFilters(DEFAULTS)}><RotateCcw size={14}/> Reset filters</button> : null}
     </div>
 
-    {query.isLoading ? <FinderState text="Checking the latest calculated opportunities…" /> : query.isError ? <FinderState text="Trade Finder could not load the opportunity feed." action={<button onClick={() => query.refetch()}>Try again</button>} /> : results.length ? (
+    {query.isLoading ? <EmptyState icon={<SlidersHorizontal size={25}/>} text="Checking the latest calculated opportunities…" /> : query.isError ? <EmptyState icon={<SlidersHorizontal size={25}/>} error text="Trade Finder could not load the opportunity feed." action={<button onClick={() => query.refetch()}>Try again</button>} /> : results.length ? (
       <section className="finder-grid">
         {results.map((item) => <Link className="finder-card" key={item.cardId} to={`/v2/players/${item.cardId}`} state={{ from: "trade-finder" }}>
           <div className="finder-card-top">
@@ -89,7 +90,7 @@ export default function TradeFinder() {
           <div className="finder-card-foot"><span className={`risk-${item.risk.toLowerCase()}`}>{item.risk} risk</span><span>View analysis <ArrowRight size={14}/></span></div>
         </Link>)}
       </section>
-    ) : <FinderState text="No current opportunities match those filters." action={<button onClick={() => setFilters(DEFAULTS)}>Clear filters</button>} />}
+    ) : <EmptyState icon={<SlidersHorizontal size={25}/>} text="No current opportunities match those filters." action={<button onClick={() => setFilters(DEFAULTS)}>Clear filters</button>} />}
   </main>;
 }
 
@@ -117,4 +118,3 @@ function numberOrNull(value) { const number = Number(value); return value === ""
 function toPct(value) { const number = Number(value); return !Number.isFinite(number) ? 0 : Math.abs(number) <= 1 ? number * 100 : number; }
 function signedPct(value) { const number = Number(value); return `${number > 0 ? "+" : ""}${number.toFixed(1)}%`; }
 function riskLabel(value) { const number = Number(value); return !Number.isFinite(number) ? "Unknown" : number >= 70 ? "High" : number >= 40 ? "Medium" : "Low"; }
-function FinderState({ text, action }) { return <div className="finder-state"><SlidersHorizontal size={25}/><p>{text}</p>{action}</div>; }

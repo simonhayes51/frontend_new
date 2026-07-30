@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Award, BarChart3, CheckCircle2, Clock3, Coins, Plus, Target, TrendingUp, Trophy, X } from "lucide-react";
 import { closeTrade, getOpenTrades, getProfitTimeline, getTradeHistory, getTradingPerformance } from "../../api/trades";
 import CoinValue from "../../components/CoinValue";
+import EmptyState from "../../components/EmptyState";
 import "./club.css";
 
 const pct = (value) => `${Number(value || 0).toFixed(1)}%`;
@@ -76,12 +77,12 @@ export default function Club() {
 }
 
 function OpenTrades({ trades, onClose }) {
-  if (!trades.length) return <Empty icon={<Target />} title="No open trades yet" text="Open a recommendation on the dashboard and press Log purchase. It will appear here instantly." />;
+  if (!trades.length) return <EmptyState icon={<Target />} title="No open trades yet" text="Open a recommendation on the dashboard and press Log purchase. It will appear here instantly." action={<a href="#/v2">Browse recommendations</a>} />;
   return <section className="trade-grid">{trades.map((trade) => { const qty = Number(trade.quantity || 1); const target = Number(trade.target_sell || 0); const projected = target ? (Math.floor(target * .95) - Number(trade.buy)) * qty : 0; return <article className="trade-card" key={trade.trade_id}><div className="trade-top"><div><span>{trade.version || "Card"}</span><h3>{trade.player}</h3></div><b>OPEN</b></div><div className="trade-numbers"><Stat label="Bought" value={<CoinValue value={trade.buy} />} /><Stat label="Quantity" value={qty} /><Stat label="Target" value={<CoinValue value={target || null} />} /><Stat label="Projected" value={<CoinValue value={projected} signed />} /></div><div className="trade-meta"><span><Clock3 size={14} /> {date(trade.bought_at || trade.timestamp)}</span><span>{String(trade.platform || "ps").toUpperCase()}</span></div><button className="close-trade" onClick={() => onClose(trade)}>Close trade</button></article>; })}</section>;
 }
 
 function History({ trades }) {
-  if (!trades.length) return <Empty icon={<CheckCircle2 />} title="No completed sales" text="When you close a trade, the result and EA tax will be stored here." />;
+  if (!trades.length) return <EmptyState icon={<CheckCircle2 />} title="No completed sales" text="When you close a trade, the result and EA tax will be stored here." />;
   return <div className="history-table"><div className="history-head"><span>Player</span><span>Bought</span><span>Sold</span><span>Profit</span><span>Date</span></div>{trades.map((trade) => <div className="history-row" key={trade.trade_id}><div><strong>{trade.player}</strong><small>{trade.version || "Card"} · x{trade.quantity || 1}</small></div><CoinValue value={trade.buy} /><CoinValue value={trade.sell} /><strong className={Number(trade.profit) >= 0 ? "positive" : "negative"}><CoinValue value={trade.profit} signed /></strong><span>{date(trade.sold_at)}</span></div>)}</div>;
 }
 
@@ -108,7 +109,6 @@ function ProfitChart({ items }) { const values = items.map((x) => Number(x.cumul
 function Kpi({ icon, label, value }) { return <article className="club-kpi"><span>{icon}</span><div><small>{label}</small><strong>{value}</strong></div></article>; }
 function Stat({ label, value }) { return <div className="club-stat"><span>{label}</span><strong>{value}</strong></div>; }
 function PanelTitle({ eyebrow, title }) { return <div className="panel-title"><span>{eyebrow}</span><h2>{title}</h2></div>; }
-function Empty({ icon, title, text }) { return <div className="club-empty"><span>{icon}</span><h2>{title}</h2><p>{text}</p><a href="#/v2">Browse recommendations</a></div>; }
 function hold(hours) { const n = Number(hours || 0); if (n > 0 && n < 1) return "<1h"; return n < 24 ? `${Math.round(n)}h` : `${(n / 24).toFixed(1)}d`; }
 function label(value) { return String(value || "Unlabelled").replaceAll("_", " ").replace(/\b\w/g, (x) => x.toUpperCase()); }
 function buildAchievements(p) { const closed = Number(p.closed_trades || 0), wins = Number(p.wins || 0), profit = Number(p.total_profit || 0), winRate = Number(p.win_rate || 0); return [{ icon: "🌱", title: "First Trade", text: "Complete your first profitable sale.", unlocked: wins >= 1 }, { icon: "📚", title: "Getting Serious", text: "Complete 10 trades.", unlocked: closed >= 10 }, { icon: "💰", title: "Coin Maker", text: "Earn 100,000 coins profit.", unlocked: profit >= 100000 }, { icon: "🏆", title: "Millionaire", text: "Earn 1,000,000 coins profit.", unlocked: profit >= 1000000 }, { icon: "🎯", title: "Sharp Shooter", text: "Maintain an 80% win rate across 20 trades.", unlocked: closed >= 20 && winRate >= 80 }, { icon: "🧠", title: "Market Master", text: "Complete 50 trades.", unlocked: closed >= 50 }]; }

@@ -74,6 +74,10 @@
 .v2-shell-content { min-width: 0; padding-left: 228px; }
 .home-in-shell { margin-left: 0 !important; }
 .v2-global-nav .nav-short-label { display: none; }
+/* Account is reachable via the tier chip on desktop already, so the
+   nav-list copy of it (needed for mobile, see Sidebar.jsx) stays hidden
+   until the mobile breakpoint below. */
+.v2-global-nav .mobile-only-nav { display: none; }
 
 /* headings inherit the site's condensed display face */
 .v2-root h1,
@@ -91,6 +95,7 @@
   .v2-shell-content { padding-left: 0; }
   .v2-global-nav { padding-bottom: calc(8px + env(safe-area-inset-bottom)); height: calc(68px + env(safe-area-inset-bottom)); }
   .v2-global-nav .desktop-only-nav { display: none; }
+  .v2-global-nav .mobile-only-nav { display: flex; }
   .v2-global-nav .nav-full-label { display: none; }
   .v2-global-nav .nav-short-label { display: block; font-size: 9px; font-weight: 700; }
   .v2-global-nav nav a { flex: 1; min-width: 0; flex-direction: column; justify-content: center; gap: 3px; padding: 0 2px; }
@@ -190,3 +195,42 @@
   text-transform: uppercase;
   letter-spacing: .04em;
 }
+
+/* Shared empty/loading/error placeholder (EmptyState.jsx) - one look
+   for "nothing to show here" everywhere it appears in v2. */
+.v2-root .v2-empty-state {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  min-height: 180px;
+  padding: 24px;
+  border: 1px dashed var(--v2-border);
+  border-radius: var(--v2-radius);
+  background: var(--v2-card);
+  color: var(--v2-muted);
+  text-align: center;
+}
+.v2-root .v2-empty-state.is-compact { min-height: 110px; padding: 16px; }
+.v2-root .v2-empty-state.is-error { border-color: var(--v2-negative); }
+.v2-root .v2-empty-state h2 { margin: 0; font-size: 18px; color: var(--v2-text); }
+.v2-root .v2-empty-state p { margin: 0; max-width: 46ch; line-height: 1.5; }
+.v2-root .v2-empty-state svg { color: var(--v2-dim); }
+.v2-root .v2-empty-state.is-error svg { color: var(--v2-negative); }
+.v2-root .v2-empty-state a,
+.v2-root .v2-empty-state button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  padding: 9px 14px;
+  border: 1px solid var(--v2-border);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--v2-text);
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.v2-root .v2-empty-state a:hover,
+.v2-root .v2-empty-state button:hover { border-color: var(--v2-accent); color: var(--v2-accent); }

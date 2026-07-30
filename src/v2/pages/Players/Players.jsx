@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, Search, Sparkles, Users } from "lucide-react";
 import CoinValue from "../../components/CoinValue";
+import EmptyState from "../../components/EmptyState";
 import "../../styles/v2-destinations.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -73,7 +74,7 @@ export default function Players() {
         <Search size={20} />
         <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search a player…" />
       </label>
-      {loading ? <State text="Searching cards…" compact /> : error ? <State text={error} error compact /> : query.trim().length < 2 ? (
+      {loading ? <EmptyState text="Searching cards…" compact /> : error ? <EmptyState text={error} error compact /> : query.trim().length < 2 ? (
         <section className="v2-player-start">
           <div className="v2-player-start-copy"><span><Sparkles size={15}/> QUICK START</span><h2>Search the full card database</h2><p>Enter two or more letters. Results are grouped as cards, so you can compare different versions of the same player.</p></div>
           <div className="v2-search-examples"><small>POPULAR SEARCHES</small>{EXAMPLES.map((name) => <button key={name} onClick={() => setQuery(name)}>{name}<ArrowRight size={14}/></button>)}</div>
@@ -92,7 +93,7 @@ export default function Players() {
             );
           })}
         </section>
-      ) : <State text={`No cards found for “${query.trim()}”.`} />}
+      ) : <EmptyState text={`No cards found for “${query.trim()}”.`} />}
     </main>
   );
 }
@@ -100,4 +101,3 @@ export default function Players() {
 export function PageHead({ eyebrow, title, copy, action }) {
   return <header className="v2-page-head"><div><span>{eyebrow}</span><h1>{title}</h1><p>{copy}</p></div>{action}</header>;
 }
-function State({ icon, text, error, compact }) { return <div className={`v2-page-state ${error ? "error" : ""} ${compact ? "compact" : ""}`}>{icon}<p>{text}</p></div>; }

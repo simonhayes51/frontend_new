@@ -8,6 +8,10 @@ const ITEMS = [
   { to: "/v2/players", label: "Players", short: "Players", icon: Users, match: (p) => p.startsWith("/v2/players") },
   { to: "/v2/watchlist", label: "Watchlist", short: "Watch", icon: Star, match: (p) => p.startsWith("/v2/watchlist") },
   { to: "/v2/portfolio", label: "Portfolio", short: "Portfolio", icon: Briefcase, match: (p) => p.startsWith("/v2/portfolio") || p.startsWith("/v2/club") },
+  // Desktop reaches Account via the tier chip pinned to the bottom of the
+  // rail below - that chip is hidden on mobile (no room), so without this
+  // there'd be no way to reach account/billing/logout from a phone at all.
+  { to: "/v2/account", label: "Account", short: "Account", icon: User, mobileOnly: true, match: (p) => p.startsWith("/v2/account") },
 ];
 
 export default function Sidebar() {
@@ -22,7 +26,7 @@ export default function Sidebar() {
       {ITEMS.map((item) => {
         const active = item.match(pathname);
         const Icon = item.icon;
-        return <Link key={item.to} to={item.to} aria-current={active ? "page" : undefined} className={`${active ? "active" : ""}${item.desktopOnly ? " desktop-only-nav" : ""}`}>
+        return <Link key={item.to} to={item.to} aria-current={active ? "page" : undefined} className={`${active ? "active" : ""}${item.desktopOnly ? " desktop-only-nav" : ""}${item.mobileOnly ? " mobile-only-nav" : ""}`}>
           <Icon/><span className="nav-full-label">{item.label}</span><span className="nav-short-label">{item.short}</span>
         </Link>;
       })}
