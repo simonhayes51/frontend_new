@@ -17,8 +17,8 @@ import Watchlist from "./pages/Watchlist/Watchlist";
 export default function V2App() {
   return (
     <Routes>
-      <Route index element={<HomeDashboard />} />
-      <Route path="opportunities" element={<HomeDashboard />} />
+      <Route index element={<ShellLayout><HomeDashboard /></ShellLayout>} />
+      <Route path="opportunities" element={<ShellLayout><HomeDashboard /></ShellLayout>} />
       <Route path="players" element={<ShellLayout><Players /></ShellLayout>} />
       <Route path="health" element={<ShellLayout><HealthCheck /></ShellLayout>} />
       <Route path="players/:cardId" element={<ShellLayout><PlayerPage /></ShellLayout>} />
@@ -38,7 +38,7 @@ function ShellLayout({ children }) {
   return (
     <div className="v2-root">
       <Nav />
-      <div className="lg:pl-56 pb-16 lg:pb-0">{children}</div>
+      <div className="v2-shell-content">{children}</div>
     </div>
   );
 }
