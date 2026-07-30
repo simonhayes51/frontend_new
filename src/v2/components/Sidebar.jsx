@@ -1,15 +1,13 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { BarChart3, Briefcase, Command, Home, Shield, Star, User, Users, Zap } from "lucide-react";
+import { Briefcase, Command, Home, SlidersHorizontal, Star, User, Users } from "lucide-react";
 import { useEntitlements } from "../../context/EntitlementsContext";
 
 const ITEMS = [
   { to: "/v2", label: "Home", short: "Home", icon: Home, match: (p) => p === "/v2" },
-  { to: "/v2/opportunities", label: "Opportunities", short: "Moves", icon: Zap, match: (p) => p.startsWith("/v2/opportunities") },
+  { to: "/v2/trade-finder", label: "Trade Finder", short: "Finder", icon: SlidersHorizontal, match: (p) => p.startsWith("/v2/trade-finder") || p.startsWith("/v2/opportunities") },
   { to: "/v2/players", label: "Players", short: "Players", icon: Users, match: (p) => p.startsWith("/v2/players") },
-  { to: "/v2/market", label: "Market", short: "Market", icon: BarChart3, match: (p) => p.startsWith("/v2/market") },
   { to: "/v2/watchlist", label: "Watchlist", short: "Watch", icon: Star, match: (p) => p.startsWith("/v2/watchlist") },
   { to: "/v2/portfolio", label: "Portfolio", short: "Portfolio", icon: Briefcase, match: (p) => p.startsWith("/v2/portfolio") || p.startsWith("/v2/club") },
-  { to: "/v2/sbc", label: "SBCs", short: "SBCs", icon: Shield, desktopOnly: true, match: (p) => p.startsWith("/v2/sbc") },
 ];
 
 export default function Sidebar() {
@@ -29,6 +27,6 @@ export default function Sidebar() {
         </Link>;
       })}
     </nav>
-    <button className="account-chip" onClick={() => navigate("/profile")}><User size={16}/><b>{tier}</b><span>Account</span></button>
+    <button className={`account-chip ${pathname.startsWith("/v2/account") ? "active" : ""}`} onClick={() => navigate("/v2/account")}><User size={16}/><b>{tier}</b><span>Account</span></button>
   </aside>;
 }

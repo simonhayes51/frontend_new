@@ -84,7 +84,7 @@ export default function Players() {
             const cardId = player.card_id || player.id;
             const price = player.price_num ?? player.price ?? player.current_price;
             return (
-              <Link className="v2-player-result" key={cardId} to={`/v2/players/${cardId}`}>
+              <Link className="v2-player-result" key={cardId} to={`/v2/players/${cardId}`} state={{ from: "players", player }}>
                 <img src={player.generated_card_url || player.image_url || "/img/card-placeholder.png"} alt="" />
                 <div className="v2-player-result-copy"><strong>{player.nickname || player.card_name || player.name}</strong><div className="v2-meta-pills"><span>{player.rating || "—"} OVR</span><span>{player.position || "—"}</span><span>{player.version || "Card"}</span></div></div>
                 <div className="v2-result-price"><small>LIVE PRICE</small><CoinValue value={price} /></div>
