@@ -59,6 +59,8 @@ export default function PlayerCardExport() {
       style.remove();
       meta.remove();
       delete document.documentElement.dataset.cardReady;
+      delete document.documentElement.dataset.cardDegraded;
+      delete document.documentElement.dataset.cardDegradedLayers;
     };
   }, []);
 
@@ -86,6 +88,24 @@ export default function PlayerCardExport() {
     if (!data) return undefined;
     let cancelled = false;
 
+    // Wait on an individual <img> until it either loads or errors, and
+    // report which outcome happened - a timeout race (as used previously)
+    // can't distinguish "still pending" from "already 404'd", so a failed
+    // required layer would silently be reported as ready. Resolves
+    // immediately (as "loaded") for images that are already complete.
+    function trackImage(image) {
+      if (!image) return Promise.resolve({ ok: false, settled: false });
+      if (image.complete) {
+        // A completed <img> with naturalWidth 0 means the browser already
+        // gave up on it (404/decode failure) before we attached listeners.
+        return Promise.resolve({ ok: image.naturalWidth > 0, settled: true });
+      }
+      return new Promise((resolve) => {
+        image.addEventListener("load", () => resolve({ ok: true, settled: true }), { once: true });
+        image.addEventListener("error", () => resolve({ ok: false, settled: true }), { once: true });
+      });
+    }
+
     async function markReady() {
       await Promise.race([
         document.fonts?.ready ?? Promise.resolve(),
@@ -94,26 +114,54 @@ export default function PlayerCardExport() {
       if (cancelled) return;
 
       const container = document.querySelector("[data-player-card-export]");
-      const images = container ? Array.from(container.querySelectorAll("img")) : [];
+
+      // The "must load for a valid card" layers: the card-frame background
+      // and the cutout/player artwork when a bg image is in play, or just
+      // the plain fallback headshot when there's no bg image at all (see
+      // PlayerCardExportArt's `!bgImage` branch). Everything else (nation/
+      // league/club crests) is decorative - losing one shouldn't fail the
+      // whole render.
+      const requiredLayers = data.bgImage
+        ? [
+            ["bg", container?.querySelector("[data-card-background]")],
+            ...(data.cutoutImage ? [["cutout", container?.querySelector("[data-card-player]")]] : []),
+          ]
+        : [["fallback", container?.querySelector("img")]];
+
+      const allImages = container ? Array.from(container.querySelectorAll("img")) : [];
+      const requiredEls = new Set(requiredLayers.map(([, el]) => el).filter(Boolean));
+
+      // Track every image (so decorative ones still get a chance to
+      // decode/settle), but only required layers gate the "degraded" flag,
+      // and a required layer that fires onError counts as failed the
+      // instant it happens rather than waiting out the full timeout.
+      const results = new Map();
+      const trackers = allImages.map(async (image) => {
+        const result = await trackImage(image);
+        results.set(image, result);
+        if (result.ok && typeof image.decode === "function") {
+          try { await image.decode(); } catch { /* already decoded */ }
+        }
+      });
+
       await Promise.race([
-        Promise.all(images.map(async (image) => {
-          if (!image.complete) {
-            await new Promise((resolve) => {
-              image.addEventListener("load", resolve, { once: true });
-              image.addEventListener("error", resolve, { once: true });
-            });
-          }
-          if (image.naturalWidth > 0 && typeof image.decode === "function") {
-            try { await image.decode(); } catch { /* already decoded */ }
-          }
-        })),
+        Promise.all(trackers),
         new Promise((resolve) => setTimeout(resolve, IMAGE_SETTLE_TIMEOUT_MS)),
       ]);
       if (cancelled) return;
 
-      const background = container?.querySelector("[data-card-background]");
-      if (data.bgImage && (!background || background.naturalWidth === 0)) {
+      const failedLayers = requiredLayers
+        .filter(([, el]) => {
+          if (!el) return true; // required layer never even rendered
+          const result = results.get(el);
+          return !result || !result.settled || !result.ok;
+        })
+        .map(([layer]) => layer);
+
+      if (failedLayers.length > 0) {
         container?.setAttribute("data-card-export-error", "bg-image-failed");
+        document.documentElement.dataset.cardDegraded = "true";
+        document.documentElement.dataset.cardDegradedLayers = failedLayers.join(",");
       }
 
       await new Promise((resolve) => requestAnimationFrame(resolve));
