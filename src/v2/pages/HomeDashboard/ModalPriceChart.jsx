@@ -34,7 +34,12 @@ export default function ModalPriceChart({ cardId, entryPrice, targetPrice, fairV
             <CartesianGrid stroke="#1b3040" strokeDasharray="3 4" vertical={false}/>
             <XAxis dataKey="time" type="number" domain={["dataMin", "dataMax"]} scale="time" tickFormatter={formatDay} tick={{ fill: "#7892a8", fontSize: 10 }} axisLine={false} tickLine={false}/>
             <YAxis domain={["auto", "auto"]} width={55} tickFormatter={compactCoins} tick={{ fill: "#7892a8", fontSize: 10 }} axisLine={false} tickLine={false}/>
-            <Tooltip content={<PriceTooltip/>}/>
+            <Tooltip
+              content={<PriceTooltip/>}
+              cursor={{ stroke: "#d7e1e9", strokeWidth: 1 }}
+              allowEscapeViewBox={{ x: false, y: true }}
+              wrapperStyle={{ zIndex: 4, pointerEvents: "none" }}
+            />
             {entryPrice > 0 && <ReferenceLine y={entryPrice} stroke="#ffd34d" strokeDasharray="5 4" label={{ value: "BUY", fill: "#ffd34d", fontSize: 10, position: "insideTopRight" }}/>} 
             {fairValue > 0 && <ReferenceLine y={fairValue} stroke="#65c7ff" strokeDasharray="3 4" label={{ value: "FAIR", fill: "#65c7ff", fontSize: 10, position: "insideTopLeft" }}/>} 
             {targetPrice > 0 && <ReferenceLine y={targetPrice} stroke="#9cff3b" strokeDasharray="5 4" label={{ value: "SELL", fill: "#9cff3b", fontSize: 10, position: "insideTopRight" }}/>} 
@@ -48,7 +53,7 @@ export default function ModalPriceChart({ cardId, entryPrice, targetPrice, fairV
 function PriceTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const point = payload[0].payload;
-  return <div className="dash-chart-tooltip"><strong><CoinValue value={point.price}/></strong><span>{new Date(point.time).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>;
+  return <div className="dash-chart-tooltip"><small>SALE PRICE</small><strong><CoinValue value={point.price}/></strong><span>{new Date(point.time).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>;
 }
 function formatDay(value) { return new Date(value).toLocaleDateString("en-GB", { weekday: "short", day: "numeric" }); }
 function compactCoins(value) { const n=Number(value); return Number.isFinite(n) ? (n>=1000?`${Math.round(n/1000)}k`:String(Math.round(n))) : ""; }
