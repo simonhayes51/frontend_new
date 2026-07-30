@@ -37,9 +37,20 @@ const CONFIG = {
   },
 };
 
+// Neutral fallback for any value outside CONFIG's known set - the exact
+// silent-fallthrough bug documented above (a real status the backend can
+// emit rendering nothing at all) must never happen again, so an
+// unrecognized value renders visibly-wrong rather than invisibly-absent.
+const UNKNOWN = {
+  label: "—",
+  bg: "bg-white/5",
+  text: "text-[var(--v2-muted)]",
+  ring: "ring-white/10",
+};
+
 export default function RecommendationBadge({ recommendation, size = "sm" }) {
-  const c = CONFIG[recommendation];
-  if (!c) return null;
+  if (recommendation == null) return null;
+  const c = CONFIG[recommendation] || UNKNOWN;
   const sizeClass = size === "lg" ? "text-sm px-3 py-1" : "text-[10px] px-2 py-0.5";
   return (
     <span
