@@ -132,7 +132,7 @@ export default function Watchlist() {
                 <div><span>NOW</span><CoinValue value={item.current_price} /></div>
                 <div><span>WHEN ADDED</span><CoinValue value={item.started_price} /></div>
               </div>
-              <div className="v2-watch-change"><span>Movement since added</span><b className={Number(item.change) >= 0 ? "positive" : "negative"}>{Number(item.change_pct) > 0 ? "+" : ""}{Number(item.change_pct || 0).toFixed(1)}%</b></div>
+              <div className="v2-watch-change"><span>Movement since added</span><b className={item.change_pct == null ? "" : Number(item.change_pct) >= 0 ? "positive" : "negative"}>{item.change_pct == null ? "—" : `${Number(item.change_pct) > 0 ? "+" : ""}${Number(item.change_pct).toFixed(1)}%`}</b></div>
               <div className="v2-watch-actions">
                 <button onClick={() => openAlertModal(item)} title="Set price/liquidity alert"><Bell size={15} /> Alert</button>
                 <button onClick={() => update(item.id)}><RefreshCw size={15} /> Refresh</button>
