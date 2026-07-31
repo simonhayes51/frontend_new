@@ -56,6 +56,8 @@ function toAnalysisItem(data, snapshot, cardId) {
   const entry = firstNumber(rec.entry_price, rec.entryPrice, rec.current_bin, rec.currentBin, data?.market_metrics?.current_bin, data?.fair_value?.current_bin, meta.price_num, meta.price);
   const fair = firstNumber(rec.fair_value, rec.fairValue, data?.fair_value?.fair_value_24h, data?.fair_value?.fair_value);
   const roi = toPct(firstNumber(rec.expected_roi_pct, rec.likely_net_roi, rec.expectedRoi, rec.netRoi?.likely));
+  const confidenceRaw = firstNumber(rec.confidence, rec.score_confidence);
+  const confidence = confidenceRaw == null ? null : Math.round(confidenceRaw);
   return {
     cardId,
     recommendation: String(rec.recommendation || rec.status || "WATCH").toUpperCase(),
@@ -64,7 +66,7 @@ function toAnalysisItem(data, snapshot, cardId) {
     fairValue: fair,
     expectedRoi: roi,
     netRoi: { likely: roi },
-    confidence: Math.round(firstNumber(rec.confidence, rec.score_confidence, 0)),
+    confidence,
     popularity: data?.card_scores?.scores?.popularity != null ? Math.round(data.card_scores.scores.popularity) : null,
     psPcBinGapPct: data?.market_metrics?.psPcBinGapPct ?? null,
     risk: rec.risk || riskLabel(rec.score_risk),
@@ -92,7 +94,15 @@ function toAnalysisItem(data, snapshot, cardId) {
     },
   };
 }
-function firstNumber(...values) { for (const value of values) { const number = Number(value); if (Number.isFinite(number) && number !== 0) return number; } return 0; }
-function toPct(value) { const number = Number(value); return !Number.isFinite(number) ? 0 : Math.abs(number) <= 1 ? number * 100 : number; }
+// null (not 0) when nothing in the list is a real number - a fabricated
+// 0 here reads as a confident real value (e.g. "0% confidence") rather
+// than "no recommendation data for this card." Deliberately still skips
+// a literal 0 candidate in favor of a later source (unchanged from
+// before) - only the final "found nothing at all" fallback changes.
+function firstNumber(...values) { for (const value of values) { const number = Number(value); if (Number.isFinite(number) && number !== 0) return number; } return null; }
+// null (not 0) when there's no real ROI value - feeds profit() in the
+// shared AnalysisModal, so a fabricated 0 here silently became a
+// fabricated "Expected profit: 0" there.
+function toPct(value) { if (value == null) return null; const number = Number(value); return !Number.isFinite(number) ? null : Math.abs(number) <= 1 ? number * 100 : number; }
 function riskLabel(value) { const number = Number(value); return !Number.isFinite(number) ? "Unknown" : number >= 70 ? "High" : number >= 40 ? "Medium" : "Low"; }
 function holdingPeriod(rec) { if (rec?.holding_period_days) return `${rec.holding_period_days} days`; const list = rec?.qualified_strategies || []; if (list.includes("quick_flip")) return "Up to 24h"; if (list.includes("swing_trade")) return "2–3 days"; if (list.includes("long_hold")) return "Up to a week"; return rec?.holdingPeriod || "Flexible"; }
