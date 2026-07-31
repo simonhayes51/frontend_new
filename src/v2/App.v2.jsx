@@ -12,6 +12,7 @@ import Players from "./pages/Players/Players";
 import Watchlist from "./pages/Watchlist/Watchlist";
 import TradeFinder from "./pages/TradeFinder/TradeFinder";
 import Account from "./pages/Account/Account";
+import Chat from "./pages/Chat/Chat";
 
 export default function V2App() {
   return (
@@ -23,6 +24,7 @@ export default function V2App() {
       <Route path="health" element={<ShellLayout><HealthCheck /></ShellLayout>} />
       <Route path="players/:cardId" element={<ShellLayout><PlayerPage /></ShellLayout>} />
       <Route path="market" element={<Navigate to="/v2/trade-finder" replace />} />
+      <Route path="chat" element={<ShellLayout><Chat /></ShellLayout>} />
       <Route path="watchlist" element={<ShellLayout><Watchlist /></ShellLayout>} />
       <Route path="portfolio" element={<ShellLayout><ClubRoute /></ShellLayout>} />
       <Route path="account" element={<ShellLayout><Account /></ShellLayout>} />
