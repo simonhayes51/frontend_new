@@ -34,8 +34,14 @@ export default function HomeDashboard(){
   const images=imageQuery.data?.images??{};
   const hydrate=(item)=>item?{...item,player:{...item.player,generatedCardUrl:images[String(item.cardId)]||item.player?.generatedCardUrl}}:null;
   const items=baseItems.map(hydrate);
-  const lead=items.find(x=>x.recommendation==="BUY")??items[0]??null;
-  const queue=items.filter(x=>String(x.cardId)!==String(lead?.cardId)).slice(0,6);
+  // TOP CARD / NEXT BEST MOVES must only ever show real BUY calls - the
+  // merged baseItems pool also carries cardsToAvoid/biggestMovers (for
+  // image prefetching and buyCount/potential below), and falling back to
+  // "whatever's first in that pool" when there's no BUY signal today
+  // silently surfaced AVOID cards as if they were opportunities.
+  const opportunities=items.filter(x=>x.recommendation==="BUY");
+  const lead=opportunities[0]??null;
+  const queue=opportunities.filter(x=>String(x.cardId)!==String(lead?.cardId)).slice(0,6);
   const shown=new Set([lead,...queue].filter(Boolean).map(x=>String(x.cardId)));
   const strategyItems=strategyRaw.map(hydrate).filter(x=>!shown.has(String(x.cardId))).slice(0,8);
   const buyCount=items.filter(x=>x.recommendation==="BUY").length;
