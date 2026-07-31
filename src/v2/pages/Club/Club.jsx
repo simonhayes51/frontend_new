@@ -3,6 +3,7 @@ import { Award, BarChart3, CheckCircle2, Clock3, Coins, Plus, Target, TrendingUp
 import { closeTrade, getOpenTrades, getProfitTimeline, getTradeHistory, getTradingPerformance } from "../../api/trades";
 import CoinValue from "../../components/CoinValue";
 import EmptyState from "../../components/EmptyState";
+import RecommendationBadge from "../../components/RecommendationBadge";
 import "./club.css";
 
 const pct = (value) => `${Number(value || 0).toFixed(1)}%`;
@@ -78,7 +79,7 @@ export default function Club() {
 
 function OpenTrades({ trades, onClose }) {
   if (!trades.length) return <EmptyState icon={<Target />} title="No open trades yet" text="Open a recommendation on the dashboard and press Log purchase. It will appear here instantly." action={<a href="#/v2">Browse recommendations</a>} />;
-  return <section className="trade-grid">{trades.map((trade) => { const qty = Number(trade.quantity || 1); const target = Number(trade.target_sell || 0); const projected = target ? (Math.floor(target * .95) - Number(trade.buy)) * qty : 0; return <article className="trade-card" key={trade.trade_id}><div className="trade-top"><div><span>{trade.version || "Card"}</span><h3>{trade.player}</h3></div><b>OPEN</b></div><div className="trade-numbers"><Stat label="Bought" value={<CoinValue value={trade.buy} />} /><Stat label="Quantity" value={qty} /><Stat label="Target" value={<CoinValue value={target || null} />} /><Stat label="Projected" value={<CoinValue value={projected} signed />} /></div><div className="trade-meta"><span><Clock3 size={14} /> {date(trade.bought_at || trade.timestamp)}</span><span>{String(trade.platform || "ps").toUpperCase()}</span></div><button className="close-trade" onClick={() => onClose(trade)}>Close trade</button></article>; })}</section>;
+  return <section className="trade-grid">{trades.map((trade) => { const qty = Number(trade.quantity || 1); const target = Number(trade.target_sell || 0); const projected = target ? (Math.floor(target * .95) - Number(trade.buy)) * qty : 0; const liveStatus = trade.current_recommendation_status ? trade.current_recommendation_status.toLowerCase() : null; return <article className="trade-card" key={trade.trade_id}><div className="trade-top"><div><span>{trade.version || "Card"}</span><h3>{trade.player}</h3></div><b>OPEN</b></div><div className="trade-numbers"><Stat label="Bought" value={<CoinValue value={trade.buy} />} /><Stat label="Quantity" value={qty} /><Stat label="Target" value={<CoinValue value={target || null} />} /><Stat label="Projected" value={<CoinValue value={projected} signed />} /></div>{liveStatus ? <div className="trade-verdict"><RecommendationBadge recommendation={liveStatus} /><p>{trade.current_recommendation_reasoning}</p></div> : null}<div className="trade-meta"><span><Clock3 size={14} /> {date(trade.bought_at || trade.timestamp)}</span><span>{String(trade.platform || "ps").toUpperCase()}</span></div><button className="close-trade" onClick={() => onClose(trade)}>Close trade</button></article>; })}</section>;
 }
 
 function History({ trades }) {
