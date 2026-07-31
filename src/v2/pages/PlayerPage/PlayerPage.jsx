@@ -66,6 +66,7 @@ function toAnalysisItem(data, snapshot, cardId) {
     netRoi: { likely: roi },
     confidence: Math.round(firstNumber(rec.confidence, rec.score_confidence, 0)),
     popularity: data?.card_scores?.scores?.popularity != null ? Math.round(data.card_scores.scores.popularity) : null,
+    psPcBinGapPct: data?.market_metrics?.psPcBinGapPct ?? null,
     risk: rec.risk || riskLabel(rec.score_risk),
     holdingPeriod: holdingPeriod(rec),
     reasoning: rec.reasoning || rec.summary || "The current price is being compared with recent completed sales.",
