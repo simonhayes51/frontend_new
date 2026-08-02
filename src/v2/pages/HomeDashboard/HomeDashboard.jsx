@@ -40,11 +40,15 @@ export default function HomeDashboard(){
 
   const legacyBaseItems=useMemo(()=>{const map=new Map();[...dashboard.todaysOpportunities,...dashboard.highConfidenceInvestments,...dashboard.cardsToAvoid,...dashboard.biggestMovers].forEach(raw=>{const item=normalise(raw);if(item?.cardId&&!map.has(String(item.cardId)))map.set(String(item.cardId),item)});return[...map.values()]},[dashboard]);
   const futggBaseItems=useMemo(()=>(futggOppsQuery.data?.items??[]).map(normaliseFutgg).filter(Boolean),[futggOppsQuery.data]);
-  // Legacy items win a cardId collision (extremely unlikely - the two
-  // catalogues use unrelated id spaces - but if it ever happens, keeping
-  // the already-established legacy card avoids flipping an existing
-  // watchlist/portfolio reference's displayed identity underneath it).
-  const baseItems=useMemo(()=>{const map=new Map();[...legacyBaseItems,...futggBaseItems].forEach(item=>{if(item?.cardId&&!map.has(String(item.cardId)))map.set(String(item.cardId),item)});return[...map.values()]},[legacyBaseItems,futggBaseItems]);
+  // FUT.GG goes first: Market Map/Ticker/Top Card all just take the
+  // front slice of this combined pool (items.slice(0,N)), and the
+  // migration plan is explicit that live FUT.GG data should be
+  // preferred over the legacy FUTBIN pipeline once it has coverage -
+  // legacy-first here was exactly why Market Map kept showing old
+  // FUTBIN movers even after real FUT.GG opportunities existed. FUT.GG
+  // also wins the (extremely unlikely - unrelated id spaces) chance of
+  // a cardId collision now, for the same reason.
+  const baseItems=useMemo(()=>{const map=new Map();[...futggBaseItems,...legacyBaseItems].forEach(item=>{if(item?.cardId&&!map.has(String(item.cardId)))map.set(String(item.cardId),item)});return[...map.values()]},[legacyBaseItems,futggBaseItems]);
   const strategyRaw=(strategyQuery.data?.items??[]).map(normalise).filter(Boolean);
   const ids=[...baseItems,...strategyRaw].map(x=>x.cardId);
   const imageQuery=useGeneratedCardImages(ids);
