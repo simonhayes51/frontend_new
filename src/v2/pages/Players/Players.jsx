@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, Search, Sparkles, Users } from "lucide-react";
 import CoinValue from "../../components/CoinValue";
 import EmptyState from "../../components/EmptyState";
+import { useFutggPlayers } from "../../hooks/useFutggMarket";
 import "../../styles/v2-destinations.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -15,6 +16,28 @@ export default function Players() {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // FUT.GG migration: alongside the legacy /api/search-players lookup
+  // below, also search the new FUT.GG-backed GET /api/v2/players
+  // contract (backend built in a sibling repo, in parallel), so results
+  // include live FUT.GG cards without replacing the existing search.
+  // Debounced separately (same 250ms) rather than sharing the legacy
+  // effect's timer, to keep this additive and not risk the existing
+  // fetch's cache/abort/error-handling logic.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const trimmed = query.trim();
+    const timer = setTimeout(() => setDebouncedSearch(trimmed), 250);
+    return () => clearTimeout(timer);
+  }, [query]);
+  const futggQuery = useFutggPlayers({ search: debouncedSearch, page_size: 20 }, { enabled: debouncedSearch.length >= 2 });
+  const futggPlayers = useMemo(() => {
+    const list = Array.isArray(futggQuery.data?.items) ? futggQuery.data.items
+      : Array.isArray(futggQuery.data?.results) ? futggQuery.data.results
+      : Array.isArray(futggQuery.data) ? futggQuery.data
+      : [];
+    return list.map((p) => ({ ...p, __source: "futgg" }));
+  }, [futggQuery.data]);
 
   useEffect(() => {
     const search = query.trim();
@@ -79,16 +102,26 @@ export default function Players() {
           <div className="v2-player-start-copy"><span><Sparkles size={15}/> QUICK START</span><h2>Search the full card database</h2><p>Enter two or more letters. Results are grouped as cards, so you can compare different versions of the same player.</p></div>
           <div className="v2-search-examples"><small>POPULAR SEARCHES</small>{EXAMPLES.map((name) => <button key={name} onClick={() => setQuery(name)}>{name}<ArrowRight size={14}/></button>)}</div>
         </section>
-      ) : players.length ? (
+      ) : players.length || futggPlayers.length ? (
         <section className="v2-player-grid">
           {players.map((player) => {
             const cardId = player.card_id || player.id;
             const price = player.price_num ?? player.price ?? player.current_price;
             return (
-              <Link className="v2-player-result" key={cardId} to={`/v2/players/${cardId}`} state={{ from: "players", player }}>
+              <Link className="v2-player-result" key={`legacy-${cardId}`} to={`/v2/players/${cardId}`} state={{ from: "players", player }}>
                 <img src={player.generated_card_url || player.image_url || "/img/card-placeholder.png"} alt="" />
                 <div className="v2-player-result-copy"><strong>{player.nickname || player.card_name || player.name}</strong><div className="v2-meta-pills"><span>{player.rating || "—"} OVR</span><span>{player.position || "—"}</span><span>{player.version || "Card"}</span></div></div>
                 <div className="v2-result-price"><small>LIVE PRICE</small><CoinValue value={price} /></div>
+              </Link>
+            );
+          })}
+          {futggPlayers.map((player) => {
+            const cardId = player.card_id ?? player.source_card_id;
+            return (
+              <Link className="v2-player-result" key={`futgg-${cardId}`} to={`/v2/players/${cardId}`} state={{ from: "players", player }}>
+                <img src={player.image_url || "/img/card-placeholder.png"} alt="" />
+                <div className="v2-player-result-copy"><strong>{player.name}</strong><div className="v2-meta-pills"><span>{player.rating ?? "—"} OVR</span><span>{player.position || "—"}</span><span>{player.rarity || "Card"}</span><span>FUT.GG</span></div></div>
+                <div className="v2-result-price"><small>LIVE PRICE</small><CoinValue value={player.current_bin} /></div>
               </Link>
             );
           })}

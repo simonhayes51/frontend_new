@@ -1,10 +1,13 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Briefcase, Home, SlidersHorizontal, Sparkles, Star, User, Users } from "lucide-react";
+import { Briefcase, Home, SlidersHorizontal, Sparkles, Star, TrendingUp, User, Users } from "lucide-react";
 import { useEntitlements } from "../../context/EntitlementsContext";
 
 const ITEMS = [
   { to: "/v2", label: "Home", short: "Home", icon: Home, match: (p) => p === "/v2" },
-  { to: "/v2/trade-finder", label: "Trade Finder", short: "Finder", icon: SlidersHorizontal, match: (p) => p.startsWith("/v2/trade-finder") || p.startsWith("/v2/opportunities") },
+  // FUT.GG migration: Opportunities now has its own page/route (GET
+  // /api/v2/opportunities) instead of redirecting into Trade Finder.
+  { to: "/v2/opportunities", label: "Opportunities", short: "Opps", icon: TrendingUp, match: (p) => p.startsWith("/v2/opportunities") },
+  { to: "/v2/trade-finder", label: "Trade Finder", short: "Finder", icon: SlidersHorizontal, match: (p) => p.startsWith("/v2/trade-finder") },
   { to: "/v2/players", label: "Players", short: "Players", icon: Users, match: (p) => p.startsWith("/v2/players") },
   { to: "/v2/chat", label: "AI Chat", short: "Chat", icon: Sparkles, match: (p) => p.startsWith("/v2/chat") },
   { to: "/v2/watchlist", label: "Watchlist", short: "Watch", icon: Star, match: (p) => p.startsWith("/v2/watchlist") },
