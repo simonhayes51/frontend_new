@@ -22,7 +22,7 @@ export default function Opportunities() {
   const [filters, setFilters] = useState(DEFAULTS);
   const query = useFutggOpportunities({
     risk: filters.risk || undefined,
-    min_confidence: filters.min_confidence || undefined,
+    min_confidence: filters.min_confidence === "" ? undefined : Number(filters.min_confidence) / 100,
     min_roi: filters.min_roi ? Number(filters.min_roi) / 100 : undefined,
     page_size: 40,
   });
