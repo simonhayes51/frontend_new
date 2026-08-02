@@ -1,120 +1,169 @@
+// src/v2/pages/TradeFinder/TradeFinder.jsx
+//
+// FUT.GG migration: switched from the legacy FUTBIN-backed
+// /api/v2/recommendations/opportunities feed (useOpportunities, still
+// used elsewhere e.g. Home Dashboard) to the new FUT.GG-backed
+// GET /api/v2/trade-finder contract, which exposes the full filter/sort
+// set below server-side. Backend built in a sibling repo in parallel -
+// see the FUTBIN -> FUT.GG migration plan.
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, RotateCcw, ShieldAlert, SlidersHorizontal } from "lucide-react";
 import CoinValue from "../../components/CoinValue";
 import EmptyState from "../../components/EmptyState";
-import { useOpportunities } from "../../hooks/useRecommendationFeeds";
+import MarketFreshness from "../../components/MarketFreshness";
+import { useFutggTradeFinder } from "../../hooks/useFutggMarket";
 import { PageHead } from "../Players/Players";
 import "./trade-finder.css";
 
-const DEFAULTS = { maxBudget: "", minProfit: "", risk: "any", sort: "confidence" };
-const RISK_RANK = { low: 1, medium: 2, high: 3, unknown: 4 };
+const DEFAULTS = {
+  budget: "", min_profit: "", min_roi: "", risk: "", min_confidence: "",
+  position: "", rarity: "", rating: "", min_liquidity: "", max_price_age: "", sort: "best",
+};
+
+const SORT_OPTIONS = [
+  { value: "best", label: "Best overall" },
+  { value: "profit", label: "Highest profit" },
+  { value: "roi", label: "Highest return" },
+  { value: "confidence", label: "Best confidence" },
+  { value: "liquidity", label: "Most liquid" },
+  { value: "newest", label: "Newest listings" },
+  { value: "freshest", label: "Freshest price data" },
+];
 
 export default function TradeFinder() {
-  const query = useOpportunities({ limit: 50 });
   const [filters, setFilters] = useState(DEFAULTS);
-  const items = (query.data?.items || []).map(normalise).filter(Boolean);
 
-  const results = useMemo(() => {
-    const maxBudget = numberOrNull(filters.maxBudget);
-    const minProfit = numberOrNull(filters.minProfit);
-    const maxRisk = filters.risk === "low" ? 1 : filters.risk === "medium" ? 2 : Infinity;
-    return items
-      .filter((item) => maxBudget === null || item.entry <= maxBudget)
-      .filter((item) => minProfit === null || item.profit >= minProfit)
-      .filter((item) => (RISK_RANK[item.risk.toLowerCase()] || 4) <= maxRisk)
-      .sort((a, b) => {
-        if (filters.sort === "profit") return b.profit - a.profit;
-        if (filters.sort === "roi") return b.roi - a.roi;
-        if (filters.sort === "price") return a.entry - b.entry;
-        return b.confidence - a.confidence;
-      });
-  }, [items, filters]);
+  const params = useMemo(() => ({
+    budget: numberOrUndef(filters.budget),
+    min_profit: numberOrUndef(filters.min_profit),
+    min_roi: filters.min_roi === "" ? undefined : Number(filters.min_roi) / 100,
+    risk: filters.risk || undefined,
+    min_confidence: numberOrUndef(filters.min_confidence),
+    position: filters.position || undefined,
+    rarity: filters.rarity || undefined,
+    rating: numberOrUndef(filters.rating),
+    min_liquidity: filters.min_liquidity === "" ? undefined : Number(filters.min_liquidity) / 100,
+    max_price_age: numberOrUndef(filters.max_price_age),
+    sort: filters.sort,
+    page_size: 50,
+  }), [filters]);
+
+  const query = useFutggTradeFinder(params);
+  const items = Array.isArray(query.data?.items) ? query.data.items
+    : Array.isArray(query.data?.results) ? query.data.results
+    : Array.isArray(query.data) ? query.data
+    : [];
 
   const set = (key) => (event) => setFilters((current) => ({ ...current, [key]: event.target.value }));
   const filtersActive = Object.keys(DEFAULTS).some((key) => filters[key] !== DEFAULTS[key]);
+  const notDeployed = query.isError && [404, undefined].includes(query.error?.response?.status);
 
   return <main className="v2-destination trade-finder-page">
-    <PageHead eyebrow="TRADE FINDER" title="Find a move that fits you" copy="Set your coin budget and the return you want. We’ll only show current FutHub opportunities that match." />
+    <PageHead eyebrow="TRADE FINDER" title="Find a move that fits you" copy="Set your budget, minimum return and risk. We’ll only show current FUT.GG-priced trades that match." />
 
-    <section className="finder-controls" aria-label="Trade filters">
+    <section className="finder-controls trade-finder-controls" aria-label="Trade filters">
       <div className="finder-control">
-        <label htmlFor="finder-budget">Maximum spend</label>
-        <div className="finder-coin-input"><input id="finder-budget" inputMode="numeric" type="number" min="0" step="100" placeholder="Any budget" value={filters.maxBudget} onChange={set("maxBudget")}/></div>
+        <label htmlFor="finder-budget">Budget</label>
+        <div className="finder-coin-input"><input id="finder-budget" inputMode="numeric" type="number" min="0" step="100" placeholder="Any budget" value={filters.budget} onChange={set("budget")}/></div>
         <small>The most you can pay for one card</small>
       </div>
       <div className="finder-control">
         <label htmlFor="finder-profit">Minimum profit</label>
-        <div className="finder-coin-input"><input id="finder-profit" inputMode="numeric" type="number" min="0" step="100" placeholder="Any profit" value={filters.minProfit} onChange={set("minProfit")}/></div>
+        <div className="finder-coin-input"><input id="finder-profit" inputMode="numeric" type="number" min="0" step="100" placeholder="Any profit" value={filters.min_profit} onChange={set("min_profit")}/></div>
         <small>Expected coins after EA tax</small>
       </div>
       <div className="finder-control">
-        <label htmlFor="finder-risk">Maximum risk</label>
+        <label htmlFor="finder-roi">Minimum ROI %</label>
+        <input id="finder-roi" type="number" min="0" step="1" placeholder="Any" value={filters.min_roi} onChange={set("min_roi")} />
+        <small>Minimum expected return</small>
+      </div>
+      <div className="finder-control">
+        <label htmlFor="finder-risk">Risk</label>
         <select id="finder-risk" value={filters.risk} onChange={set("risk")}>
-          <option value="any">Any risk</option>
-          <option value="medium">Low or medium</option>
+          <option value="">Any risk</option>
           <option value="low">Low only</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
         </select>
         <small>How much uncertainty you’ll accept</small>
       </div>
       <div className="finder-control">
-        <label htmlFor="finder-sort">Prioritise</label>
+        <label htmlFor="finder-confidence">Min confidence</label>
+        <input id="finder-confidence" type="number" min="0" max="100" step="5" placeholder="Any" value={filters.min_confidence} onChange={set("min_confidence")} />
+        <small>Minimum confidence score</small>
+      </div>
+      <div className="finder-control">
+        <label htmlFor="finder-liquidity">Min liquidity %</label>
+        <input id="finder-liquidity" type="number" min="0" max="100" step="5" placeholder="Any" value={filters.min_liquidity} onChange={set("min_liquidity")} />
+        <small>How easily the card sells</small>
+      </div>
+      <div className="finder-control">
+        <label htmlFor="finder-position">Position</label>
+        <input id="finder-position" type="text" placeholder="e.g. ST" value={filters.position} onChange={set("position")} />
+        <small>Exact position code</small>
+      </div>
+      <div className="finder-control">
+        <label htmlFor="finder-rarity">Rarity</label>
+        <input id="finder-rarity" type="text" placeholder="e.g. FUTTIES" value={filters.rarity} onChange={set("rarity")} />
+        <small>Card rarity/version</small>
+      </div>
+      <div className="finder-control">
+        <label htmlFor="finder-rating">Rating</label>
+        <input id="finder-rating" type="number" min="0" max="99" placeholder="Any" value={filters.rating} onChange={set("rating")} />
+        <small>Exact overall rating</small>
+      </div>
+      <div className="finder-control">
+        <label htmlFor="finder-age">Max price age (s)</label>
+        <input id="finder-age" type="number" min="0" placeholder="Any" value={filters.max_price_age} onChange={set("max_price_age")} />
+        <small>Exclude stale price data</small>
+      </div>
+      <div className="finder-control">
+        <label htmlFor="finder-sort">Sort</label>
         <select id="finder-sort" value={filters.sort} onChange={set("sort")}>
-          <option value="confidence">Best confidence</option>
-          <option value="profit">Highest profit</option>
-          <option value="roi">Highest return</option>
-          <option value="price">Lowest price</option>
+          {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
         <small>How matching trades are ordered</small>
       </div>
     </section>
 
     <div className="finder-result-head">
-      <div><SlidersHorizontal size={16}/><strong>{query.isLoading ? "Scanning opportunities…" : `${results.length} matching ${results.length === 1 ? "trade" : "trades"}`}</strong></div>
+      <div><SlidersHorizontal size={16}/><strong>{query.isLoading ? "Scanning FUT.GG trades…" : `${items.length} matching ${items.length === 1 ? "trade" : "trades"}`}</strong></div>
       {filtersActive ? <button onClick={() => setFilters(DEFAULTS)}><RotateCcw size={14}/> Reset filters</button> : null}
     </div>
 
-    {query.isLoading ? <EmptyState icon={<SlidersHorizontal size={25}/>} text="Checking the latest calculated opportunities…" /> : query.isError ? <EmptyState icon={<SlidersHorizontal size={25}/>} error text="Trade Finder could not load the opportunity feed." action={<button onClick={() => query.refetch()}>Try again</button>} /> : results.length ? (
+    {query.isLoading ? (
+      <EmptyState icon={<SlidersHorizontal size={25}/>} text="Checking the latest FUT.GG trade opportunities…" />
+    ) : notDeployed ? (
+      <EmptyState icon={<ShieldAlert size={25}/>} error text="The FUT.GG trade finder feed isn't live yet — this endpoint hasn't been deployed on the backend." action={<button onClick={() => query.refetch()}>Try again</button>} />
+    ) : query.isError ? (
+      <EmptyState icon={<ShieldAlert size={25}/>} error text="Trade Finder could not load the opportunity feed." action={<button onClick={() => query.refetch()}>Try again</button>} />
+    ) : items.length ? (
       <section className="finder-grid">
-        {results.map((item) => <Link className="finder-card" key={item.cardId} to={`/v2/players/${item.cardId}`} state={{ from: "trade-finder" }}>
-          <div className="finder-card-top">
-            <img src={item.image || "/img/card-placeholder.png"} alt="" />
-            <div><h2>{item.name}</h2><div className="v2-meta-pills"><span>{item.rating || "—"} OVR</span><span>{item.position || "—"}</span><span>{item.version || "Card"}</span></div><p>{item.reason}</p></div>
-            <span className="finder-confidence">{item.confidence}%<small>CONFIDENCE</small></span>
-          </div>
-          <div className="finder-signals">
-            <div className="entry"><span>BUY BELOW</span><CoinValue value={item.entry}/></div>
-            <ArrowRight size={18}/>
-            <div className="profit"><span>EXPECTED PROFIT</span><CoinValue value={item.profit} signed/><small>{signedPct(item.roi)} after tax</small></div>
-          </div>
-          <div className="finder-card-foot"><span className={`risk-${item.risk.toLowerCase()}`}>{item.risk} risk</span><span>View analysis <ArrowRight size={14}/></span></div>
-        </Link>)}
+        {items.map((item) => {
+          const cardId = item.card_id ?? item.source_card_id;
+          const confidence = item.confidence_score != null ? Math.round(Number(item.confidence_score) * (Number(item.confidence_score) <= 1 ? 100 : 1)) : null;
+          const roi = item.expected_roi != null ? (Math.abs(Number(item.expected_roi)) <= 1 ? Number(item.expected_roi) * 100 : Number(item.expected_roi)) : null;
+          return <Link className="finder-card" key={cardId} to={`/v2/players/${cardId}`} state={{ from: "trade-finder" }}>
+            <div className="finder-card-top">
+              <img src={item.image_url || "/img/card-placeholder.png"} alt="" />
+              <div><h2>{item.name || "Unknown player"}</h2><div className="v2-meta-pills"><span>{item.rating ?? "—"} OVR</span><span>{item.position || "—"}</span><span>{item.rarity || "Card"}</span></div><p>{(item.signal_reasons || [])[0] || "Current price and completed sales support this move."}</p></div>
+              <span className="finder-confidence">{confidence == null ? "—" : `${confidence}%`}<small>CONFIDENCE</small></span>
+            </div>
+            <div className="finder-signals">
+              <div className="entry"><span>BUY BELOW</span><CoinValue value={item.recommended_buy_max ?? item.current_bin}/></div>
+              <ArrowRight size={18}/>
+              <div className="profit"><span>EXPECTED PROFIT</span><CoinValue value={item.expected_profit_after_tax} signed/><small>{roi == null ? "—" : `${roi > 0 ? "+" : ""}${roi.toFixed(1)}%`} after tax</small></div>
+            </div>
+            <div className="finder-card-foot">
+              <span className={`risk-${String(item.risk_level || "unknown").toLowerCase()}`}>{item.risk_level || "unknown"} risk</span>
+              <MarketFreshness priceAgeSeconds={item.price_age_seconds} capturedAt={item.current_bin_captured_at} compact />
+            </div>
+          </Link>;
+        })}
       </section>
-    ) : <EmptyState icon={<SlidersHorizontal size={25}/>} text="No current opportunities match those filters." action={<button onClick={() => setFilters(DEFAULTS)}>Clear filters</button>} />}
+    ) : <EmptyState icon={<SlidersHorizontal size={25}/>} text="No current trades match those filters." action={filtersActive ? <button onClick={() => setFilters(DEFAULTS)}>Clear filters</button> : null} />}
   </main>;
 }
 
-function normalise(raw) {
-  if (!raw) return null;
-  const player = raw.player || raw;
-  const entry = Number(raw.entryPrice ?? raw.entry_price ?? raw.currentBin ?? raw.current_bin ?? 0);
-  const roi = toPct(raw.netRoi?.likely ?? raw.expectedRoi ?? raw.likely_net_roi ?? raw.expected_roi_pct);
-  return {
-    cardId: raw.cardId ?? raw.card_id,
-    name: player.nickname || player.cardName || player.card_name || player.displayName || player.name || "Unknown player",
-    rating: player.rating,
-    position: player.position,
-    version: player.version,
-    image: player.generatedCardUrl || player.generated_card_url || player.imageUrl || player.image_url,
-    entry,
-    roi,
-    profit: Math.round(entry * roi / 100),
-    risk: String(raw.risk || riskLabel(raw.score_risk)),
-    confidence: Math.round(Number(raw.confidence ?? raw.score_confidence ?? 0)),
-    reason: raw.reasoning || "Current price and completed sales support this move.",
-  };
-}
-function numberOrNull(value) { const number = Number(value); return value === "" || !Number.isFinite(number) ? null : number; }
-function toPct(value) { const number = Number(value); return !Number.isFinite(number) ? 0 : Math.abs(number) <= 1 ? number * 100 : number; }
-function signedPct(value) { const number = Number(value); return `${number > 0 ? "+" : ""}${number.toFixed(1)}%`; }
-function riskLabel(value) { const number = Number(value); return !Number.isFinite(number) ? "Unknown" : number >= 70 ? "High" : number >= 40 ? "Medium" : "Low"; }
+function numberOrUndef(value) { const number = Number(value); return value === "" || !Number.isFinite(number) ? undefined : number; }

@@ -4,6 +4,7 @@ import { Shield } from "lucide-react";
 import { addWatch } from "../../../api/watchlist";
 import { usePlayerSummary } from "../../hooks/usePlayerSummary";
 import { AnalysisModal } from "../HomeDashboard/HomeDashboard";
+import FutggMarketSection from "./sections/FutggMarketSection";
 
 export default function PlayerPage() {
   const { cardId } = useParams();
@@ -45,7 +46,11 @@ export default function PlayerPage() {
   if (!item) return null;
 
   return <div className="quick-analysis-page">
-    <AnalysisModal item={item} onClose={goBack} navigate={navigate} onWatch={watch} watchState={watchState} backLabel={backLabel}/>
+    {/* FUT.GG migration: `extra` renders FutggMarketSection (new FUT.GG-
+        backed GET /api/v2/players/{cardId} + /prices + /sales contract)
+        inside the existing modal - additive, doesn't touch the modal's
+        own FUTBIN-derived /summary data above it. */}
+    <AnalysisModal item={item} onClose={goBack} navigate={navigate} onWatch={watch} watchState={watchState} backLabel={backLabel} extra={<FutggMarketSection cardId={cardId} />}/>
   </div>;
 }
 

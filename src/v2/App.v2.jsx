@@ -11,6 +11,7 @@ import ClubRoute from "./pages/Club/ClubRoute";
 import Players from "./pages/Players/Players";
 import Watchlist from "./pages/Watchlist/Watchlist";
 import TradeFinder from "./pages/TradeFinder/TradeFinder";
+import Opportunities from "./pages/Opportunities/Opportunities";
 import Account from "./pages/Account/Account";
 import Chat from "./pages/Chat/Chat";
 
@@ -18,7 +19,10 @@ export default function V2App() {
   return (
     <Routes>
       <Route index element={<ShellLayout><HomeDashboard /></ShellLayout>} />
-      <Route path="opportunities" element={<Navigate to="/v2/trade-finder" replace />} />
+      {/* FUT.GG migration: was a redirect to /v2/trade-finder (no
+          dedicated opportunities page existed); now a real page wired to
+          GET /api/v2/opportunities. */}
+      <Route path="opportunities" element={<ShellLayout><Opportunities /></ShellLayout>} />
       <Route path="trade-finder" element={<ShellLayout><TradeFinder /></ShellLayout>} />
       <Route path="players" element={<ShellLayout><Players /></ShellLayout>} />
       <Route path="health" element={<ShellLayout><HealthCheck /></ShellLayout>} />
