@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, Search, Sparkles, Users } from "lucide-react";
 import CoinValue from "../../components/CoinValue";
 import EmptyState from "../../components/EmptyState";
+import MarketFreshness from "../../components/MarketFreshness";
 import { useFutggPlayers } from "../../hooks/useFutggMarket";
 import "../../styles/v2-destinations.css";
 
@@ -120,7 +121,7 @@ export default function Players() {
             return (
               <Link className="v2-player-result" key={`futgg-${cardId}`} to={`/v2/players/${cardId}`} state={{ from: "players", player }}>
                 <img src={player.image_url || "/img/card-placeholder.png"} alt="" />
-                <div className="v2-player-result-copy"><strong>{player.name}</strong><div className="v2-meta-pills"><span>{player.rating ?? "—"} OVR</span><span>{player.position || "—"}</span><span>{player.rarity || "Card"}</span><span>FUT.GG</span></div></div>
+                <div className="v2-player-result-copy"><strong>{player.name}</strong><div className="v2-meta-pills"><span>{player.rating ?? "—"} OVR</span><span>{player.position || "—"}</span><span>{player.rarity || "Card"}</span><span>FUT.GG</span></div><MarketFreshness priceAgeSeconds={player.price_age_seconds} capturedAt={player.current_bin_captured_at} compact /></div>
                 <div className="v2-result-price"><small>LIVE PRICE</small><CoinValue value={player.current_bin} /></div>
               </Link>
             );
