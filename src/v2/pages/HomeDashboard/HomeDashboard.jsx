@@ -55,19 +55,24 @@ export default function HomeDashboard(){
   const images=imageQuery.data?.images??{};
   const hydrate=(item)=>item?{...item,player:{...item.player,generatedCardUrl:images[String(item.cardId)]||item.player?.generatedCardUrl}}:null;
   const items=baseItems.map(hydrate);
-  // TOP CARD / NEXT BEST MOVES must only ever show real BUY calls - the
-  // merged baseItems pool also carries cardsToAvoid/biggestMovers (for
-  // image prefetching and buyCount/potential below), and falling back to
-  // "whatever's first in that pool" when there's no BUY signal today
-  // silently surfaced AVOID cards as if they were opportunities.
-  const opportunities=items.filter(x=>x.recommendation==="BUY");
+  // The legacy FUTBIN pipeline's fair_value_mv is broken on the current
+  // player DB (fut_players there is missing basic columns - that worker
+  // has never successfully written to this database), so its computed
+  // recommendations/movers are not trustworthy live data, just whatever
+  // stale/fallback values the legacy dashboard aggregation happens to
+  // return. TOP CARD / NEXT BEST MOVES / MARKET MAP / the ticker all
+  // restrict to FUT.GG-sourced items only until that pipeline is either
+  // fixed or retired - better an honest "still building" empty state
+  // than presenting broken legacy numbers as live market data.
+  const futggItems=items.filter(x=>x.source==="futgg");
+  const opportunities=futggItems.filter(x=>x.recommendation==="BUY");
   const lead=opportunities[0]??null;
   const queue=opportunities.filter(x=>String(x.cardId)!==String(lead?.cardId)).slice(0,6);
   const shown=new Set([lead,...queue].filter(Boolean).map(x=>String(x.cardId)));
   const strategyItems=strategyRaw.map(hydrate).filter(x=>!shown.has(String(x.cardId))).slice(0,8);
-  const buyCount=items.filter(x=>x.recommendation==="BUY").length;
+  const buyCount=futggItems.filter(x=>x.recommendation==="BUY").length;
   const score=Math.round(Number(dashboard.marketRegime?.confidence||0));
-  const potential=items.filter(x=>x.recommendation==="BUY").reduce((sum,item)=>sum+Math.max(0,profit(item)),0);
+  const potential=futggItems.filter(x=>x.recommendation==="BUY").reduce((sum,item)=>sum+Math.max(0,profit(item)),0);
 
   useEffect(()=>{if(pathname!=="/v2/opportunities")return;const timer=setTimeout(()=>document.getElementById("queue")?.scrollIntoView({behavior:"smooth",block:"start"}),50);return()=>clearTimeout(timer)},[pathname]);
 
@@ -76,14 +81,14 @@ export default function HomeDashboard(){
   return <div className="fut-dashboard-shell">
     <main className="fut-main home-in-shell">
       <header className="fut-topbar"><button className="fut-search" onClick={()=>navigate("/v2/players")}><Search size={19}/><span>Search player, card or price</span><kbd>/</kbd></button><div className="feed-live"><i/> LIVE</div><button className="bell-btn" onClick={()=>navigate("/v2/watchlist")}><Bell size={18}/></button></header>
-      <Ticker items={items} events={dashboard.latestMarketEvents}/>
+      <Ticker items={futggItems} events={dashboard.latestMarketEvents}/>
       <section className="decision-stage">
         <div className="lead-trade"><div className="lead-label"><Zap size={15}/> TOP CARD</div>{lead?<div className="lead-layout"><button className="lead-card player-open-button" onClick={()=>setSelected(lead)} aria-label={`Open ${nameOf(lead.player)} analysis`}><CardImage player={lead.player} featured/></button><div className="lead-copy"><div className="lead-head"><div><PlayerMeta player={lead.player} source={lead.source}/><h1>{nameOf(lead.player)}</h1></div><div className="lead-status"><b className={`call ${String(lead.recommendation).toLowerCase()}`}>{lead.recommendation}</b><ConfidenceRing value={lead.confidence}/></div></div><p>{reason(lead)}</p><div className="lead-numbers"><Metric label="Buy below" value={<CoinValue value={lead.entryPrice??lead.currentBin}/>} sub="Maximum entry" tone="entry"/><Metric label="Expected profit" value={<CoinValue value={profit(lead)} signed/>} sub="After EA tax" tone="positive"/><Metric label="Risk level" value={lead.risk||"Unknown"} sub={hold(lead.holdingPeriod)}/></div><div className="lead-actions"><button onClick={()=>setSelected(lead)}>View move <ArrowRight size={17}/></button><button className="secondary" onClick={()=>watchItem(lead)} aria-label="Add top card to watchlist"><Star size={16} fill={watchStates[String(lead.cardId)]==="saved"?"currentColor":"none"}/>{watchStates[String(lead.cardId)]==="saved"?"Watching":"Watch"}</button></div></div></div>:<EmptyState compact text="No clean trade has passed the filters yet."/>}</div>
         <aside className="market-panel"><div className="panel-label"><Activity size={15}/> MARKET PULSE</div><div className="pulse-head"><div><h2>{mood(score)}</h2><p>{dashboard.marketRegime?.summary||"Prices and completed sales are being checked now."}</p></div><strong>{score}<small>/100</small></strong></div><div className="pulse-track"><span style={{width:`${Math.max(5,score)}%`}}/></div><div className="pulse-stats"><Metric label="Buy signals" value={buyCount}/><Metric label="Coin potential" value={<CoinValue value={potential} signed/>}/><Metric label="Tracked" value={count(Number(dashboard.marketRegime?.metrics?.liquidCards||0)+Number(freshnessQuery.data?.cards_priced||0))}/></div><div className="pulse-events">{(dashboard.latestMarketEvents||[]).slice(0,3).map((event,index)=><div key={event.id||index}><i/><span>{event.title}</span></div>)}</div></aside>
       </section>
       <TrackRecordPanel/>
       <section className="queue-section" id="queue"><div className="section-head"><div><span>LIVE OPPORTUNITIES</span><h2>Next best moves</h2></div><Link to="/v2/players">Find a player <ArrowRight size={15}/></Link></div><div className="queue-grid">{queue.length?queue.map((item,index)=><QueueCard key={item.cardId} item={item} rank={index+2} onOpen={setSelected} onWatch={watchItem} watchState={watchStates[String(item.cardId)]}/>):<EmptyState compact text="No additional opportunities right now."/>}{dashboard.locked?.opportunityFeed&&dashboard.locked?.previewCount>0?<LockedPreviewCard count={dashboard.locked.previewCount} navigate={navigate}/>:null}</div></section>
-      <section className="lower-grid"><div className="market-map"><div className="section-head compact"><div><span>MARKET MAP</span><h2>Where coins are moving</h2></div></div><div className="map-bars">{items.slice(0,7).map(item=><button key={item.cardId} onClick={()=>setSelected(item)}><span>{nameOf(item.player)}</span><i><b style={{width:`${Math.min(100,Math.max(8,Math.abs(Number(item.expectedRoi||0))*4))}%`}}/></i><strong>{roi(item)}</strong></button>)}</div></div><div className="activity-feed"><div className="section-head compact"><div><span>YOUR FEED</span><h2>Alerts & content</h2></div><Link to="/v2/watchlist">Open</Link></div>{[...(dashboard.watchlistAlerts||[]).slice(0,3),...(dashboard.latestSbcImpact||[]).slice(0,3)].slice(0,5).map((x,index)=><div className="feed-row" key={x.id||x.eventId||index}><i/><div><strong>{x.title||x.message||"Market update"}</strong><span>{x.message||x.estimatedMarketImpact?`${percent(x.estimatedMarketImpact)} estimated impact`:"New market activity"}</span></div></div>)}{!dashboard.watchlistAlerts?.length&&!dashboard.latestSbcImpact?.length?<EmptyState compact text="No alerts yet. Add players to your watchlist."/>:null}</div></section>
+      <section className="lower-grid"><div className="market-map"><div className="section-head compact"><div><span>MARKET MAP</span><h2>Where coins are moving</h2></div></div><div className="map-bars">{futggItems.length?futggItems.slice(0,7).map(item=><button key={item.cardId} onClick={()=>setSelected(item)}><span>{nameOf(item.player)}</span><i><b style={{width:`${Math.min(100,Math.max(8,Math.abs(Number(item.expectedRoi||0))*4))}%`}}/></i><strong>{roi(item)}</strong></button>):<EmptyState compact text="Still building live market data - check back as more FUT.GG cards get priced."/>}</div></div><div className="activity-feed"><div className="section-head compact"><div><span>YOUR FEED</span><h2>Alerts & content</h2></div><Link to="/v2/watchlist">Open</Link></div>{[...(dashboard.watchlistAlerts||[]).slice(0,3),...(dashboard.latestSbcImpact||[]).slice(0,3)].slice(0,5).map((x,index)=><div className="feed-row" key={x.id||x.eventId||index}><i/><div><strong>{x.title||x.message||"Market update"}</strong><span>{x.message||x.estimatedMarketImpact?`${percent(x.estimatedMarketImpact)} estimated impact`:"New market activity"}</span></div></div>)}{!dashboard.watchlistAlerts?.length&&!dashboard.latestSbcImpact?.length?<EmptyState compact text="No alerts yet. Add players to your watchlist."/>:null}</div></section>
       <section className="strategy-section"><div className="section-head"><div><span>STRATEGY FINDER</span><h2>Find a different angle</h2></div></div><div className="strategy-tabs">{STRATEGIES.map(([key,label])=><button key={key} className={strategy===key?"active":""} onClick={()=>setStrategy(key)}>{label}</button>)}</div><div className="strategy-grid">{strategyQuery.isLoading?<EmptyState compact text="Scanning this strategy…"/>:strategyItems.length?strategyItems.map(item=><StrategyCard key={item.cardId} item={item} onOpen={setSelected} onWatch={watchItem} watchState={watchStates[String(item.cardId)]}/>):<EmptyState compact text="No different cards qualify for this strategy right now."/>}</div></section>
       <p className="fut-disclaimer">Recent sales and live listings are used to estimate opportunities. Profit is never guaranteed and EA charges 5% on sales.</p>
     </main>
