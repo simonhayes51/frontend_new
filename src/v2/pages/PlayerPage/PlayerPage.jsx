@@ -25,7 +25,22 @@ export default function PlayerPage() {
   const futggQuery = useFutggPlayer(cardId);
   const [watchState, setWatchState] = useState("");
   const item = useMemo(
-    () => toAnalysisItem(data, location.state?.player, cardId) || toFutggAnalysisItem(futggQuery.data, cardId),
+    // FUT.GG FIRST. This ordering used to be reversed, with the legacy
+    // FUTBIN /summary winning and FUT.GG used only when it returned
+    // nothing - which meant a card that legacy answered WRONGLY never
+    // reached the FUT.GG path at all.
+    //
+    // Observed live on Carles Puyol: this panel showed "AVOID at 337,000"
+    // from /summary while the FUT.GG section below it, and the watchlist,
+    // both showed 11,250 - the same card, thirty times apart, on one
+    // screen. 337,000 came from fair_value_mv, the legacy materialized
+    // view this codebase already documents as broken on the current
+    // player database (see HomeDashboard, which for the same reason
+    // restricts its Top Card / Market Map / ticker to FUT.GG items only).
+    //
+    // Legacy is kept strictly as a fallback for cards with no FUT.GG row
+    // yet, so nothing that previously rendered stops rendering.
+    () => toFutggAnalysisItem(futggQuery.data, cardId) || toAnalysisItem(data, location.state?.player, cardId),
     [data, futggQuery.data, location.state, cardId],
   );
   const bothSettled = !isLoading && !futggQuery.isLoading;
