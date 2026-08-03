@@ -7,7 +7,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 
-export function useSalesCandles(cardId, { days = 7, bucketHours = 4 } = {}) {
+export function useSalesCandles(cardId, { days = 7, bucketHours = 4 } = {}, { enabled = true } = {}) {
   return useQuery({
     queryKey: ["v2", "player", "salesCandles", cardId, days, bucketHours],
     queryFn: async () => {
@@ -16,7 +16,7 @@ export function useSalesCandles(cardId, { days = 7, bucketHours = 4 } = {}) {
       });
       return res.data;
     },
-    enabled: !!cardId,
+    enabled: enabled && !!cardId,
     staleTime: 60_000,
   });
 }

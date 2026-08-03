@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useSalesCandles } from "../../hooks/useSalesCandles";
+import { useFutggPlayerSales } from "../../hooks/useFutggMarket";
 import CoinValue from "../../components/CoinValue";
 
 const RANGES = {
@@ -9,18 +10,44 @@ const RANGES = {
   "30d": { days: 30, bucketHours: 12 },
 };
 
-export default function ModalPriceChart({ cardId, entryPrice, targetPrice, fairValue }) {
+// FUT.GG's own recent-sales endpoint (futgg_sales_history, keyed on
+// source_card_id) is a completely different table/id-space from the
+// legacy sales-history/sales-candles endpoints this chart used
+// exclusively before - those only ever know about legacy FUTBIN
+// card_ids, so every FUT.GG card looked like "not enough completed
+// sales" regardless of how much real FUT.GG sales data existed. FUT.GG
+// only ever returns its bounded recent window (<=50 rows/14 days, see
+// migrations/038), not a real bucketed time series - the 24h/7d/30d
+// picker becomes a client-side filter over that same window rather
+// than a different server query per range. Those sale times are
+// APPROXIMATE (derived from a relative age string, not exact) - see
+// the tooltip's "approx." label below.
+export default function ModalPriceChart({ cardId, entryPrice, targetPrice, fairValue, source }) {
   const [range, setRange] = useState("7d");
   const config = RANGES[range];
-  const { data, isLoading, isError } = useSalesCandles(cardId, config);
-  const points = (data?.candles || []).map((c) => ({
-    time: Number(c.time) * 1000,
-    price: Number(c.close),
-  })).filter((point) => Number.isFinite(point.price));
+  const isFutgg = source === "futgg";
+  const legacyQuery = useSalesCandles(cardId, config, { enabled: !isFutgg });
+  const futggQuery = useFutggPlayerSales(isFutgg ? cardId : undefined);
+  const isLoading = isFutgg ? futggQuery.isLoading : legacyQuery.isLoading;
+  const isError = isFutgg ? futggQuery.isError : legacyQuery.isError;
+
+  const points = useMemo(() => {
+    if (isFutgg) {
+      const cutoffMs = Date.now() - config.days * 24 * 60 * 60 * 1000;
+      return (futggQuery.data?.items || [])
+        .map((s) => ({ time: new Date(s.approximate_sold_at).getTime(), price: Number(s.sold_price), approximate: true }))
+        .filter((point) => Number.isFinite(point.price) && Number.isFinite(point.time) && point.time >= cutoffMs)
+        .sort((a, b) => a.time - b.time);
+    }
+    return (legacyQuery.data?.candles || []).map((c) => ({
+      time: Number(c.time) * 1000,
+      price: Number(c.close),
+    })).filter((point) => Number.isFinite(point.price));
+  }, [isFutgg, futggQuery.data, legacyQuery.data, config.days]);
 
   return <div className="dash-price-chart">
     <div className="dash-price-chart-head">
-      <div><strong>Completed sales</strong></div>
+      <div><strong>Completed sales</strong>{isFutgg?<small className="dash-chart-approx"> (approximate times)</small>:null}</div>
       <div className="dash-chart-ranges" aria-label="Chart range">
         {Object.keys(RANGES).map(key => <button key={key} className={range === key ? "active" : ""} onClick={() => setRange(key)}>{key}</button>)}
       </div>
@@ -53,7 +80,7 @@ export default function ModalPriceChart({ cardId, entryPrice, targetPrice, fairV
 function PriceTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const point = payload[0].payload;
-  return <div className="dash-chart-tooltip"><small>SALE PRICE</small><strong><CoinValue value={point.price}/></strong><span>{new Date(point.time).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>;
+  return <div className="dash-chart-tooltip"><small>SALE PRICE{point.approximate?" (approx. time)":""}</small><strong><CoinValue value={point.price}/></strong><span>{new Date(point.time).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span></div>;
 }
 function formatDay(value) { return new Date(value).toLocaleDateString("en-GB", { weekday: "short", day: "numeric" }); }
 function compactCoins(value) { const n=Number(value); return Number.isFinite(n) ? (n>=1000?`${Math.round(n/1000)}k`:String(Math.round(n))) : ""; }
