@@ -49,6 +49,7 @@ export default function FutggMarketSection({ cardId }) {
         card_id: String(card.source_card_id ?? card.card_id ?? cardId),
         version: card.rarity || null,
         platform: "ps",
+        source: "futgg",
       });
       setWatchState("saved");
     } catch (err) {

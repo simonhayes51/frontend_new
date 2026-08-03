@@ -30,6 +30,7 @@ export default function PlayerPage() {
         card_id: String(current.cardId),
         version: current.player.version || null,
         platform: "ps",
+        source: "futgg",
       });
       setWatchState("saved");
     } catch (requestError) {

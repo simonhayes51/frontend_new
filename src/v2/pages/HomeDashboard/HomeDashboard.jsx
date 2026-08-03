@@ -80,7 +80,7 @@ export default function HomeDashboard(){
 
   useEffect(()=>{if(pathname!=="/v2/opportunities")return;const timer=setTimeout(()=>document.getElementById("queue")?.scrollIntoView({behavior:"smooth",block:"start"}),50);return()=>clearTimeout(timer)},[pathname]);
 
-  async function watchItem(item){const id=String(item?.cardId||"");if(!item||watchStates[id]==="saving"||watchStates[id]==="saved")return;setWatchStates(current=>({...current,[id]:"saving"}));try{await addWatch({player_name:nameOf(item.player),card_id:id,version:item.player?.version??null,platform:"ps"});setWatchStates(current=>({...current,[id]:"saved"}))}catch(error){if(error?.response?.status===401)navigate("/login");else if(error?.response?.status===409)setWatchStates(current=>({...current,[id]:"saved"}));else setWatchStates(current=>({...current,[id]:"error"}))}}
+  async function watchItem(item){const id=String(item?.cardId||"");if(!item||watchStates[id]==="saving"||watchStates[id]==="saved")return;setWatchStates(current=>({...current,[id]:"saving"}));try{await addWatch({player_name:nameOf(item.player),card_id:id,version:item.player?.version??null,platform:"ps",source:item.source==="futgg"?"futgg":"futbin"});setWatchStates(current=>({...current,[id]:"saved"}))}catch(error){if(error?.response?.status===401)navigate("/login");else if(error?.response?.status===409)setWatchStates(current=>({...current,[id]:"saved"}));else setWatchStates(current=>({...current,[id]:"error"}))}}
 
   return <div className="fut-dashboard-shell">
     <main className="fut-main home-in-shell">
