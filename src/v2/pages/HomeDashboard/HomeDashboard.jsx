@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Activity, ArrowRight, Bell, ChevronRight, Search, Star, Target, X, Zap } from "lucide-react";
 import { useDashboard } from "../../hooks/useDashboard";
-import { useFutggMarketFreshness, useFutggOpportunities } from "../../hooks/useFutggMarket";
-import { useGeneratedCardImages, useStrategyRecommendations } from "../../hooks/useRecommendationFeeds";
+import { useFutggMarketFreshness, useFutggOpportunities, useFutggTradeFinder } from "../../hooks/useFutggMarket";
+import { useGeneratedCardImages } from "../../hooks/useRecommendationFeeds";
 import PlayerCardArt from "../../../components/PlayerCardArt";
 import { addWatch } from "../../../api/watchlist";
 import ModalPriceChart from "./ModalPriceChart";
@@ -17,17 +17,32 @@ import "../../styles/dashboard-analysis-modal.css";
 import "../../styles/mobile-polish.css";
 
 const EMPTY={marketRegime:{label:"Unknown",confidence:0,summary:"",metrics:{}},todaysOpportunities:[],highConfidenceInvestments:[],cardsToAvoid:[],biggestMovers:[],watchlistAlerts:[],latestMarketEvents:[],latestSbcImpact:[],locked:{opportunityFeed:false,previewCount:0}};
-const STRATEGIES=[["best_picks","For you"],["quick_flip","Quick flips"],["low_risk","Low risk"],["swing_trade","2–3 days"],["long_hold","Long hold"],["sbc","SBC plays"]];
+// Strategy Finder used to hit the legacy FUTBIN engine's
+// /api/v2/recommendations/strategy/{name} - that pipeline's fair_value_mv
+// is broken (see the comment above baseItems below), so every tab always
+// came back empty. Rebuilt on the same /api/v2/trade-finder endpoint the
+// rest of this page already uses for live FUT.GG data. Tabs are limited to
+// what trade-finder can actually answer honestly - it has no holding-
+// period or SBC-relevance signal, so "2-3 days"/"Long hold"/"SBC plays"
+// were dropped rather than faked onto an unrelated sort.
+const STRATEGIES=[["best_opportunity","For you"],["liquidity","Quick flips"],["low_risk","Low risk"],["roi","Best ROI"],["confidence","Most confident"]];
+const STRATEGY_PARAMS={
+  best_opportunity:{sort_by:"best_opportunity"},
+  liquidity:{sort_by:"liquidity"},
+  low_risk:{risk_tolerance:"low",sort_by:"confidence"},
+  roi:{sort_by:"roi"},
+  confidence:{sort_by:"confidence"},
+};
 
 export default function HomeDashboard(){
   const dashboardQuery=useDashboard();
   const dashboard=dashboardQuery.data??EMPTY;
   const navigate=useNavigate();
   const {pathname}=useLocation();
-  const [strategy,setStrategy]=useState("best_picks");
+  const [strategy,setStrategy]=useState("best_opportunity");
   const [watchStates,setWatchStates]=useState({});
   const [selected,setSelected]=useState(null);
-  const strategyQuery=useStrategyRecommendations(strategy,{limit:12});
+  const strategyQuery=useFutggTradeFinder({...STRATEGY_PARAMS[strategy],page_size:12});
   // FUT.GG migration: /api/v2/dashboard itself is still legacy FUTBIN-
   // backed (a bigger, riskier change than wiring the frontend to a new
   // endpoint - see the Opportunities/Trade Finder pages for the same
@@ -50,7 +65,7 @@ export default function HomeDashboard(){
   // also wins the (extremely unlikely - unrelated id spaces) chance of
   // a cardId collision now, for the same reason.
   const baseItems=useMemo(()=>{const map=new Map();[...futggBaseItems,...legacyBaseItems].forEach(item=>{if(item?.cardId&&!map.has(String(item.cardId)))map.set(String(item.cardId),item)});return[...map.values()]},[legacyBaseItems,futggBaseItems]);
-  const strategyRaw=(strategyQuery.data?.items??[]).map(normalise).filter(Boolean);
+  const strategyRaw=(strategyQuery.data?.items??[]).map(normaliseFutgg).filter(Boolean);
   const ids=[...baseItems,...strategyRaw].map(x=>x.cardId);
   const imageQuery=useGeneratedCardImages(ids);
   const images=imageQuery.data?.images??{};
