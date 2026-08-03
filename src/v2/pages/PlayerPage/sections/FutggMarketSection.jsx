@@ -78,9 +78,9 @@ export default function FutggMarketSection({ cardId }) {
     );
   }
 
-  const roi = card.expected_roi != null ? (Math.abs(Number(card.expected_roi)) <= 1 ? Number(card.expected_roi) * 100 : Number(card.expected_roi)) : null;
-  const confidence = card.confidence_score != null ? Math.round(Number(card.confidence_score) * (Number(card.confidence_score) <= 1 ? 100 : 1)) : null;
-  const liquidity = card.liquidity_score != null ? Math.round(Number(card.liquidity_score) * (Number(card.liquidity_score) <= 1 ? 100 : 1)) : null;
+  const roi = card.expected_roi != null ? Number(card.expected_roi) * 100 : null;
+  const confidence = card.confidence_score != null ? Math.round(Number(card.confidence_score) * 100) : null;
+  const liquidity = card.liquidity_score != null ? Math.round(Number(card.liquidity_score) * 100) : null;
 
   const priceHistory = Array.isArray(pricesQuery.data) ? pricesQuery.data : pricesQuery.data?.items || [];
   const chartData = priceHistory.map((p) => ({

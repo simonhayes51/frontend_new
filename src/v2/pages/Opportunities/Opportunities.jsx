@@ -91,9 +91,9 @@ export default function Opportunities() {
 
 function OpportunityCard({ item }) {
   const cardId = item.card_id ?? item.source_card_id;
-  const confidence = item.confidence_score != null ? Math.round(Number(item.confidence_score) * (Number(item.confidence_score) <= 1 ? 100 : 1)) : null;
-  const liquidity = item.liquidity_score != null ? Math.round(Number(item.liquidity_score) * (Number(item.liquidity_score) <= 1 ? 100 : 1)) : null;
-  const roi = item.expected_roi != null ? (Math.abs(Number(item.expected_roi)) <= 1 ? Number(item.expected_roi) * 100 : Number(item.expected_roi)) : null;
+  const confidence = item.confidence_score != null ? Math.round(Number(item.confidence_score) * 100) : null;
+  const liquidity = item.liquidity_score != null ? Math.round(Number(item.liquidity_score) * 100) : null;
+  const roi = item.expected_roi != null ? Number(item.expected_roi) * 100 : null;
   const reasons = Array.isArray(item.signal_reasons) ? item.signal_reasons : [];
 
   return (
