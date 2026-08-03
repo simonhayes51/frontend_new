@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Shield } from "lucide-react";
 import { addWatch } from "../../../api/watchlist";
 import { usePlayerSummary } from "../../hooks/usePlayerSummary";
+import { useFutggPlayer } from "../../hooks/useFutggMarket";
 import { AnalysisModal } from "../HomeDashboard/HomeDashboard";
 import FutggMarketSection from "./sections/FutggMarketSection";
 
@@ -11,8 +12,23 @@ export default function PlayerPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { data, isLoading, error, refetch } = usePlayerSummary(cardId);
+  // Every /v2/players/:cardId link that doesn't also pass
+  // location.state.player (Watchlist, Trade Finder, Opportunities,
+  // Market, SBC impact) used to go blank with "Could not load this card"
+  // for any FUT.GG card, because cardId there is a source_card_id that
+  // simply doesn't exist in the legacy FUTBIN-backed /summary endpoint -
+  // a 404 there was treated as "this card doesn't exist" even though
+  // FutggMarketSection's own FUT.GG lookup (below) would have worked
+  // fine. usePlayerSummary/toAnalysisItem is tried first (keeps existing
+  // legacy-card behavior unchanged); this is only the fallback for when
+  // that comes back with nothing.
+  const futggQuery = useFutggPlayer(cardId);
   const [watchState, setWatchState] = useState("");
-  const item = useMemo(() => toAnalysisItem(data, location.state?.player, cardId), [data, location.state, cardId]);
+  const item = useMemo(
+    () => toAnalysisItem(data, location.state?.player, cardId) || toFutggAnalysisItem(futggQuery.data, cardId),
+    [data, futggQuery.data, location.state, cardId],
+  );
+  const bothSettled = !isLoading && !futggQuery.isLoading;
   const origin = location.state?.from;
   const returnPath = origin === "trade-finder" ? "/v2/trade-finder" : "/v2/players";
   const backLabel = origin === "trade-finder" ? "Back to Trade Finder" : "Back to player search";
@@ -30,7 +46,7 @@ export default function PlayerPage() {
         card_id: String(current.cardId),
         version: current.player.version || null,
         platform: "ps",
-        source: "futgg",
+        source: current.source === "futgg" ? "futgg" : "futbin",
       });
       setWatchState("saved");
     } catch (requestError) {
@@ -40,11 +56,10 @@ export default function PlayerPage() {
     }
   }
 
-  if (error && !item) {
-    return <div className="quick-analysis-page"><div className="quick-error"><Shield size={26}/><h1>Could not load this card</h1><p>{error?.response?.status === 404 ? "This player could not be found." : "The analysis request failed."}</p><div><button onClick={goBack}>{backLabel}</button><button onClick={() => refetch()}>Try again</button></div></div></div>;
+  if (!item && bothSettled) {
+    return <div className="quick-analysis-page"><div className="quick-error"><Shield size={26}/><h1>Could not load this card</h1><p>{error?.response?.status === 404 && futggQuery.error?.response?.status === 404 ? "This player could not be found." : "The analysis request failed."}</p><div><button onClick={goBack}>{backLabel}</button><button onClick={() => { refetch(); futggQuery.refetch(); }}>Try again</button></div></div></div>;
   }
-  if (!item && isLoading) return <div className="quick-analysis-page"><div className="quick-error"><p>Loading the latest analysis…</p><button onClick={goBack}>{backLabel}</button></div></div>;
-  if (!item) return null;
+  if (!item) return <div className="quick-analysis-page"><div className="quick-error"><p>Loading the latest analysis…</p><button onClick={goBack}>{backLabel}</button></div></div>;
 
   return <div className="quick-analysis-page">
     {/* FUT.GG migration: `extra` renders FutggMarketSection (new FUT.GG-
@@ -97,6 +112,51 @@ function toAnalysisItem(data, snapshot, cardId) {
         pace: meta.pace, shooting: meta.shooting, passing: meta.passing,
         dribbling: meta.dribbling, defending: meta.defending, physicality: meta.physicality,
       },
+    },
+  };
+}
+const _FUTGG_SIGNAL_RECOMMENDATION = { strong_buy: "BUY", buy: "BUY", avoid: "AVOID", hold: "WAIT", watch: "WAIT", insufficient_data: "WAIT" };
+function toFutggAnalysisItem(raw, cardId) {
+  if (!raw) return null;
+  const expectedRoi = raw.expected_roi == null ? null : Number(raw.expected_roi) * 100;
+  const risk = raw.risk_level ? raw.risk_level.charAt(0).toUpperCase() + raw.risk_level.slice(1) : "Unknown";
+  const reasons = Array.isArray(raw.signal_reasons) ? raw.signal_reasons : [];
+  return {
+    cardId,
+    source: "futgg",
+    recommendation: _FUTGG_SIGNAL_RECOMMENDATION[raw.signal] || "WAIT",
+    entryPrice: raw.recommended_buy_max ?? raw.current_bin,
+    currentBin: raw.current_bin,
+    fairValue: raw.fair_value,
+    expectedRoi,
+    netRoi: { likely: expectedRoi },
+    recommendedSellTarget: raw.recommended_sell_target,
+    expectedProfitAfterTax: raw.expected_profit_after_tax,
+    confidence: raw.confidence_score == null ? null : Number(raw.confidence_score) * 100,
+    popularity: null,
+    psPcBinGapPct: null,
+    risk,
+    holdingPeriod: "Flexible",
+    reasoning: reasons[0] || "FUT.GG market signal",
+    updatedAt: raw.current_bin_captured_at,
+    priceAgeSeconds: raw.price_age_seconds,
+    player: {
+      name: raw.name,
+      displayName: raw.name,
+      cardName: raw.name,
+      nickname: null,
+      rating: raw.rating,
+      position: raw.position,
+      version: raw.rarity || "Card",
+      imageUrl: raw.image_url,
+      generatedCardUrl: null,
+      cardBgImage: null,
+      cardCutoutImage: null,
+      cardCutoutType: null,
+      nationImage: null,
+      leagueImage: null,
+      clubImage: null,
+      stats: {},
     },
   };
 }
