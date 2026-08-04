@@ -69,6 +69,21 @@ export default function PlayerPage() {
   </div>;
 }
 
+// Maps the engine's signal vocabulary onto the verdict the shared
+// AnalysisModal renders. Restored after being removed by accident: it sat
+// between toAnalysisItem and toFutggAnalysisItem, and deleting the former
+// took this with it. The result was a ReferenceError thrown only when a
+// card actually rendered - so the build passed, and every player page
+// died with "Something went wrong".
+const _FUTGG_SIGNAL_RECOMMENDATION = {
+  strong_buy: "BUY",
+  buy: "BUY",
+  avoid: "AVOID",
+  hold: "WAIT",
+  watch: "WAIT",
+  insufficient_data: "WAIT",
+};
+
 function toFutggAnalysisItem(raw, cardId) {
   if (!raw) return null;
   const expectedRoi = raw.expected_roi == null ? null : Number(raw.expected_roi) * 100;
